@@ -4,11 +4,29 @@ import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
 import {
+  countActiveSessions,
+  consumeResetToken,
+  createOtpChallenge as createDbOtpChallenge,
+  createResetToken as createDbResetToken,
+  createSession as createDbSession,
+  findUserByIdentifier,
+  findUserById,
+  getSessionFromToken,
+  listAuditLogs,
+  listNotifications,
+  revokeSession,
+  updatePassword,
+  verifyOtpChallenge,
+  writeAuditLog,
+  writeNotification,
+} from './auth-store';
+import {
   analysis as staticAnalysis,
   aiRecommendations,
   dashboardMetrics,
   examMeta,
   heatmapCells,
+  genInsightsHeatmap,
   insightsProfile,
   leaderboard as staticLeaderboard,
   practiceModules,
@@ -106,24 +124,14 @@ interface SubmissionResult {
 }
 
 interface AppState {
-  sessions: Map<string, AuthSession>;
-  otpChallenges: Map<string, OtpChallenge>;
-  passwordResets: Map<string, ResetToken>;
   examSessions: Map<string, ExamSession>;
   latestResults: Map<string, SubmissionResult>;
-  auditLogs: AuditLog[];
-  notifications: Array<{ id: string; title: string; body: string; createdAt: string; role?: Role }>;
   rateLimit: Map<string, { count: number; resetAt: number }>;
 }
 
 const state: AppState = {
-  sessions: new Map(),
-  otpChallenges: new Map(),
-  passwordResets: new Map(),
   examSessions: new Map(),
   latestResults: new Map(),
-  auditLogs: [],
-  notifications: [],
   rateLimit: new Map(),
 };
 
@@ -141,32 +149,16 @@ function sendError(res: Response, status: number, message: string, extra?: Recor
   });
 }
 
-function sendOk<T extends Record<string, unknown>>(res: Response, data: T) {
+function sendOk<T>(res: Response, data: T) {
   return res.json({ ok: true, data });
 }
 
 function addAudit(actorId: string, actorRole: Role, action: string, detail: string, severity: AuditLog['severity'] = 'info') {
-  state.auditLogs.unshift({
-    id: createToken('audit'),
-    timestamp: new Date().toISOString(),
-    actorId,
-    actorRole,
-    action,
-    detail,
-    severity,
-  });
-  state.auditLogs = state.auditLogs.slice(0, 200);
+  void writeAuditLog(actorId === 'unknown' ? null : actorId, actorRole, action, detail, severity);
 }
 
 function addNotification(title: string, body: string, role?: Role) {
-  state.notifications.unshift({
-    id: createToken('note'),
-    title,
-    body,
-    role,
-    createdAt: new Date().toISOString(),
-  });
-  state.notifications = state.notifications.slice(0, 100);
+  void writeNotification(title, body, role);
 }
 
 function rateLimit(windowMs: number, limit: number) {
@@ -186,43 +178,29 @@ function rateLimit(windowMs: number, limit: number) {
   };
 }
 
-function findUserByIdentifier(identifier: string, role?: Role) {
-  const normalized = identifier.trim().toLowerCase();
-  return demoAccounts.find((user) => {
-    const roleMatches = role ? user.role === role : true;
-    return roleMatches && [user.email, user.mobile, user.name].some((value) => value.toLowerCase() === normalized);
-  });
-}
-
-function getUserById(id: string) {
-  return demoAccounts.find((user) => user.id === id);
-}
-
-function getRoleFromRequest(req: Request) {
+async function getRoleFromRequest(req: Request) {
   const header = req.header('authorization');
   if (!header?.startsWith('Bearer ')) return null;
   const token = header.slice(7);
-  const session = state.sessions.get(token);
-  if (!session) return null;
-  if (session.expiresAt <= now()) {
-    state.sessions.delete(token);
-    return null;
-  }
-  const user = getUserById(session.userId);
-  if (!user) return null;
-  return { session, user, token };
+  return getSessionFromToken(token);
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const auth = getRoleFromRequest(req);
-  if (!auth) return sendError(res, 401, 'Authentication required.');
-  (req as Request & { auth?: typeof auth }).auth = auth;
-  return next();
+type RequestAuth = Awaited<ReturnType<typeof getRoleFromRequest>>;
+
+async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  try {
+    const auth = await getRoleFromRequest(req);
+    if (!auth) return sendError(res, 401, 'Authentication required.');
+    (req as Request & { auth?: typeof auth }).auth = auth;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
 }
 
 function requireRole(...roles: Role[]) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const auth = (req as Request & { auth?: ReturnType<typeof getRoleFromRequest> }).auth;
+    const auth = (req as Request & { auth?: RequestAuth }).auth;
     if (!auth) return sendError(res, 401, 'Authentication required.');
     if (!roles.includes(auth.user.role)) return sendError(res, 403, 'Insufficient permissions.');
     return next();
@@ -231,41 +209,6 @@ function requireRole(...roles: Role[]) {
 
 function getBodyString(value: unknown) {
   return typeof value === 'string' ? value : '';
-}
-
-function createSession(user: DemoAccount) {
-  const token = createToken('sess');
-  const session: AuthSession = {
-    token,
-    userId: user.id,
-    role: user.role,
-    createdAt: now(),
-    expiresAt: now() + 1000 * 60 * 60 * 24 * 7,
-  };
-  state.sessions.set(token, session);
-  return session;
-}
-
-function createOtpChallenge(user: DemoAccount) {
-  const challenge: OtpChallenge = {
-    challengeId: createToken('otp'),
-    userId: user.id,
-    role: user.role,
-    code: String(100000 + Math.floor(Math.random() * 900000)),
-    expiresAt: now() + 1000 * 60 * 10,
-  };
-  state.otpChallenges.set(challenge.challengeId, challenge);
-  return challenge;
-}
-
-function createResetToken(user: DemoAccount) {
-  const token = createToken('reset');
-  state.passwordResets.set(token, {
-    token,
-    userId: user.id,
-    expiresAt: now() + 1000 * 60 * 30,
-  });
-  return token;
 }
 
 function correctKeyForQuestion(id: number) {
@@ -366,7 +309,7 @@ function computeSubmission(session: ExamSession): SubmissionResult {
 function buildLeaderboardForUser(userId: string) {
   const latest = getLatestSubmission(userId);
   if (!latest) return staticLeaderboard;
-  const userName = getUserById(userId)?.name ?? 'You';
+  const userName = demoAccounts.find((user) => user.id === userId)?.name ?? 'You';
   return {
     ...staticLeaderboard,
     userPerformance: {
@@ -397,16 +340,16 @@ app.use(express.json({ limit: '2mb' }));
 app.use('/api/auth', rateLimit(60_000, 20));
 app.use('/api', rateLimit(60_000, 120));
 
-app.get('/api/health', (_req, res) => {
-  sendOk(res, {
+app.get('/api/health', async (_req, res) => {
+  return sendOk(res, {
     status: 'ok',
     uptimeSeconds: Math.floor(process.uptime()),
-    activeSessions: state.sessions.size,
+    activeSessions: await countActiveSessions(),
     activeExamSessions: state.examSessions.size,
   });
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const identifier = getBodyString(req.body.identifier);
   const password = getBodyString(req.body.password);
   const role = getBodyString(req.body.role) as Role;
@@ -416,7 +359,7 @@ app.post('/api/auth/login', (req, res) => {
     return sendError(res, 400, 'Identifier and role are required.');
   }
 
-  const user = findUserByIdentifier(identifier, role);
+  const user = await findUserByIdentifier(identifier, role);
   if (!user) {
     addAudit('unknown', role, 'login_failed', `Unknown identifier ${identifier}`, 'warning');
     return sendError(res, 401, 'Invalid credentials.');
@@ -431,7 +374,7 @@ app.post('/api/auth/login', (req, res) => {
     return sendError(res, 401, 'Invalid credentials.');
   }
 
-  const session = createSession(user);
+  const session = await createDbSession(user.id);
   addAudit(user.id, user.role, 'login', `Signed in using ${method} from ${getClientIp(req)}`);
   return sendOk(res, {
     token: session.token,
@@ -455,14 +398,14 @@ app.post('/api/auth/login', (req, res) => {
   });
 });
 
-app.post('/api/auth/request-otp', (req, res) => {
+app.post('/api/auth/request-otp', async (req, res) => {
   const identifier = getBodyString(req.body.identifier);
   const role = getBodyString(req.body.role) as Role;
-  const user = findUserByIdentifier(identifier, role);
+  const user = await findUserByIdentifier(identifier, role);
   if (!user) {
     return sendError(res, 404, 'No account matches that identifier.');
   }
-  const challenge = createOtpChallenge(user);
+  const challenge = await createDbOtpChallenge(user.id);
   addAudit(user.id, user.role, 'otp_requested', `OTP requested from ${getClientIp(req)}`);
   return sendOk(res, {
     challengeId: challenge.challengeId,
@@ -472,21 +415,14 @@ app.post('/api/auth/request-otp', (req, res) => {
   });
 });
 
-app.post('/api/auth/verify-otp', (req, res) => {
+app.post('/api/auth/verify-otp', async (req, res) => {
   const challengeId = getBodyString(req.body.challengeId);
   const code = getBodyString(req.body.code);
-  const challenge = state.otpChallenges.get(challengeId);
-  if (!challenge || challenge.expiresAt <= now()) {
+  const user = await verifyOtpChallenge(challengeId, code);
+  if (!user) {
     return sendError(res, 400, 'OTP challenge expired or invalid.');
   }
-  if (challenge.code !== code) {
-    addAudit(challenge.userId, challenge.role, 'otp_failed', `Invalid OTP from ${getClientIp(req)}`, 'warning');
-    return sendError(res, 401, 'Invalid OTP code.');
-  }
-  const user = getUserById(challenge.userId);
-  if (!user) return sendError(res, 404, 'User no longer exists.');
-  const session = createSession(user);
-  state.otpChallenges.delete(challengeId);
+  const session = await createDbSession(user.id);
   addAudit(user.id, user.role, 'login', `OTP verified from ${getClientIp(req)}`);
   return sendOk(res, {
     token: session.token,
@@ -510,45 +446,43 @@ app.post('/api/auth/verify-otp', (req, res) => {
   });
 });
 
-app.post('/api/auth/forgot-password', (req, res) => {
+app.post('/api/auth/forgot-password', async (req, res) => {
   const identifier = getBodyString(req.body.identifier);
-  const user = findUserByIdentifier(identifier);
+  const user = await findUserByIdentifier(identifier);
   if (!user) return sendError(res, 404, 'No account matches that identifier.');
-  const resetToken = createResetToken(user);
+  const resetToken = await createDbResetToken(user.id);
   addAudit(user.id, user.role, 'password_reset_requested', 'Password reset requested');
   return sendOk(res, {
-    resetToken,
-    resetLink: `/reset-password?token=${resetToken}`,
+    resetToken: resetToken.resetToken,
+    resetLink: `/reset-password?token=${resetToken.resetToken}`,
     message: 'Use /api/auth/reset-password with the returned token.',
   });
 });
 
-app.post('/api/auth/reset-password', (req, res) => {
+app.post('/api/auth/reset-password', async (req, res) => {
   const resetToken = getBodyString(req.body.resetToken);
   const newPassword = getBodyString(req.body.newPassword);
-  const record = state.passwordResets.get(resetToken);
-  if (!record || record.expiresAt <= now()) return sendError(res, 400, 'Reset token expired or invalid.');
+  const userId = await consumeResetToken(resetToken);
+  if (!userId) return sendError(res, 400, 'Reset token expired or invalid.');
   if (!newPassword || newPassword.length < 8) return sendError(res, 400, 'Password must be at least 8 characters.');
-  const user = getUserById(record.userId);
+  const user = await findUserById(userId);
   if (!user) return sendError(res, 404, 'User no longer exists.');
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(newPassword, salt, 64).toString('hex');
-  user.passwordSalt = salt;
-  user.passwordHash = hash;
-  state.passwordResets.delete(resetToken);
+  await updatePassword(userId, salt, hash);
   addAudit(user.id, user.role, 'password_reset_completed', 'Password reset completed');
   return sendOk(res, { message: 'Password updated successfully.' });
 });
 
 app.post('/api/auth/logout', requireAuth, (req, res) => {
-  const auth = (req as Request & { auth?: ReturnType<typeof getRoleFromRequest> }).auth!;
-  state.sessions.delete(auth.token);
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
+  void revokeSession(auth.token);
   addAudit(auth.user.id, auth.user.role, 'logout', 'Signed out');
   return sendOk(res, { message: 'Logged out successfully.' });
 });
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
-  const auth = (req as Request & { auth?: ReturnType<typeof getRoleFromRequest> }).auth!;
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
   return sendOk(res, {
     user: {
       id: auth.user.id,
@@ -588,8 +522,8 @@ app.get('/api/student/exam/meta', requireAuth, requireRole('student'), (_req, re
 });
 
 app.post('/api/exams/:examId/start', requireAuth, requireRole('student'), (req, res) => {
-  const { examId } = req.params;
-  const auth = (req as Request & { auth?: ReturnType<typeof getRoleFromRequest> }).auth!;
+  const examId = String(req.params.examId ?? '');
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
   const existing = Array.from(state.examSessions.values()).find(
     (session) => session.examId === examId && session.userId === auth.user.id && session.status === 'active',
   );
@@ -634,9 +568,10 @@ app.post('/api/exams/:examId/start', requireAuth, requireRole('student'), (req, 
 });
 
 app.get('/api/exams/sessions/:sessionId', requireAuth, requireRole('student'), (req, res) => {
-  const session = state.examSessions.get(req.params.sessionId);
+  const sessionId = String(req.params.sessionId ?? '');
+  const session = state.examSessions.get(sessionId);
   if (!session) return sendError(res, 404, 'Exam session not found.');
-  const auth = (req as Request & { auth?: ReturnType<typeof getRoleFromRequest> }).auth!;
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
   if (session.userId !== auth.user.id) return sendError(res, 403, 'You do not own this session.');
   return sendOk(res, {
     sessionId: session.sessionId,
@@ -650,12 +585,13 @@ app.get('/api/exams/sessions/:sessionId', requireAuth, requireRole('student'), (
 });
 
 app.patch('/api/exams/sessions/:sessionId/answer', requireAuth, requireRole('student'), (req, res) => {
-  const session = state.examSessions.get(req.params.sessionId);
+  const sessionId = String(req.params.sessionId ?? '');
+  const session = state.examSessions.get(sessionId);
   if (!session) return sendError(res, 404, 'Exam session not found.');
-  const auth = (req as Request & { auth?: ReturnType<typeof getRoleFromRequest> }).auth!;
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
   if (session.userId !== auth.user.id) return sendError(res, 403, 'You do not own this session.');
   if (session.status !== 'active') return sendError(res, 409, 'Exam session already submitted.');
-  const questionId = Number(req.body.questionId);
+  const questionId = Number(String(req.body.questionId ?? ''));
   const answer = getBodyString(req.body.answer) as AnswerKey;
   if (!questionId || !['A', 'B', 'C', 'D'].includes(answer)) return sendError(res, 400, 'Invalid answer payload.');
   session.answers[questionId] = answer;
@@ -665,21 +601,23 @@ app.patch('/api/exams/sessions/:sessionId/answer', requireAuth, requireRole('stu
 });
 
 app.patch('/api/exams/sessions/:sessionId/clear', requireAuth, requireRole('student'), (req, res) => {
-  const session = state.examSessions.get(req.params.sessionId);
+  const sessionId = String(req.params.sessionId ?? '');
+  const session = state.examSessions.get(sessionId);
   if (!session) return sendError(res, 404, 'Exam session not found.');
-  const auth = (req as Request & { auth?: ReturnType<typeof getRoleFromRequest> }).auth!;
-  const questionId = Number(req.body.questionId);
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
+  const questionId = Number(String(req.body.questionId ?? ''));
   delete session.answers[questionId];
   addAudit(auth.user.id, auth.user.role, 'exam_cleared', `Cleared question ${questionId}`);
   return sendOk(res, { sessionId: session.sessionId, questionId });
 });
 
 app.patch('/api/exams/sessions/:sessionId/mark', requireAuth, requireRole('student'), (req, res) => {
-  const session = state.examSessions.get(req.params.sessionId);
+  const sessionId = String(req.params.sessionId ?? '');
+  const session = state.examSessions.get(sessionId);
   if (!session) return sendError(res, 404, 'Exam session not found.');
-  const auth = (req as Request & { auth?: ReturnType<typeof getRoleFromRequest> }).auth!;
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
   if (session.userId !== auth.user.id) return sendError(res, 403, 'You do not own this session.');
-  const questionId = Number(req.body.questionId);
+  const questionId = Number(String(req.body.questionId ?? ''));
   const marked = Boolean(req.body.marked);
   if (marked && !session.marked.includes(questionId)) session.marked.push(questionId);
   if (!marked) session.marked = session.marked.filter((id) => id !== questionId);
@@ -688,9 +626,10 @@ app.patch('/api/exams/sessions/:sessionId/mark', requireAuth, requireRole('stude
 });
 
 app.post('/api/exams/sessions/:sessionId/submit', requireAuth, requireRole('student'), (req, res) => {
-  const session = state.examSessions.get(req.params.sessionId);
+  const sessionId = String(req.params.sessionId ?? '');
+  const session = state.examSessions.get(sessionId);
   if (!session) return sendError(res, 404, 'Exam session not found.');
-  const auth = (req as Request & { auth?: ReturnType<typeof getRoleFromRequest> }).auth!;
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
   if (session.userId !== auth.user.id) return sendError(res, 403, 'You do not own this session.');
   if (session.status === 'submitted') return sendError(res, 409, 'Exam session already submitted.');
   if (session.startedAt + session.durationSeconds * 1000 + 2 * 60 * 1000 < now()) {
@@ -717,7 +656,7 @@ app.post('/api/exams/sessions/:sessionId/submit', requireAuth, requireRole('stud
 });
 
 app.get('/api/student/analysis/latest', requireAuth, requireRole('student'), (req, res) => {
-  const auth = (req as Request & { auth?: ReturnType<typeof getRoleFromRequest> }).auth!;
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
   return sendOk(res, buildAnalysisFromSubmission(auth.user.id));
 });
 
@@ -730,7 +669,7 @@ app.get('/api/student/insights', requireAuth, requireRole('student'), (_req, res
 });
 
 app.get('/api/student/leaderboard', requireAuth, requireRole('student'), (req, res) => {
-  const auth = (req as Request & { auth?: ReturnType<typeof getRoleFromRequest> }).auth!;
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
   return sendOk(res, buildLeaderboardForUser(auth.user.id));
 });
 
@@ -819,12 +758,12 @@ app.get('/api/admin/institutes', requireAuth, requireRole('admin'), (req, res) =
   });
 });
 
-app.get('/api/admin/audit-logs', requireAuth, requireRole('admin'), (_req, res) => {
-  return sendOk(res, { auditLogs: state.auditLogs });
+app.get('/api/admin/audit-logs', requireAuth, requireRole('admin'), async (_req, res) => {
+  return sendOk(res, { auditLogs: await listAuditLogs() });
 });
 
-app.get('/api/admin/notifications', requireAuth, requireRole('admin'), (_req, res) => {
-  return sendOk(res, { notifications: state.notifications });
+app.get('/api/admin/notifications', requireAuth, requireRole('admin'), async (_req, res) => {
+  return sendOk(res, { notifications: await listNotifications() });
 });
 
 app.get('/api/reference/roles', (_req, res) => {
