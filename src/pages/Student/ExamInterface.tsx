@@ -8,10 +8,11 @@ import {
   examMeta,
   genExamQuestions,
   type ExamOption as ExamOptionType,
+  type ExamMeta,
 } from '../../mocks/student';
 import { pathFor } from '../../lib/pages';
 
-const questions = genExamQuestions(examMeta.totalQuestions);
+const fallbackMeta = examMeta;
 
 function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -21,14 +22,16 @@ function formatTime(totalSeconds: number): string {
 
 export default function ExamInterface() {
   const navigate = useNavigate();
-  const [seconds, setSeconds] = useState(examMeta.durationSeconds);
-  const [current, setCurrent] = useState(examMeta.currentIndex);
+  const [exam, setExam] = useState<ExamMeta>(fallbackMeta);
+  const [questions, setQuestions] = useState(() => genExamQuestions(fallbackMeta.totalQuestions));
+  const [seconds, setSeconds] = useState(fallbackMeta.durationSeconds);
+  const [current, setCurrent] = useState(fallbackMeta.currentIndex);
   const [answers, setAnswers] = useState<Record<number, ExamOptionType['key']>>({});
   const [marked, setMarked] = useState<Set<number>>(new Set());
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [paletteState, setPaletteState] = useState<Record<number, PaletteState>>(() =>
     Object.fromEntries(
-      Array.from({ length: examMeta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState]),
+      Array.from({ length: fallbackMeta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState]),
     ),
   );
   const [monitoringOpacity, setMonitoringOpacity] = useState(0.5);
@@ -84,9 +87,20 @@ export default function ExamInterface() {
 
   useEffect(() => {
     let cancelled = false;
-    apiRequest<{ sessionId: string }>(`/api/exams/${examMeta.id}/start`, { method: 'POST' })
+    apiRequest<ExamMeta>('/api/student/exam/meta')
+      .then((meta) => {
+        if (cancelled) return;
+        setExam(meta);
+        setSeconds(meta.durationSeconds);
+        setCurrent(meta.currentIndex);
+        setQuestions(genExamQuestions(meta.totalQuestions));
+        setPaletteState(
+          Object.fromEntries(Array.from({ length: meta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState])),
+        );
+        return apiRequest<{ sessionId: string }>(`/api/exams/${meta.id}/start`, { method: 'POST' });
+      })
       .then((data) => {
-        if (!cancelled) setSessionId(data.sessionId);
+        if (!cancelled && data) setSessionId(data.sessionId);
       })
       .catch(() => {
         if (!cancelled) setSessionId(null);
@@ -147,7 +161,7 @@ export default function ExamInterface() {
   }
 
   function saveAndNext() {
-    setCurrent((c) => Math.min(examMeta.totalQuestions, c + 1));
+    setCurrent((c) => Math.min(exam.totalQuestions, c + 1));
   }
 
   function previous() {
@@ -180,9 +194,9 @@ export default function ExamInterface() {
           <h1 className="font-headline-lg text-headline-lg font-bold text-primary">PrepMind AI</h1>
           <div className="h-8 w-[1px] bg-outline-variant mx-4" />
           <div className="flex flex-col">
-            <span className="font-label-lg text-label-lg text-on-surface">{examMeta.title}</span>
+            <span className="font-label-lg text-label-lg text-on-surface">{exam.title}</span>
             <span className="text-[10px] uppercase tracking-wider text-outline font-bold">
-              Session ID: {examMeta.id}
+              Session ID: {exam.id}
             </span>
           </div>
         </div>
@@ -208,7 +222,7 @@ export default function ExamInterface() {
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-2 text-on-surface-variant">
                 <span className="font-label-lg text-label-lg">
-                  Question {current} of {examMeta.totalQuestions}
+                  Question {current} of {exam.totalQuestions}
                 </span>
                 <span className="text-outline">/</span>
                 <span className="font-label-lg text-label-lg">{question.section}</span>
@@ -275,7 +289,7 @@ export default function ExamInterface() {
               <button
                 type="button"
                 onClick={saveAndNext}
-                disabled={current === examMeta.totalQuestions}
+                disabled={current === exam.totalQuestions}
                 className="bg-primary text-on-primary px-8 py-2 rounded-lg font-label-lg hover:opacity-90 shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Save &amp; Next
@@ -324,7 +338,7 @@ export default function ExamInterface() {
               Question Palette
             </h3>
             <QuestionPalette
-              total={examMeta.totalQuestions}
+              total={exam.totalQuestions}
               state={paletteState}
               current={current}
               onSelect={selectFromPalette}
