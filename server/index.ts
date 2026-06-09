@@ -36,6 +36,7 @@ import {
   buildStudentDashboardData,
   buildStudentInsights,
   buildStudentLeaderboard,
+  buildStudentPractice,
 } from './analytics-store';
 import {
   buildFacultyDashboard,
@@ -424,11 +425,9 @@ app.get('/api/student/dashboard', requireAuth, requireRole('student'), async (re
   return sendOk(res, await buildStudentDashboardData(auth.user.id));
 });
 
-app.get('/api/student/practice', requireAuth, requireRole('student'), (_req, res) => {
-  return sendOk(res, {
-    practiceModules,
-    recommendedSubjects: ['Physics', 'Chemistry', 'Mathematics'],
-  });
+app.get('/api/student/practice', requireAuth, requireRole('student'), async (req, res) => {
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
+  return sendOk(res, await buildStudentPractice(auth.user.id));
 });
 
 app.get('/api/student/exam/meta', requireAuth, requireRole('student'), (_req, res) => {
@@ -559,7 +558,7 @@ app.get('/api/faculty/dashboard', requireAuth, requireRole('faculty'), async (_r
 });
 
 app.get('/api/faculty/question-bank', requireAuth, requireRole('faculty'), async (_req, res) => {
-  return sendOk(res, buildFacultyQuestionBank());
+  return sendOk(res, await buildFacultyQuestionBank());
 });
 
 app.get('/api/admin/dashboard', requireAuth, requireRole('admin'), async (_req, res) => {

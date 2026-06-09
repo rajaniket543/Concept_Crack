@@ -150,10 +150,59 @@ export async function buildFacultyDashboard() {
 }
 
 export function buildFacultyQuestionBank() {
-  return {
-    questionBankRows: fallbackQuestionBankRows,
-    questionDifficulty: fallbackQuestionDifficulty,
-    suggestedMergeNote:
-      'The question bank is now backed by database data. Add import logic next to surface real chapter duplicates and underperforming items.',
-  };
+  return pool
+    .query<{
+      subject: string;
+      chapter: string | null;
+      difficulty: 'Easy' | 'Medium' | 'Hard';
+      type: string;
+      count: number;
+    }>(
+      `
+      SELECT
+        subj.name AS subject,
+        COALESCE(ch.name, 'Unassigned') AS chapter,
+        q.difficulty,
+        COALESCE(t.test_type, 'Practice') AS type,
+        COUNT(*)::int AS count
+      FROM questions q
+      JOIN subjects subj ON subj.id = q.subject_id
+      LEFT JOIN chapters ch ON ch.id = q.chapter_id
+      LEFT JOIN test_questions tq ON tq.question_id = q.id
+      LEFT JOIN tests t ON t.id = tq.test_id
+      GROUP BY subj.name, ch.name, q.difficulty, t.test_type
+      ORDER BY count DESC, subj.name ASC, chapter ASC
+      LIMIT 50;
+    `,
+    )
+    .then((result) => {
+      const rows = result.rows.map((row) => ({
+        subject: row.subject,
+        chapter: row.chapter ?? 'Unassigned',
+        difficulty: row.difficulty,
+        relevance: row.count > 3 ? 'High' : row.count > 1 ? 'Medium' : 'Low',
+        type: row.type,
+      }));
+      const counts = rows.reduce<Record<'Easy' | 'Medium' | 'Hard', number>>(
+        (acc, row) => {
+          acc[row.difficulty] += 1;
+          return acc;
+        },
+        { Easy: 0, Medium: 0, Hard: 0 },
+      );
+      const total = Math.max(1, rows.length);
+      return {
+        questionBankRows: rows.length ? rows : fallbackQuestionBankRows,
+        questionDifficulty: rows.length
+          ? [
+              { label: 'Easy', percent: Math.round((counts.Easy / total) * 100), barClass: 'bg-primary-fixed-dim' },
+              { label: 'Medium', percent: Math.round((counts.Medium / total) * 100), barClass: 'bg-secondary' },
+              { label: 'Hard', percent: Math.round((counts.Hard / total) * 100), barClass: 'bg-error' },
+            ]
+          : fallbackQuestionDifficulty,
+        suggestedMergeNote: rows.length
+          ? `Live catalog: ${rows.length} active question rows found across ${new Set(rows.map((row) => row.subject)).size} subjects.`
+          : 'The question bank is now backed by database data. Add import logic next to surface real chapter duplicates and underperforming items.',
+      };
+    });
 }

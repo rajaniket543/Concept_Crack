@@ -8,6 +8,7 @@ import {
   heatmapCells as fallbackHeatmapCells,
   insightsProfile as fallbackInsightsProfile,
   leaderboard as fallbackLeaderboard,
+  practiceModules as fallbackPracticeModules,
   revisionPriorities as fallbackRevisionPriorities,
   subjectPerformance as fallbackSubjectPerformance,
   weeklyProgress as fallbackWeeklyProgress,
@@ -275,6 +276,28 @@ function buildRecommendations(weakAreas: Array<{ name: string; percent: number }
   }));
 }
 
+function buildPracticeModules(topics: TopicStat[]) {
+  const ordered = [...topics].sort((a, b) => a.percent - b.percent).slice(0, 3);
+  if (ordered.length === 0) return fallbackPracticeModules;
+
+  return ordered.map((topic, index) => {
+    const difficulty = topic.percent >= 75 ? 'Hard' : topic.percent >= 50 ? 'Medium' : 'Easy';
+    const status = topic.percent >= 90 ? 'completed' : topic.percent >= 70 ? 'review' : 'start';
+    return {
+      id: topic.topic.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      title: topic.topic,
+      subject: topic.subject as (typeof fallbackPracticeModules)[number]['subject'],
+      icon: index === 0 ? 'auto_awesome' : index === 1 ? 'history_edu' : 'menu_book',
+      difficulty,
+      badges: [difficulty, index === 0 ? 'AI Pick' : 'PYQ'],
+      questions: Math.max(18, topic.total * 6),
+      minutes: Math.max(30, Math.round(topic.total * 2.5)),
+      progress: clamp(topic.percent),
+      status,
+    };
+  });
+}
+
 function buildDashboardMetrics(latest: Awaited<ReturnType<typeof loadLatestSubmission>>, previousAccuracy: number | null) {
   if (!latest) return fallbackDashboardMetrics;
   const accuracy = Number(latest.accuracy_pct);
@@ -446,6 +469,23 @@ async function buildStudentInsights(userId: string) {
       note: item.note,
     })),
     knowledgeGapHeatmap: expandHeatmapFromTopics(stats.topics, 72),
+  };
+}
+
+export async function buildStudentPractice(userId: string) {
+  const latest = await loadLatestSubmission(userId);
+  if (!latest) {
+    return {
+      practiceModules: fallbackPracticeModules,
+      recommendedSubjects: ['Physics', 'Chemistry', 'Mathematics'],
+    };
+  }
+
+  const breakdownRows = await loadAttemptBreakdown(latest.attemptId);
+  const stats = aggregateTopicStats(breakdownRows);
+  return {
+    practiceModules: buildPracticeModules(stats.topics.length ? stats.topics : stats.subjects),
+    recommendedSubjects: stats.subjects.slice(0, 3).map((item) => item.topic),
   };
 }
 
