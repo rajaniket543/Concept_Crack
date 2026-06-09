@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
 import {
@@ -836,11 +838,24 @@ app.get('/api/reference/roles', (_req, res) => {
   });
 });
 
-app.use((_req, res) => {
-  sendError(res, 404, 'Route not found.');
+const distDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+
+app.use(express.static(distDir));
+
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  return res.sendFile(path.join(distDir, 'index.html'));
 });
 
-const port = Number(process.env.API_PORT ?? 8787);
+app.use((req, res) => {
+  if (req.path.startsWith('/api')) {
+    return sendError(res, 404, 'Route not found.');
+  }
+  return res.status(404).send('Not found');
+});
+
+const port = Number(process.env.PORT ?? process.env.API_PORT ?? 8787);
 app.listen(port, () => {
-  console.log(`PrepMind API listening on http://localhost:${port}`);
+  console.log(`PrepMind app listening on http://localhost:${port}`);
 });
