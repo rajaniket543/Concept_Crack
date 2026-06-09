@@ -1,9 +1,14 @@
 import { Pool, type PoolClient as PgPoolClient } from 'pg';
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  process.env.POSTGRES_URL ??
+  process.env.POSTGRESQL_URL ??
+  process.env.DATABASE_URI ??
+  process.env.PGURI;
 
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL is required.');
+  throw new Error('A PostgreSQL connection string is required. Set DATABASE_URL or POSTGRES_URL.');
 }
 
 export const pool = new Pool({
