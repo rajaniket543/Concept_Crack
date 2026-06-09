@@ -1,25 +1,48 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import PageHeader from '../../components/PageHeader';
 import ProgressBar from '../Student/components/ProgressBar';
 import { questionBankRows, questionDifficulty } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
+import { apiRequest } from '../../lib/api';
 
 export default function QuestionBankManagement() {
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState('All');
   const [difficulty, setDifficulty] = useState('All');
+  const [rowsData, setRowsData] = useState(questionBankRows);
+  const [difficultyData, setDifficultyData] = useState(questionDifficulty);
+  const [suggestedMergeNote, setSuggestedMergeNote] = useState(
+    'The system suggests merging two repeated vectors questions from last month to reduce overlap.',
+  );
+
+  useEffect(() => {
+    void apiRequest<{
+      questionBankRows: typeof questionBankRows;
+      questionDifficulty: typeof questionDifficulty;
+      suggestedMergeNote: string;
+    }>('/api/faculty/question-bank')
+      .then((payload) => {
+        setRowsData(payload.questionBankRows);
+        setDifficultyData(payload.questionDifficulty);
+        setSuggestedMergeNote(payload.suggestedMergeNote);
+      })
+      .catch(() => {
+        setRowsData(questionBankRows);
+        setDifficultyData(questionDifficulty);
+      });
+  }, []);
 
   const rows = useMemo(() => {
-    return questionBankRows.filter((row) => {
+    return rowsData.filter((row) => {
       const matchesSearch =
         `${row.subject} ${row.chapter} ${row.difficulty} ${row.relevance} ${row.type}`.toLowerCase().includes(search.toLowerCase());
       const matchesSubject = subject === 'All' || row.subject === subject;
       const matchesDifficulty = difficulty === 'All' || row.difficulty === difficulty;
       return matchesSearch && matchesSubject && matchesDifficulty;
     });
-  }, [difficulty, search, subject]);
+  }, [difficulty, rowsData, search, subject]);
 
   return (
     <div className="min-h-full bg-surface">
@@ -138,7 +161,7 @@ export default function QuestionBankManagement() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-gutter">
           <Card title="Difficulty Distribution" className="xl:col-span-5">
             <div className="space-y-4">
-              {questionDifficulty.map((item) => (
+              {difficultyData.map((item) => (
                 <ProgressBar
                   key={item.label}
                   label={item.label}
@@ -157,8 +180,7 @@ export default function QuestionBankManagement() {
                 <span className="font-label-lg text-label-lg">Batch Audit Ready</span>
               </div>
               <p className="mt-3 text-body-lg text-on-surface">
-                PrepMind AI can compare the entire chapter set against recent batch performance and surface duplicate or
-                underperforming questions before the next test cycle.
+                {suggestedMergeNote}
               </p>
             </div>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">

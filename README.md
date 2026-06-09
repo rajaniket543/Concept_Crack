@@ -41,6 +41,4 @@ The app includes demo login roles for quick exploration:
 - Faculty
 - Admin
 
-## Short GitHub Description
 
-An AI-powered learning and assessment platform with student, parent, faculty, and admin dashboards for adaptive practice, exam analytics, and performance tracking.

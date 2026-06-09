@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS otp_challenges (
 
 CREATE TABLE IF NOT EXISTS questions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  public_id integer NOT NULL UNIQUE,
   subject_id uuid NOT NULL REFERENCES subjects(id) ON DELETE RESTRICT,
   chapter_id uuid REFERENCES chapters(id) ON DELETE SET NULL,
   source text NOT NULL DEFAULT 'seed',
@@ -143,6 +144,8 @@ CREATE TABLE IF NOT EXISTS attempts (
   started_at timestamptz NOT NULL DEFAULT now(),
   submitted_at timestamptz,
   time_taken_seconds integer NOT NULL DEFAULT 0,
+  current_index integer NOT NULL DEFAULT 0,
+  question_order jsonb NOT NULL DEFAULT '[]'::jsonb,
   client_meta jsonb NOT NULL DEFAULT '{}'::jsonb,
   lock_token text NOT NULL UNIQUE,
   created_at timestamptz NOT NULL DEFAULT now()

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import CircularProgress from './components/CircularProgress';
@@ -10,6 +10,7 @@ import {
   type InsightsMetric,
 } from '../../mocks/student';
 import { pathFor } from '../../lib/pages';
+import { apiRequest } from '../../lib/api';
 
 type Scope = 'Institution' | 'Cohort A' | 'Individual';
 
@@ -27,7 +28,27 @@ const TONE_CENTER: Record<InsightsMetric['tone'], string> = {
 
 export default function AIAdaptiveInsights() {
   const [scope, setScope] = useState<Scope>('Institution');
-  const cells = genInsightsHeatmap(72);
+  const [cells, setCells] = useState(genInsightsHeatmap(72));
+  const [profile, setProfile] = useState(insightsProfile);
+  const [priorities, setPriorities] = useState(revisionPriorities);
+
+  useEffect(() => {
+    void apiRequest<{
+      insightsProfile: typeof insightsProfile;
+      revisionPriorities: typeof revisionPriorities;
+      knowledgeGapHeatmap: ReturnType<typeof genInsightsHeatmap>;
+    }>('/api/student/insights')
+      .then((payload) => {
+        setProfile(payload.insightsProfile);
+        setPriorities(payload.revisionPriorities);
+        setCells(payload.knowledgeGapHeatmap);
+      })
+      .catch(() => {
+        setProfile(insightsProfile);
+        setPriorities(revisionPriorities);
+        setCells(genInsightsHeatmap(72));
+      });
+  }, []);
 
   return (
     <div className="p-gutter space-y-stack-lg">
@@ -77,7 +98,7 @@ export default function AIAdaptiveInsights() {
               </span>
             </div>
             <div className="space-y-stack-lg">
-              {insightsProfile.map((m) => (
+              {profile.map((m) => (
                 <div key={m.label} className="flex items-center gap-4">
                   <CircularProgress
                     percent={m.percent}
@@ -175,7 +196,7 @@ export default function AIAdaptiveInsights() {
               Revision Priority
             </h4>
             <div className="space-y-3">
-              {revisionPriorities.map((r) => (
+              {priorities.map((r) => (
                 <div
                   key={r.name}
                   className="flex items-center justify-between p-3 rounded-xl hover:bg-surface-container transition-colors group"

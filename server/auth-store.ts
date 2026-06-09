@@ -319,13 +319,14 @@ export async function writeAuditLog(
   action: string,
   detail: string,
   severity: 'info' | 'warning' | 'critical' = 'info',
+  metadata: Record<string, unknown> = {},
 ) {
   await pool.query(
     `
-    INSERT INTO audit_logs (actor_user_id, actor_role_key, action, detail, severity)
-    VALUES ($1, $2, $3, $4, $5);
+    INSERT INTO audit_logs (actor_user_id, actor_role_key, action, detail, severity, metadata)
+    VALUES ($1, $2, $3, $4, $5, $6::jsonb);
   `,
-    [actorUserId, actorRoleKey, action, detail, severity],
+    [actorUserId, actorRoleKey, action, detail, severity, JSON.stringify(metadata)],
   );
 }
 

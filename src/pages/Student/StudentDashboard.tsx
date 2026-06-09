@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import MetricCard from './components/MetricCard';
@@ -6,6 +6,7 @@ import WeeklyBarChart from './components/WeeklyBarChart';
 import SubjectProgressList from './components/SubjectProgressList';
 import HeatmapGrid from './components/HeatmapGrid';
 import AIInsightBanner from './components/AIInsightBanner';
+import { apiRequest } from '../../lib/api';
 import {
   currentStudent,
   dashboardMetrics,
@@ -18,6 +19,27 @@ import {
 
 export default function StudentDashboard() {
   const [range, setRange] = useState('Last 7 Days');
+  const [data, setData] = useState<any>({
+    currentStudent,
+    metrics: dashboardMetrics,
+    weeklyProgress,
+    subjectPerformance,
+    heatmapCells,
+    weakAreas,
+    aiRecommendations,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('/api/student/dashboard')
+      .then((payload) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-container-desktop space-y-stack-lg">
@@ -25,7 +47,7 @@ export default function StudentDashboard() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="font-headline-lg text-headline-lg text-on-surface">
-            Welcome back, {currentStudent.name.split(' ')[0]}
+            Welcome back, {data.currentStudent.name.split(' ')[0]}
           </h1>
           <p className="text-body-md text-on-surface-variant mt-1">
             Here is a snapshot of your academic progress this week.
@@ -46,7 +68,7 @@ export default function StudentDashboard() {
 
       {/* Bento grid metrics row. */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
-        {dashboardMetrics.map((m) => (
+        {data.metrics.map((m: any) => (
           <MetricCard key={m.label} tile={m} />
         ))}
       </div>
@@ -67,10 +89,10 @@ export default function StudentDashboard() {
           }
           className="lg:col-span-2"
         >
-          <WeeklyBarChart data={weeklyProgress} />
+          <WeeklyBarChart data={data.weeklyProgress} />
         </Card>
         <Card title="Subject Performance">
-          <SubjectProgressList subjects={subjectPerformance} />
+          <SubjectProgressList subjects={data.subjectPerformance} />
         </Card>
       </div>
 
@@ -96,7 +118,7 @@ export default function StudentDashboard() {
             Daily proficiency growth across all core topics
           </p>
           <HeatmapGrid
-            cells={heatmapCells.map((c) => ({
+            cells={data.heatmapCells.map((c: any) => ({
               cellClass: c.cellClass,
               tooltip: `${c.topic}: ${c.percent}%`,
             }))}
@@ -113,7 +135,7 @@ export default function StudentDashboard() {
           }
         >
           <div className="space-y-3">
-            {weakAreas.map((w) => (
+            {data.weakAreas.map((w: any) => (
               <div
                 key={w.name}
                 className="p-3 bg-error-container/20 rounded-lg border border-error/10 flex justify-between items-center"
@@ -134,7 +156,7 @@ export default function StudentDashboard() {
           className="lg:col-span-3"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-stack-md mt-4">
-            {aiRecommendations.map((r) => (
+            {data.aiRecommendations.map((r: any) => (
               <Link
                 key={r.title}
                 to="/student/practice"

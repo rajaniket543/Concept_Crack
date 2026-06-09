@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { practiceModules, type PracticeModuleItem, type PracticeBadge } from '../../mocks/student';
+import { apiRequest } from '../../lib/api';
 
 type Filter = 'all' | 'ai' | 'pyq';
 
@@ -52,8 +53,15 @@ const HERO_SUBTLE = 'text-on-primary-container';
 
 export default function PracticeModule() {
   const [filter, setFilter] = useState<Filter>('all');
+  const [modules, setModules] = useState<PracticeModuleItem[]>(practiceModules);
 
-  const filtered: PracticeModuleItem[] = practiceModules.filter((m) => {
+  useEffect(() => {
+    void apiRequest<{ practiceModules: PracticeModuleItem[] }>('/api/student/practice')
+      .then((payload) => setModules(payload.practiceModules))
+      .catch(() => setModules(practiceModules));
+  }, []);
+
+  const filtered: PracticeModuleItem[] = modules.filter((m) => {
     if (filter === 'ai') return m.badges.includes('AI Pick');
     if (filter === 'pyq') return m.badges.includes('PYQ');
     return true;
@@ -214,24 +222,24 @@ export default function PracticeModule() {
               </div>
             </div>
             {m.status === 'completed' ? (
-            <Link
-              to="/student/analysis"
-              className="bg-surface-variant text-on-surface-variant px-8 py-3 rounded-xl font-label-lg text-label-lg transition-all hover:bg-outline-variant active:scale-95 flex items-center gap-2"
-            >
-              <span className="material-symbols-outlined">refresh</span>
-              Review
-            </Link>
-          ) : (
-            <Link
-              to="/student/exam"
-              className="bg-primary text-on-primary px-8 py-3 rounded-xl font-label-lg text-label-lg transition-all hover:shadow-lg active:scale-95 flex items-center gap-2 group-hover:pr-10 relative"
-            >
-              Start Practice
-              <span className="material-symbols-outlined absolute right-4 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                play_arrow
-              </span>
-            </Link>
-          )}
+              <Link
+                to="/student/analysis"
+                className="bg-surface-variant text-on-surface-variant px-8 py-3 rounded-xl font-label-lg text-label-lg transition-all hover:bg-outline-variant active:scale-95 flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined">refresh</span>
+                Review
+              </Link>
+            ) : (
+              <Link
+                to="/student/exam"
+                className="bg-primary text-on-primary px-8 py-3 rounded-xl font-label-lg text-label-lg transition-all hover:shadow-lg active:scale-95 flex items-center gap-2 group-hover:pr-10 relative"
+              >
+                Start Practice
+                <span className="material-symbols-outlined absolute right-4 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                  play_arrow
+                </span>
+              </Link>
+            )}
         </div>
       ))}
       </div>

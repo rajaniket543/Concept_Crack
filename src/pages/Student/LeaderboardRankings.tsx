@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PodiumCard from './components/PodiumCard';
 import RankTable from './components/RankTable';
 import { leaderboard } from '../../mocks/student';
 import { pathFor } from '../../lib/pages';
+import { apiRequest } from '../../lib/api';
 
 type Comparison = 'Global Rank' | 'Peer Comparison';
 type Period = 'Daily' | 'Weekly' | 'Monthly';
@@ -13,6 +14,13 @@ export default function LeaderboardRankings() {
   const [comparison, setComparison] = useState<Comparison>('Global Rank');
   const [batchPeriod, setBatchPeriod] = useState<Period>('Weekly');
   const [subjectName, setSubjectName] = useState<Subject>('AI & Ethics');
+  const [data, setData] = useState(leaderboard);
+
+  useEffect(() => {
+    void apiRequest<typeof leaderboard>('/api/student/leaderboard')
+      .then(setData)
+      .catch(() => setData(leaderboard));
+  }, []);
 
   return (
     <div className="p-gutter md:p-container-desktop space-y-stack-lg">
@@ -63,7 +71,7 @@ export default function LeaderboardRankings() {
             </div>
           </div>
           <div className="relative z-10 flex items-end justify-center gap-4 md:gap-12 pt-12 pb-4">
-            {leaderboard.podium.map((p) => (
+            {data.podium.map((p) => (
               <PodiumCard key={p.rank} entry={p} />
             ))}
           </div>
@@ -77,27 +85,27 @@ export default function LeaderboardRankings() {
           <div className="flex-1 flex flex-col justify-center">
             <div className="flex items-baseline gap-2 mb-2">
               <span className="text-[56px] font-bold leading-none">
-                {leaderboard.userPerformance.rank}
+                {data.userPerformance.rank}
               </span>
               <span className="text-on-primary-container font-label-lg">
-                / {leaderboard.userPerformance.outOf.toLocaleString()}
+                / {data.userPerformance.outOf.toLocaleString()}
               </span>
             </div>
             <p className="text-body-lg text-on-primary-container mb-8">
-              {leaderboard.userPerformance.percentile}
+              {data.userPerformance.percentile}
             </p>
             <div className="space-y-4">
               <div className="bg-white/10 rounded-xl p-4 border border-white/10">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-label-md opacity-80">Subject Mastery</span>
                   <span className="text-label-md font-bold">
-                    {leaderboard.userPerformance.masteryPct}%
+                    {data.userPerformance.masteryPct}%
                   </span>
                 </div>
                 <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-tertiary-fixed"
-                    style={{ width: `${leaderboard.userPerformance.masteryPct}%` }}
+                    style={{ width: `${data.userPerformance.masteryPct}%` }}
                   />
                 </div>
               </div>
@@ -105,14 +113,14 @@ export default function LeaderboardRankings() {
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-label-md opacity-80">Daily Streak</span>
                   <span className="text-label-md font-bold">
-                    {leaderboard.userPerformance.streakDays} Days
+                    {data.userPerformance.streakDays} Days
                   </span>
                 </div>
                 <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-secondary-fixed-dim"
                     style={{
-                      width: `${Math.min(100, (leaderboard.userPerformance.streakDays / 30) * 100)}%`,
+                      width: `${Math.min(100, (data.userPerformance.streakDays / 30) * 100)}%`,
                     }}
                   />
                 </div>
@@ -145,7 +153,7 @@ export default function LeaderboardRankings() {
           <RankTable
             title="Batch Rank"
             subtitle="Section A-12 · Engineering Finals"
-            rows={leaderboard.batch}
+            rows={data.batch}
             variant="points"
           />
           <div className="mt-2 text-center">
@@ -173,7 +181,7 @@ export default function LeaderboardRankings() {
           <RankTable
             title="Subject Rank"
             subtitle={`Comparing Performance in ${subjectName}`}
-            rows={leaderboard.subject}
+            rows={data.subject}
             variant="accuracy"
           />
           <div className="mt-2 text-center">
@@ -201,10 +209,10 @@ export default function LeaderboardRankings() {
             </span>
           </div>
           <h2 className="font-headline-lg md:text-display-lg text-headline-lg-mobile leading-tight mb-6">
-            {leaderboard.motivation.headline}
+            {data.motivation.headline}
           </h2>
           <p className="text-body-lg text-white/80 mb-8 max-w-lg">
-            {leaderboard.motivation.body}
+            {data.motivation.body}
           </p>
           <div className="flex flex-wrap gap-4">
             <Link

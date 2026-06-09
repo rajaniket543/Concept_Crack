@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import { Link } from 'react-router-dom';
 import {
@@ -15,41 +16,49 @@ import ProgressBar from './components/ProgressBar';
 import DonutChart from './components/DonutChart';
 import AIInsightBanner from './components/AIInsightBanner';
 import { analysis } from '../../mocks/student';
-import type { MetricTile } from '../../mocks/student';
 import { pathFor } from '../../lib/pages';
+import { apiRequest } from '../../lib/api';
 
 ChartJS.register(ArcElement, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
 
-const analysisMetrics: MetricTile[] = [
-  {
-    label: 'Global Rank',
-    value: `#${analysis.rank}`,
-    delta: `Top ${analysis.rankPercentile}% of ${(analysis.totalStudents / 1000).toFixed(1)}k Students`,
-    icon: 'workspace_premium',
-    tone: 'secondary',
-  },
-  {
-    label: 'Accuracy',
-    value: `${analysis.accuracyPct}%`,
-    delta: `${analysis.correctCount}/50 Questions Correct`,
-    icon: 'my_location',
-    tone: 'primary',
-  },
-  {
-    label: 'Time Taken',
-    value: `${analysis.timeMinutes}m`,
-    delta: `${analysis.timeVsAvgMinutes}m ahead of average`,
-    icon: 'timer',
-    tone: 'muted',
-  },
-];
-
 export default function TestAnalysis() {
+  const [data, setData] = useState<typeof analysis>(analysis);
+
+  useEffect(() => {
+    void apiRequest<typeof analysis>('/api/student/analysis/latest')
+      .then(setData)
+      .catch(() => setData(analysis));
+  }, []);
+
+  const analysisMetrics = [
+    {
+      label: 'Global Rank',
+      value: `#${data.rank}`,
+      delta: `Top ${data.rankPercentile}% of ${(data.totalStudents / 1000).toFixed(1)}k Students`,
+      icon: 'workspace_premium',
+      tone: 'secondary' as const,
+    },
+    {
+      label: 'Accuracy',
+      value: `${data.accuracyPct}%`,
+      delta: `${data.correctCount}/50 Questions Correct`,
+      icon: 'my_location',
+      tone: 'primary' as const,
+    },
+    {
+      label: 'Time Taken',
+      value: `${data.timeMinutes}m`,
+      delta: `${data.timeVsAvgMinutes}m ahead of average`,
+      icon: 'timer',
+      tone: 'muted' as const,
+    },
+  ];
+
   const donutData = {
     labels: ['Correct', 'Incorrect', 'Skipped'],
     datasets: [
       {
-        data: [analysis.correctCount, analysis.incorrectCount, analysis.skippedCount],
+        data: [data.correctCount, data.incorrectCount, data.skippedCount],
         backgroundColor: ['#000666', '#ba1a1a', '#e1e3e4'],
         borderWidth: 0,
         hoverOffset: 10,
@@ -64,18 +73,18 @@ export default function TestAnalysis() {
   };
 
   const barData = {
-    labels: analysis.topicPerformance.map((t) => t.topic),
+    labels: data.topicPerformance.map((t) => t.topic),
     datasets: [
       {
         label: 'Your Accuracy %',
-        data: analysis.topicPerformance.map((t) => t.yours),
+        data: data.topicPerformance.map((t) => t.yours),
         backgroundColor: '#7c4dff',
         borderRadius: 8,
         barThickness: 32,
       },
       {
         label: 'Group Avg %',
-        data: analysis.topicPerformance.map((t) => t.groupAvg),
+        data: data.topicPerformance.map((t) => t.groupAvg),
         backgroundColor: '#e1e3e4',
         borderRadius: 8,
         barThickness: 32,
@@ -137,15 +146,15 @@ export default function TestAnalysis() {
             Total Score
           </span>
           <DonutChart
-            percent={analysis.totalPct}
+            percent={data.totalPct}
             size={128}
             strokeWidth={8}
             strokeColor="text-primary"
-            centerLabel="75%"
+            centerLabel={`${data.totalPct}%`}
             centerLabelClass="font-headline-lg text-headline-lg text-primary"
           />
           <p className="font-label-lg text-label-lg text-on-surface mt-2">
-            {analysis.totalScore} / {analysis.totalPossible} Points
+            {data.totalScore} / {data.totalPossible} Points
           </p>
         </div>
         {analysisMetrics.map((m) => (
@@ -165,17 +174,17 @@ export default function TestAnalysis() {
             <div>
               <div className="w-3 h-3 bg-primary rounded-full mx-auto mb-1" />
               <p className="text-[10px] text-on-surface-variant uppercase">Correct</p>
-              <p className="font-label-lg text-label-lg">{analysis.correctCount}</p>
+              <p className="font-label-lg text-label-lg">{data.correctCount}</p>
             </div>
             <div>
               <div className="w-3 h-3 bg-error rounded-full mx-auto mb-1" />
               <p className="text-[10px] text-on-surface-variant uppercase">Incorrect</p>
-              <p className="font-label-lg text-label-lg">{analysis.incorrectCount}</p>
+              <p className="font-label-lg text-label-lg">{data.incorrectCount}</p>
             </div>
             <div>
               <div className="w-3 h-3 bg-surface-container-highest rounded-full mx-auto mb-1" />
               <p className="text-[10px] text-on-surface-variant uppercase">Skipped</p>
-              <p className="font-label-lg text-label-lg">{analysis.skippedCount}</p>
+              <p className="font-label-lg text-label-lg">{data.skippedCount}</p>
             </div>
           </div>
         </Card>
@@ -240,7 +249,7 @@ export default function TestAnalysis() {
 
         <Card title="Difficulty Breakdown" className="md:col-span-5">
           <div className="space-y-8">
-            {analysis.difficulty.map((d) => {
+            {data.difficulty.map((d) => {
               const pct = Math.round((d.solved / d.total) * 100);
               return (
                 <div key={d.level} className="space-y-2">

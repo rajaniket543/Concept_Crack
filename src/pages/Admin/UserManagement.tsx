@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import PageHeader from '../../components/PageHeader';
 import MetricCard from '../Student/components/MetricCard';
 import ProgressBar from '../Student/components/ProgressBar';
+import { apiRequest } from '../../lib/api';
 import { userMetrics, users } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
 
@@ -12,9 +13,32 @@ const TABS = ['All', 'Students', 'Faculty', 'Administrators'] as const;
 export default function UserManagement() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('All');
   const [search, setSearch] = useState('');
+  const [data, setData] = useState<any>({
+    metrics: userMetrics,
+    users,
+    aiUsageInsights: [
+      { label: 'Student logins', percent: 86 },
+      { label: 'Faculty activity', percent: 72 },
+      { label: 'Admin operations', percent: 54 },
+      { label: 'Parent check-ins', percent: 41 },
+    ],
+    recommendation: 'User activity is concentrated in weekday mornings. Schedule maintenance after 02:00 UTC.',
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('/api/admin/users')
+      .then((payload) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
+    return data.users.filter((user: any) => {
       const matchesTab =
         tab === 'All' ||
         (tab === 'Students' && user.role === 'Student') ||
@@ -24,7 +48,7 @@ export default function UserManagement() {
         `${user.name} ${user.email} ${user.role} ${user.status}`.toLowerCase().includes(search.toLowerCase());
       return matchesTab && matchesSearch;
     });
-  }, [search, tab]);
+  }, [data.users, search, tab]);
 
   return (
     <div className="min-h-full bg-surface">
@@ -51,7 +75,7 @@ export default function UserManagement() {
 
       <div className="p-container-desktop space-y-stack-lg">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-gutter">
-          {userMetrics.map((tile) => (
+          {data.metrics.map((tile: any) => (
             <MetricCard key={tile.label} tile={tile} />
           ))}
         </div>
@@ -100,7 +124,7 @@ export default function UserManagement() {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user) => (
+                {filteredUsers.map((user: any) => (
                   <tr key={user.email} className="border-b border-outline-variant/40 last:border-b-0">
                     <td className="py-4 pr-4">
                       <div className="font-label-lg text-label-lg text-on-surface">{user.name}</div>
@@ -142,26 +166,19 @@ export default function UserManagement() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-gutter">
           <Card title="AI Usage Insights" className="xl:col-span-7">
             <div className="space-y-4">
-              {[
-                ['Student logins', 86],
-                ['Faculty activity', 72],
-                ['Admin operations', 54],
-                ['Parent check-ins', 41],
-              ].map(([label, value]) => (
+              {data.aiUsageInsights.map((item: any) => (
                 <ProgressBar
-                  key={label as string}
-                  label={label as string}
-                  trailing={`${value}%`}
-                  percent={value as number}
-                  barClass={label === 'Faculty activity' ? 'bg-secondary' : 'bg-primary'}
+                  key={item.label}
+                  label={item.label}
+                  trailing={`${item.percent}%`}
+                  percent={item.percent}
+                  barClass={item.label === 'Faculty activity' ? 'bg-secondary' : 'bg-primary'}
                 />
               ))}
             </div>
             <div className="mt-5 rounded-2xl bg-secondary-fixed p-4">
               <div className="font-label-lg text-label-lg text-secondary">Recommendation</div>
-              <p className="mt-2 text-body-lg text-on-surface">
-                24% surge in faculty activity on Saturdays. Schedule maintenance during the Sunday 02:00 UTC trough.
-              </p>
+              <p className="mt-2 text-body-lg text-on-surface">{data.recommendation}</p>
             </div>
           </Card>
 

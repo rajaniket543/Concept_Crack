@@ -253,14 +253,29 @@ async function seedQuestionsAndTests(client: Awaited<ReturnType<typeof pool.conn
     const result = await client.query<{ id: string }>(
       `
       INSERT INTO questions (
-        subject_id, chapter_id, source, difficulty, question_type,
+        public_id, subject_id, chapter_id, source, difficulty, question_type,
         prompt, option_a, option_b, option_c, option_d, correct_option, explanation, tags
       )
-      VALUES ($1, $2, 'seed', $3, 'MCQ', $4, $5, $6, $7, $8, $9, '', $10::jsonb)
-      ON CONFLICT DO NOTHING
+      VALUES ($1, $2, $3, 'seed', $4, 'MCQ', $5, $6, $7, $8, $9, $10, '', $11::jsonb)
+      ON CONFLICT (public_id) DO UPDATE SET
+        subject_id = EXCLUDED.subject_id,
+        chapter_id = EXCLUDED.chapter_id,
+        source = EXCLUDED.source,
+        difficulty = EXCLUDED.difficulty,
+        question_type = EXCLUDED.question_type,
+        prompt = EXCLUDED.prompt,
+        option_a = EXCLUDED.option_a,
+        option_b = EXCLUDED.option_b,
+        option_c = EXCLUDED.option_c,
+        option_d = EXCLUDED.option_d,
+        correct_option = EXCLUDED.correct_option,
+        explanation = EXCLUDED.explanation,
+        tags = EXCLUDED.tags,
+        updated_at = now()
       RETURNING id;
     `,
       [
+        question.id,
         psychologySubjectId,
         chapterId ?? null,
         question.difficulty,

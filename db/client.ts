@@ -1,4 +1,4 @@
-import { Pool, type PoolClient } from 'pg';
+import { Pool, type PoolClient as PgPoolClient } from 'pg';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -10,6 +10,8 @@ export const pool = new Pool({
   connectionString: databaseUrl,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
 });
+
+export type PoolClient = PgPoolClient;
 
 export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>) {
   const client = await pool.connect();

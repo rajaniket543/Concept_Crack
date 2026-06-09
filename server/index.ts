@@ -21,39 +21,44 @@ import {
   writeNotification,
 } from './auth-store';
 import {
+  clearAttemptAnswer,
+  countActiveExamSessions,
+  getAttemptSnapshot,
+  markAttemptQuestion,
+  recordAttemptAnswer,
+  startOrResumeAttempt,
+  submitAttempt,
+  type ExamAttemptSnapshot,
+  type ExamSubmissionResult,
+} from './exam-store';
+import {
+  buildStudentAnalysis,
+  buildStudentDashboardData,
+  buildStudentInsights,
+  buildStudentLeaderboard,
+} from './analytics-store';
+import {
+  buildFacultyDashboard,
+  buildFacultyQuestionBank,
+  buildParentDashboard,
+} from './portal-analytics-store';
+import {
+  buildWeeklyReports,
+  queueWeeklyReportNotifications,
+} from './report-store';
+import {
+  getAdminDashboardData,
+  listAdminInstitutes,
+  listAdminUsers,
+  listReferenceRoles,
+} from './admin-store';
+import {
   analysis as staticAnalysis,
-  aiRecommendations,
-  dashboardMetrics,
   examMeta,
-  heatmapCells,
-  genInsightsHeatmap,
-  insightsProfile,
-  leaderboard as staticLeaderboard,
   practiceModules,
-  revisionPriorities,
-  subjectPerformance,
-  weeklyProgress,
-  weakAreas,
 } from '../src/mocks/student';
 import {
-  adminMetrics,
-  facultyAlerts,
-  facultyMetrics,
-  facultyStudents,
-  facultyTrend,
   healthLogs,
-  instituteMetrics,
-  institutes,
-  parentActivity,
-  parentGrowth,
-  parentMastery,
-  parentMetrics,
-  parentReports,
-  questionBankRows,
-  questionDifficulty,
-  topInstitutions,
-  userMetrics,
-  users,
 } from '../src/mocks/portal';
 import { createToken, verifyPassword } from './security';
 import { DemoAccount, Role, demoAccounts, rolePermissions, seed, seedQuestions, userDirectory } from './seed';
@@ -124,14 +129,10 @@ interface SubmissionResult {
 }
 
 interface AppState {
-  examSessions: Map<string, ExamSession>;
-  latestResults: Map<string, SubmissionResult>;
   rateLimit: Map<string, { count: number; resetAt: number }>;
 }
 
 const state: AppState = {
-  examSessions: new Map(),
-  latestResults: new Map(),
   rateLimit: new Map(),
 };
 
@@ -243,90 +244,12 @@ function buildExamQuestionPayload(order?: number[]) {
   return questions;
 }
 
-function getLatestSubmission(userId: string) {
-  return state.latestResults.get(userId) ?? null;
+async function buildAnalysisFromSubmission(userId: string) {
+  return buildStudentAnalysis(userId);
 }
 
-function buildAnalysisFromSubmission(userId: string) {
-  const latest = getLatestSubmission(userId);
-  if (!latest) {
-    return staticAnalysis;
-  }
-  return {
-    ...staticAnalysis,
-    totalScore: latest.score,
-    totalPossible: latest.totalPossible,
-    totalPct: latest.accuracyPct,
-    rank: latest.rank,
-    rankPercentile: latest.percentRank,
-    accuracyPct: latest.accuracyPct,
-    correctCount: latest.correctCount,
-    incorrectCount: latest.incorrectCount,
-    skippedCount: latest.skippedCount,
-    topicPerformance: latest.topicPerformance,
-  };
-}
-
-function computeSubmission(session: ExamSession): SubmissionResult {
-  const questionsById = new Map(seedQuestions.map((q) => [q.id, q]));
-  let correctCount = 0;
-  let incorrectCount = 0;
-  let skippedCount = 0;
-
-  for (const question of seedQuestions) {
-    const answer = session.answers[question.id];
-    if (!answer) {
-      skippedCount += 1;
-      continue;
-    }
-    if (answer === questionsById.get(question.id)?.correctKey) {
-      correctCount += 1;
-    } else {
-      incorrectCount += 1;
-    }
-  }
-
-  const totalPossible = seedQuestions.length * 4;
-  const score = correctCount * 4 - incorrectCount;
-  const accuracyPct = Math.round((correctCount / seedQuestions.length) * 100);
-
-  return {
-    sessionId: session.sessionId,
-    examId: session.examId,
-    score,
-    totalScore: score,
-    totalPossible,
-    accuracyPct,
-    correctCount,
-    incorrectCount,
-    skippedCount,
-    topicPerformance: staticAnalysis.topicPerformance,
-    rank: Math.max(1, staticAnalysis.rank - Math.floor(correctCount / 10)),
-    percentRank: Math.max(1, staticAnalysis.rankPercentile - Math.floor(correctCount / 20)),
-  };
-}
-
-function buildLeaderboardForUser(userId: string) {
-  const latest = getLatestSubmission(userId);
-  if (!latest) return staticLeaderboard;
-  const userName = demoAccounts.find((user) => user.id === userId)?.name ?? 'You';
-  return {
-    ...staticLeaderboard,
-    userPerformance: {
-      ...staticLeaderboard.userPerformance,
-      rank: latest.rank,
-      masteryPct: latest.accuracyPct,
-      percentile: `Top ${latest.percentRank}% in your batch`,
-    },
-    batch: staticLeaderboard.batch.map((row) =>
-      row.isCurrentUser
-        ? { ...row, points: latest.score, deltaPct: 0, name: `You (${userName})` }
-        : row,
-    ),
-    subject: staticLeaderboard.subject.map((row) =>
-      row.isCurrentUser ? { ...row, accuracy: latest.accuracyPct, name: 'You' } : row,
-    ),
-  };
+async function buildLeaderboardForUser(userId: string) {
+  return buildStudentLeaderboard(userId);
 }
 
 function getClientIp(req: Request) {
@@ -345,7 +268,7 @@ app.get('/api/health', async (_req, res) => {
     status: 'ok',
     uptimeSeconds: Math.floor(process.uptime()),
     activeSessions: await countActiveSessions(),
-    activeExamSessions: state.examSessions.size,
+    activeExamSessions: await countActiveExamSessions(),
   });
 });
 
@@ -495,16 +418,9 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   });
 });
 
-app.get('/api/student/dashboard', requireAuth, requireRole('student'), (_req, res) => {
-  return sendOk(res, {
-    currentStudent: seed.currentStudent,
-    metrics: dashboardMetrics,
-    weeklyProgress,
-    subjectPerformance,
-    heatmapCells,
-    weakAreas,
-    aiRecommendations,
-  });
+app.get('/api/student/dashboard', requireAuth, requireRole('student'), async (req, res) => {
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
+  return sendOk(res, await buildStudentDashboardData(auth.user.id));
 });
 
 app.get('/api/student/practice', requireAuth, requireRole('student'), (_req, res) => {
@@ -521,41 +437,20 @@ app.get('/api/student/exam/meta', requireAuth, requireRole('student'), (_req, re
   });
 });
 
-app.post('/api/exams/:examId/start', requireAuth, requireRole('student'), (req, res) => {
+app.post('/api/exams/:examId/start', requireAuth, requireRole('student'), async (req, res) => {
   const examId = String(req.params.examId ?? '');
   const auth = (req as Request & { auth?: RequestAuth }).auth!;
-  const existing = Array.from(state.examSessions.values()).find(
-    (session) => session.examId === examId && session.userId === auth.user.id && session.status === 'active',
-  );
-  if (existing) {
-    return sendOk(res, {
-      sessionId: existing.sessionId,
-      status: existing.status,
-      currentIndex: existing.currentIndex,
-      durationSeconds: existing.durationSeconds,
-      questionOrder: existing.questionOrder,
-      questions: buildExamQuestionPayload(existing.questionOrder),
-    });
-  }
-
   const order = shuffleDeterministic(
     seedQuestions.map((q) => q.id),
     `${auth.user.id}:${examId}:${examMeta.id}`,
   );
-  const session: ExamSession = {
-    sessionId: createToken('exam'),
-    examId,
+  const session = await startOrResumeAttempt({
+    testCode: examId,
     userId: auth.user.id,
-    role: auth.user.role,
-    status: 'active',
     questionOrder: order,
-    answers: {},
-    marked: [],
-    currentIndex: examMeta.currentIndex,
-    startedAt: now(),
     durationSeconds: examMeta.durationSeconds,
-  };
-  state.examSessions.set(session.sessionId, session);
+  });
+  if (!session) return sendError(res, 404, 'Exam session not found.');
   addAudit(auth.user.id, auth.user.role, 'exam_started', `Started exam ${examId}`);
   return sendOk(res, {
     sessionId: session.sessionId,
@@ -567,195 +462,119 @@ app.post('/api/exams/:examId/start', requireAuth, requireRole('student'), (req, 
   });
 });
 
-app.get('/api/exams/sessions/:sessionId', requireAuth, requireRole('student'), (req, res) => {
+app.get('/api/exams/sessions/:sessionId', requireAuth, requireRole('student'), async (req, res) => {
   const sessionId = String(req.params.sessionId ?? '');
-  const session = state.examSessions.get(sessionId);
-  if (!session) return sendError(res, 404, 'Exam session not found.');
   const auth = (req as Request & { auth?: RequestAuth }).auth!;
-  if (session.userId !== auth.user.id) return sendError(res, 403, 'You do not own this session.');
-  return sendOk(res, {
-    sessionId: session.sessionId,
-    status: session.status,
-    currentIndex: session.currentIndex,
-    answers: session.answers,
-    marked: session.marked,
-    startedAt: session.startedAt,
-    durationSeconds: session.durationSeconds,
-  });
+  const session = await getAttemptSnapshot(sessionId, auth.user.id);
+  if (!session) return sendError(res, 404, 'Exam session not found.');
+  return sendOk(res, session);
 });
 
-app.patch('/api/exams/sessions/:sessionId/answer', requireAuth, requireRole('student'), (req, res) => {
+app.patch('/api/exams/sessions/:sessionId/answer', requireAuth, requireRole('student'), async (req, res) => {
   const sessionId = String(req.params.sessionId ?? '');
-  const session = state.examSessions.get(sessionId);
-  if (!session) return sendError(res, 404, 'Exam session not found.');
   const auth = (req as Request & { auth?: RequestAuth }).auth!;
-  if (session.userId !== auth.user.id) return sendError(res, 403, 'You do not own this session.');
-  if (session.status !== 'active') return sendError(res, 409, 'Exam session already submitted.');
   const questionId = Number(String(req.body.questionId ?? ''));
   const answer = getBodyString(req.body.answer) as AnswerKey;
   if (!questionId || !['A', 'B', 'C', 'D'].includes(answer)) return sendError(res, 400, 'Invalid answer payload.');
-  session.answers[questionId] = answer;
-  session.currentIndex = questionId;
+  const updated = await recordAttemptAnswer({
+    sessionId,
+    userId: auth.user.id,
+    questionPublicId: questionId,
+    answer,
+  });
+  if (updated == null) return sendError(res, 409, 'Exam session unavailable or invalid question.');
   addAudit(auth.user.id, auth.user.role, 'exam_answered', `Answered question ${questionId}`);
-  return sendOk(res, { sessionId: session.sessionId, questionId, answer });
+  return sendOk(res, { sessionId, questionId, answer });
 });
 
-app.patch('/api/exams/sessions/:sessionId/clear', requireAuth, requireRole('student'), (req, res) => {
+app.patch('/api/exams/sessions/:sessionId/clear', requireAuth, requireRole('student'), async (req, res) => {
   const sessionId = String(req.params.sessionId ?? '');
-  const session = state.examSessions.get(sessionId);
-  if (!session) return sendError(res, 404, 'Exam session not found.');
   const auth = (req as Request & { auth?: RequestAuth }).auth!;
   const questionId = Number(String(req.body.questionId ?? ''));
-  delete session.answers[questionId];
+  if (!questionId) return sendError(res, 400, 'Invalid question id.');
+  const updated = await clearAttemptAnswer({
+    sessionId,
+    userId: auth.user.id,
+    questionPublicId: questionId,
+  });
+  if (updated == null) return sendError(res, 409, 'Exam session unavailable or invalid question.');
   addAudit(auth.user.id, auth.user.role, 'exam_cleared', `Cleared question ${questionId}`);
-  return sendOk(res, { sessionId: session.sessionId, questionId });
+  return sendOk(res, { sessionId, questionId });
 });
 
-app.patch('/api/exams/sessions/:sessionId/mark', requireAuth, requireRole('student'), (req, res) => {
+app.patch('/api/exams/sessions/:sessionId/mark', requireAuth, requireRole('student'), async (req, res) => {
   const sessionId = String(req.params.sessionId ?? '');
-  const session = state.examSessions.get(sessionId);
-  if (!session) return sendError(res, 404, 'Exam session not found.');
   const auth = (req as Request & { auth?: RequestAuth }).auth!;
-  if (session.userId !== auth.user.id) return sendError(res, 403, 'You do not own this session.');
   const questionId = Number(String(req.body.questionId ?? ''));
   const marked = Boolean(req.body.marked);
-  if (marked && !session.marked.includes(questionId)) session.marked.push(questionId);
-  if (!marked) session.marked = session.marked.filter((id) => id !== questionId);
+  if (!questionId) return sendError(res, 400, 'Invalid question id.');
+  const updated = await markAttemptQuestion({
+    sessionId,
+    userId: auth.user.id,
+    questionPublicId: questionId,
+    marked,
+  });
+  if (updated == null) return sendError(res, 409, 'Exam session unavailable or invalid question.');
   addAudit(auth.user.id, auth.user.role, 'exam_mark_review', `${marked ? 'Marked' : 'Unmarked'} question ${questionId}`);
-  return sendOk(res, { sessionId: session.sessionId, questionId, marked });
+  return sendOk(res, { sessionId, questionId, marked });
 });
 
-app.post('/api/exams/sessions/:sessionId/submit', requireAuth, requireRole('student'), (req, res) => {
+app.post('/api/exams/sessions/:sessionId/submit', requireAuth, requireRole('student'), async (req, res) => {
   const sessionId = String(req.params.sessionId ?? '');
-  const session = state.examSessions.get(sessionId);
-  if (!session) return sendError(res, 404, 'Exam session not found.');
   const auth = (req as Request & { auth?: RequestAuth }).auth!;
-  if (session.userId !== auth.user.id) return sendError(res, 403, 'You do not own this session.');
-  if (session.status === 'submitted') return sendError(res, 409, 'Exam session already submitted.');
-  if (session.startedAt + session.durationSeconds * 1000 + 2 * 60 * 1000 < now()) {
-    addAudit(auth.user.id, auth.user.role, 'submit_after_timeout', 'Submission after expiry', 'warning');
-    return sendError(res, 409, 'Exam session expired.');
-  }
-
-  const overrideAnswers = req.body.answers as Record<string, AnswerKey> | undefined;
-  if (overrideAnswers && typeof overrideAnswers === 'object') {
-    for (const [questionId, answer] of Object.entries(overrideAnswers)) {
-      if (['A', 'B', 'C', 'D'].includes(answer)) {
-        session.answers[Number(questionId)] = answer;
-      }
-    }
-  }
-
-  session.status = 'submitted';
-  session.submittedAt = now();
-  const result = computeSubmission(session);
-  state.latestResults.set(auth.user.id, result);
-  addAudit(auth.user.id, auth.user.role, 'exam_submitted', `Submitted exam ${session.examId}`);
-  addNotification('Exam submitted', `Your result for ${session.examId} is ready.`, 'student');
+  const result = await submitAttempt({
+    sessionId,
+    userId: auth.user.id,
+    answers: req.body.answers as Record<string, AnswerKey> | undefined,
+  });
+  if (!result) return sendError(res, 409, 'Exam session already submitted, expired, or invalid.');
+  addAudit(auth.user.id, auth.user.role, 'exam_submitted', `Submitted exam ${result.examId}`);
+  addNotification('Exam submitted', `Your result for ${result.examId} is ready.`, 'student');
   return sendOk(res, result);
 });
 
-app.get('/api/student/analysis/latest', requireAuth, requireRole('student'), (req, res) => {
+app.get('/api/student/analysis/latest', requireAuth, requireRole('student'), async (req, res) => {
   const auth = (req as Request & { auth?: RequestAuth }).auth!;
-  return sendOk(res, buildAnalysisFromSubmission(auth.user.id));
+  return sendOk(res, await buildAnalysisFromSubmission(auth.user.id));
 });
 
-app.get('/api/student/insights', requireAuth, requireRole('student'), (_req, res) => {
-  return sendOk(res, {
-    insightsProfile,
-    revisionPriorities,
-    knowledgeGapHeatmap: genInsightsHeatmap(72),
-  });
-});
-
-app.get('/api/student/leaderboard', requireAuth, requireRole('student'), (req, res) => {
+app.get('/api/student/insights', requireAuth, requireRole('student'), async (req, res) => {
   const auth = (req as Request & { auth?: RequestAuth }).auth!;
-  return sendOk(res, buildLeaderboardForUser(auth.user.id));
+  return sendOk(res, await buildStudentInsights(auth.user.id));
 });
 
-app.get('/api/parent/dashboard', requireAuth, requireRole('parent'), (_req, res) => {
-  return sendOk(res, {
-    metrics: parentMetrics,
-    growth: parentGrowth,
-    mastery: parentMastery,
-    reports: parentReports,
-    activity: parentActivity,
-    latestPrediction: 94.5,
-  });
+app.get('/api/student/leaderboard', requireAuth, requireRole('student'), async (req, res) => {
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
+  return sendOk(res, await buildLeaderboardForUser(auth.user.id));
 });
 
-app.get('/api/faculty/dashboard', requireAuth, requireRole('faculty'), (_req, res) => {
-  return sendOk(res, {
-    metrics: facultyMetrics,
-    trend: facultyTrend,
-    alerts: facultyAlerts,
-    students: facultyStudents,
-    curriculumGap: {
-      headline: '64% of students are struggling with Asymptotic Complexity.',
-      focusAreas: ['Algebra', 'Complexity', 'Probability'],
-    },
-  });
+app.get('/api/parent/dashboard', requireAuth, requireRole('parent'), async (req, res) => {
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
+  return sendOk(res, await buildParentDashboard(auth.user.id));
 });
 
-app.get('/api/faculty/question-bank', requireAuth, requireRole('faculty'), (_req, res) => {
-  return sendOk(res, {
-    questionBankRows,
-    questionDifficulty,
-    suggestedMergeNote:
-      'The system suggests merging two repeated vectors questions from last month to reduce overlap.',
-  });
+app.get('/api/faculty/dashboard', requireAuth, requireRole('faculty'), async (_req, res) => {
+  return sendOk(res, await buildFacultyDashboard());
 });
 
-app.get('/api/admin/dashboard', requireAuth, requireRole('admin'), (_req, res) => {
-  return sendOk(res, {
-    metrics: adminMetrics,
-    heatmap: heatmapCells,
-    topInstitutions,
-    healthLogs,
-    securityNotes: ['SOC2 Compliant', '99.9% Uptime', 'Encrypted Multi-Tenancy'],
-  });
+app.get('/api/faculty/question-bank', requireAuth, requireRole('faculty'), async (_req, res) => {
+  return sendOk(res, buildFacultyQuestionBank());
 });
 
-app.get('/api/admin/users', requireAuth, requireRole('admin'), (req, res) => {
-  const search = String(req.query.search ?? '').toLowerCase();
+app.get('/api/admin/dashboard', requireAuth, requireRole('admin'), async (_req, res) => {
+  return sendOk(res, await getAdminDashboardData());
+});
+
+app.get('/api/admin/users', requireAuth, requireRole('admin'), async (req, res) => {
+  const search = String(req.query.search ?? '');
   const tab = String(req.query.tab ?? 'All');
-  const filtered = userDirectory.filter((user) => {
-    const matchesTab =
-      tab === 'All' ||
-      (tab === 'Students' && user.role === 'student') ||
-      (tab === 'Faculty' && user.role === 'faculty') ||
-      (tab === 'Administrators' && user.role === 'admin');
-    const matchesSearch = `${user.name} ${user.email} ${user.role} ${user.status}`.toLowerCase().includes(search);
-    return matchesTab && matchesSearch;
-  });
-  return sendOk(res, {
-    metrics: userMetrics,
-    users: filtered,
-    total: filtered.length,
-    aiUsageInsights: [
-      { label: 'Student logins', percent: 86 },
-      { label: 'Faculty activity', percent: 72 },
-      { label: 'Admin operations', percent: 54 },
-      { label: 'Parent check-ins', percent: 41 },
-    ],
-  });
+  return sendOk(res, await listAdminUsers(search, tab));
 });
 
-app.get('/api/admin/institutes', requireAuth, requireRole('admin'), (req, res) => {
+app.get('/api/admin/institutes', requireAuth, requireRole('admin'), async (req, res) => {
   const region = String(req.query.region ?? 'All');
   const plan = String(req.query.plan ?? 'All');
-  const filtered = institutes.filter((item) => {
-    const matchesRegion = region === 'All' || item.region === region;
-    const matchesPlan = plan === 'All' || item.plan === plan;
-    return matchesRegion && matchesPlan;
-  });
-  return sendOk(res, {
-    metrics: instituteMetrics,
-    institutes: filtered,
-    regionalPerformanceHeatmap: genInsightsHeatmap(35).slice(0, 35),
-    optimizationTip:
-      'Asia-Pacific institutes are showing a 15% uplift in STEM enrollments after shifting morning mock slots.',
-  });
+  return sendOk(res, await listAdminInstitutes(region, plan));
 });
 
 app.get('/api/admin/audit-logs', requireAuth, requireRole('admin'), async (_req, res) => {
@@ -766,14 +585,27 @@ app.get('/api/admin/notifications', requireAuth, requireRole('admin'), async (_r
   return sendOk(res, { notifications: await listNotifications() });
 });
 
-app.get('/api/reference/roles', (_req, res) => {
+app.post('/api/admin/reports/weekly', requireAuth, requireRole('admin'), async (_req, res) => {
+  const reports = await buildWeeklyReports();
+  await queueWeeklyReportNotifications();
   return sendOk(res, {
-    roles: [
-      { key: 'student', permissions: rolePermissions.student },
-      { key: 'parent', permissions: rolePermissions.parent },
-      { key: 'faculty', permissions: rolePermissions.faculty },
-      { key: 'admin', permissions: rolePermissions.admin },
-    ],
+    count: reports.length,
+    reports,
+    message: 'Weekly reports generated and queued for in-app delivery.',
+  });
+});
+
+app.get('/api/reports/weekly', requireAuth, async (req, res) => {
+  const auth = (req as Request & { auth?: RequestAuth }).auth!;
+  const reports = await buildWeeklyReports();
+  const report = reports.find((item) => item.userId === auth.user.id || item.role === auth.user.role);
+  if (!report) return sendError(res, 404, 'Weekly report not found.');
+  return sendOk(res, report);
+});
+
+app.get('/api/reference/roles', async (_req, res) => {
+  return sendOk(res, {
+    roles: await listReferenceRoles(),
   });
 });
 

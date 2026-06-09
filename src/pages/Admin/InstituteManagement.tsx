@@ -1,24 +1,43 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import PageHeader from '../../components/PageHeader';
 import MetricCard from '../Student/components/MetricCard';
 import HeatmapGrid from '../Student/components/HeatmapGrid';
+import { apiRequest } from '../../lib/api';
 import { buildHeatmapCells, instituteMetrics, institutes } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
 
 export default function InstituteManagement() {
   const [region, setRegion] = useState('All');
   const [plan, setPlan] = useState('All');
-  const heatmap = buildHeatmapCells(5, 7, 'Region');
+  const [data, setData] = useState<any>({
+    metrics: instituteMetrics,
+    institutes,
+    regionalPerformanceHeatmap: buildHeatmapCells(5, 7, 'Region'),
+    optimizationTip:
+      'Asia-Pacific institutes are showing a 15% uplift in STEM enrollments after shifting their morning mock slots.',
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('/api/admin/institutes')
+      .then((payload) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredInstitutes = useMemo(() => {
-    return institutes.filter((item) => {
+    return data.institutes.filter((item: any) => {
       const matchesRegion = region === 'All' || item.region === region;
       const matchesPlan = plan === 'All' || item.plan === plan;
       return matchesRegion && matchesPlan;
     });
-  }, [plan, region]);
+  }, [data.institutes, plan, region]);
 
   return (
     <div className="min-h-full bg-surface">
@@ -45,7 +64,7 @@ export default function InstituteManagement() {
 
       <div className="p-container-desktop space-y-stack-lg">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-gutter">
-          {instituteMetrics.map((tile) => (
+          {data.metrics.map((tile: any) => (
             <MetricCard key={tile.label} tile={tile} />
           ))}
         </div>
@@ -96,7 +115,7 @@ export default function InstituteManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInstitutes.map((item) => (
+                  {filteredInstitutes.map((item: any) => (
                     <tr key={item.name} className="border-b border-outline-variant/40 last:border-b-0">
                       <td className="py-4 pr-4 font-label-lg text-label-lg text-on-surface">{item.name}</td>
                       <td className="py-4 pr-4">{item.region}</td>
@@ -112,7 +131,7 @@ export default function InstituteManagement() {
 
           <Card title="Regional Performance Heatmap" className="xl:col-span-5">
             <HeatmapGrid
-              cells={heatmap.map((cell) => ({
+              cells={data.regionalPerformanceHeatmap.map((cell: any) => ({
                 cellClass: cell.cellClass.replace('bg-primary', 'bg-secondary'),
                 tooltip: `${cell.topic} · ${cell.percent}%`,
               }))}
@@ -125,8 +144,7 @@ export default function InstituteManagement() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
             <div className="md:col-span-8">
               <div className="text-body-lg text-on-surface-variant">
-                Asia-Pacific institutes are showing a 15% uplift in STEM enrollments after shifting their morning mock
-                slots. The AI engine recommends replicating that schedule in the remaining growth-tier centers.
+                {data.optimizationTip}
               </div>
             </div>
             <div className="md:col-span-4">

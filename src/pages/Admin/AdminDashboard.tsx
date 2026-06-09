@@ -1,13 +1,35 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import PageHeader from '../../components/PageHeader';
 import MetricCard from '../Student/components/MetricCard';
 import HeatmapGrid from '../Student/components/HeatmapGrid';
 import { adminMetrics, buildHeatmapCells, healthLogs, topInstitutions } from '../../mocks/portal';
+import { apiRequest } from '../../lib/api';
 import { pathFor } from '../../lib/pages';
 
 export default function AdminDashboard() {
-  const heatmap = buildHeatmapCells(12, 12, 'Peak');
+  const [data, setData] = useState<any>({
+    metrics: adminMetrics,
+    heatmap: buildHeatmapCells(12, 12, 'Peak'),
+    topInstitutions,
+    healthLogs,
+    securityNotes: ['SOC2 Compliant', '99.9% Uptime', 'Encrypted Multi-Tenancy'],
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('/api/admin/dashboard')
+      .then((payload) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const heatmap = data.heatmap;
 
   return (
     <div className="min-h-full bg-surface">
@@ -34,7 +56,7 @@ export default function AdminDashboard() {
 
       <div className="p-container-desktop space-y-stack-lg">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-gutter">
-          {adminMetrics.map((tile) => (
+          {data.metrics.map((tile: any) => (
             <MetricCard key={tile.label} tile={tile} />
           ))}
         </div>
@@ -45,7 +67,7 @@ export default function AdminDashboard() {
               <span>Peak usage window: 14:20</span>
               <span>Active sessions: 4,129</span>
             </div>
-            <HeatmapGrid cells={heatmap.map((cell, index) => ({
+            <HeatmapGrid cells={heatmap.map((cell: any, index: number) => ({
               cellClass: index % 5 === 0 ? 'bg-secondary/20' : cell.cellClass,
               tooltip: `${cell.topic} · ${cell.percent}%`,
             }))} cols={12} />
@@ -80,7 +102,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {topInstitutions.map((row) => (
+                  {data.topInstitutions.map((row: any) => (
                     <tr key={row.name} className="border-b border-outline-variant/40 last:border-b-0">
                       <td className="py-4 pr-4 font-label-lg text-label-lg text-on-surface">{row.name}</td>
                       <td className="py-4 pr-4">{row.region}</td>
@@ -95,7 +117,7 @@ export default function AdminDashboard() {
 
           <Card title="System Health Log" className="xl:col-span-5">
             <div className="space-y-4">
-              {healthLogs.map((item) => (
+              {data.healthLogs.map((item: any) => (
                 <div key={item.title} className="flex gap-4">
                   <div className="flex flex-col items-center">
                     <div className="w-3 h-3 rounded-full bg-secondary mt-1" />
@@ -114,7 +136,7 @@ export default function AdminDashboard() {
 
         <Card title="Secure AI Infrastructure">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {['SOC2 Compliant', '99.9% Uptime', 'Encrypted Multi-Tenancy'].map((item) => (
+            {data.securityNotes.map((item: any) => (
               <div key={item} className="rounded-2xl bg-primary text-white p-5">
                 <span className="material-symbols-outlined">shield_lock</span>
                 <div className="mt-3 font-label-lg text-label-lg">{item}</div>

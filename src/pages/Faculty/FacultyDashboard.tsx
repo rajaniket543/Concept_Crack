@@ -1,12 +1,37 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import PageHeader from '../../components/PageHeader';
 import MetricCard from '../Student/components/MetricCard';
 import ProgressBar from '../Student/components/ProgressBar';
+import { apiRequest } from '../../lib/api';
 import { facultyAlerts, facultyMetrics, facultyStudents, facultyTrend } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
 
 export default function FacultyDashboard() {
+  const [data, setData] = useState<any>({
+    metrics: facultyMetrics,
+    trend: facultyTrend,
+    alerts: facultyAlerts,
+    students: facultyStudents,
+    curriculumGap: {
+      headline: '64% of students are struggling with Asymptotic Complexity.',
+      focusAreas: ['Algebra', 'Complexity', 'Probability'],
+    },
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('/api/faculty/dashboard')
+      .then((payload) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="min-h-full bg-surface">
       <PageHeader
@@ -32,7 +57,7 @@ export default function FacultyDashboard() {
 
       <div className="p-container-desktop space-y-stack-lg">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-gutter">
-          {facultyMetrics.map((tile) => (
+          {data.metrics.map((tile: any) => (
             <MetricCard key={tile.label} tile={tile} />
           ))}
         </div>
@@ -40,7 +65,7 @@ export default function FacultyDashboard() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-gutter">
           <Card title="Batch Performance Trend" className="xl:col-span-8">
             <div className="h-72 flex items-end gap-4">
-              {facultyTrend.map((point) => (
+              {data.trend.map((point: any) => (
                 <div key={point.label} className="flex-1 flex flex-col items-center gap-3">
                   <div className="w-full rounded-t-xl bg-primary/10 flex items-end h-56">
                     <div
@@ -81,7 +106,7 @@ export default function FacultyDashboard() {
                 <span className="font-label-lg text-label-lg">Intervention Required</span>
               </div>
               <div className="mt-4 space-y-3">
-                {facultyAlerts.map((alert) => (
+                {data.alerts.map((alert: any) => (
                   <div key={alert.name} className="rounded-xl bg-white p-3 border border-outline-variant/50">
                     <div className="flex items-center justify-between gap-4">
                       <div>
@@ -112,7 +137,7 @@ export default function FacultyDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {facultyStudents.map((row) => (
+                {data.students.map((row: any) => (
                   <tr key={row.rank} className="border-b border-outline-variant/40 last:border-b-0">
                     <td className="py-4 pr-4 font-bold text-primary">{row.rank}</td>
                     <td className="py-4 pr-4 font-label-lg text-label-lg text-on-surface">{row.name}</td>
@@ -130,8 +155,7 @@ export default function FacultyDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
             <div className="md:col-span-8">
               <div className="text-body-lg text-on-surface-variant">
-                64% of your students are struggling with Asymptotic Complexity. The AI engine suggests a targeted
-                revision block and two follow-up tests this week.
+                {data.curriculumGap.headline} The AI engine suggests a targeted revision block and two follow-up tests this week.
               </div>
               <div className="mt-4 space-y-3">
                 {[
