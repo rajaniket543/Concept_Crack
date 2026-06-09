@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+  body {
+    @apply font-sans bg-background text-on-surface antialiased;
+  }
+  .material-symbols-outlined {
+    font-variation-settings:
+      'FILL' 0,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24;
+  }
+}
+
+@layer utilities {
+  .px-container-desktop {
+    @apply px-4 md:px-8;
+  }
+
+  .py-container-desktop {
+    @apply py-4 md:py-8;
+  }
+
+  .p-container-desktop {
+    @apply p-4 md:p-8;
+  }
+
+  .p-gutter {
+    @apply p-6 md:p-8;
+  }
+
+  .p-card {
+    @apply p-6;
+  }
+
+  .gap-stack-sm {
+    @apply gap-2;
+  }
+
+  .gap-stack-md {
+    @apply gap-4;
+  }
+
+  .gap-stack-lg {
+    @apply gap-6;
+  }
+
+  .space-y-stack-sm {
+    @apply space-y-2;
+  }
+
+  .space-y-stack-md {
+    @apply space-y-4;
+  }
+
+  .space-y-stack-lg {
+    @apply space-y-6;
+  }
+
+  .mb-stack-lg {
+    @apply mb-6;
+  }
+
+  .mt-stack-lg {
+    @apply mt-6;
+  }
+
+  .right-container-desktop {
+    @apply right-4 md:right-8;
+  }
+
+  .font-headline-lg {
+    @apply font-semibold;
+  }
+
+  .font-title-lg {
+    @apply font-medium;
+  }
+
+  .font-body-lg,
+  .font-body-md {
+    @apply font-normal;
+  }
+
+  .font-label-lg {
+    @apply font-semibold;
+  }
+
+  .font-label-md {
+    @apply font-medium;
+  }
+
+  .font-display-lg {
+    @apply font-bold;
+  }
+
+  .role-tab {
+    @apply transition-all;
+  }
+
+  .role-tab-active {
+    @apply shadow-sm;
+  }
+
+  .podium-gradient {
+    background: linear-gradient(180deg, rgba(0, 6, 102, 0.08) 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes pulse-red {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+  .animate-pulse-red {
+    animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
