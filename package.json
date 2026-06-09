@@ -1,6 +1,7 @@
 {
   "name": "prepmind-ai",
   "private": true,
+  "description": "AI-powered learning and assessment platform with adaptive practice, exam analytics, and multi-role dashboards.",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
