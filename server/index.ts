@@ -46,6 +46,7 @@ import {
   buildWeeklyReports,
   queueWeeklyReportNotifications,
 } from './report-store';
+import { ensureDatabaseReady } from '../db/bootstrap';
 import {
   getAdminDashboardData,
   listAdminInstitutes,
@@ -627,6 +628,15 @@ app.use((req, res) => {
 });
 
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 8787);
-app.listen(port, () => {
-  console.log(`PrepMind app listening on http://localhost:${port}`);
+
+async function startServer() {
+  await ensureDatabaseReady();
+  app.listen(port, () => {
+    console.log(`PrepMind app listening on http://localhost:${port}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error('Failed to start PrepMind server:', error);
+  process.exit(1);
 });
