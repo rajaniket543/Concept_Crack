@@ -48,6 +48,7 @@ import {
   queueWeeklyReportNotifications,
 } from './report-store';
 import { ensureDatabaseReady } from '../db/bootstrap';
+import { pool } from '../db/client';
 import {
   getAdminDashboardData,
   listAdminInstitutes,
@@ -56,7 +57,6 @@ import {
 } from './admin-store';
 import {
   analysis as staticAnalysis,
-  examMeta,
   practiceModules,
 } from '../src/mocks/student';
 import {
@@ -246,6 +246,32 @@ function buildExamQuestionPayload(order?: number[]) {
   return questions;
 }
 
+async function buildLiveExamMeta() {
+  const result = await pool.query<{
+    code: string;
+    title: string;
+    duration_seconds: number;
+    total_questions: number;
+  }>(
+    `
+    SELECT code, title, duration_seconds, total_questions
+    FROM tests
+    WHERE status = 'Published'
+    ORDER BY created_at DESC
+    LIMIT 1;
+  `,
+  );
+  const exam = result.rows[0];
+  return {
+    id: exam?.code ?? 'PM-992-AX',
+    title: exam?.title ?? 'Advanced Cognitive Psychology Exam',
+    totalQuestions: exam?.total_questions ?? seedQuestions.length,
+    currentIndex: 1,
+    durationSeconds: exam?.duration_seconds ?? 59 * 60 + 42,
+    candidateId: 'PM7721',
+  };
+}
+
 async function buildAnalysisFromSubmission(userId: string) {
   return buildStudentAnalysis(userId);
 }
@@ -430,16 +456,14 @@ app.get('/api/student/practice', requireAuth, requireRole('student'), async (req
   return sendOk(res, await buildStudentPractice(auth.user.id));
 });
 
-app.get('/api/student/exam/meta', requireAuth, requireRole('student'), (_req, res) => {
-  return sendOk(res, {
-    ...examMeta,
-    totalQuestions: seedQuestions.length,
-  });
+app.get('/api/student/exam/meta', requireAuth, requireRole('student'), async (_req, res) => {
+  return sendOk(res, await buildLiveExamMeta());
 });
 
 app.post('/api/exams/:examId/start', requireAuth, requireRole('student'), async (req, res) => {
   const examId = String(req.params.examId ?? '');
   const auth = (req as Request & { auth?: RequestAuth }).auth!;
+  const examMeta = await buildLiveExamMeta();
   const order = shuffleDeterministic(
     seedQuestions.map((q) => q.id),
     `${auth.user.id}:${examId}:${examMeta.id}`,
