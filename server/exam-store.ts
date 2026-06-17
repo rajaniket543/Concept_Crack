@@ -315,7 +315,7 @@ async function ensureAttemptReady(
     code: string;
   }>(
     `
-    SELECT a.id, a.user_id, a.status, a.started_at, a.duration_seconds, a.question_order, a.current_index, a.client_meta, a.test_id, t.code
+    SELECT a.id, a.user_id, a.status, a.started_at, t.duration_seconds, a.question_order, a.current_index, a.client_meta, a.test_id, t.code
     FROM attempts a
     JOIN tests t ON t.id = a.test_id
     WHERE a.id = $1

@@ -160,7 +160,7 @@ export default function StudentDashboard() {
               <Link
                 key={r.title}
                 to="/student/practice"
-                className="bg-on-primary-fixed text-primary p-4 rounded-lg flex flex-col justify-between hover:bg-primary-fixed transition-colors group text-left"
+                className="bg-primary-fixed text-on-primary-fixed p-4 rounded-lg flex flex-col justify-between hover:bg-primary-fixed-dim transition-colors group text-left"
               >
                 <div>
                   <h4 className="font-label-lg text-label-lg">{r.title}</h4>

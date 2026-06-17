@@ -112,22 +112,22 @@ async function loadLatestSubmission(userId: string) {
   const result = await pool.query<SubmissionContext>(
     `
     SELECT
-      a.id AS attempt_id,
-      a.user_id,
-      u.name AS user_name,
-      b.name AS batch_name,
-      i.name AS institute_name,
-      t.code AS exam_id,
-      a.started_at::text AS started_at,
-      a.submitted_at::text AS submitted_at,
-      t.duration_seconds AS durationSeconds,
-      a.time_taken_seconds,
-      s.total_score,
-      s.total_possible,
-      s.correct_count,
-      s.incorrect_count,
-      s.skipped_count,
-      s.accuracy_pct
+      a.id AS "attemptId",
+      a.user_id AS "userId",
+      u.name AS "userName",
+      b.name AS "batchName",
+      i.name AS "instituteName",
+      t.code AS "examId",
+      a.started_at::text AS "startedAt",
+      a.submitted_at::text AS "submittedAt",
+      t.duration_seconds AS "durationSeconds",
+      a.time_taken_seconds AS "timeTakenSeconds",
+      s.total_score AS "totalScore",
+      s.total_possible AS "totalPossible",
+      s.correct_count AS "correctCount",
+      s.incorrect_count AS "incorrectCount",
+      s.skipped_count AS "skippedCount",
+      s.accuracy_pct AS "accuracyPct"
     FROM scores s
     JOIN attempts a ON a.id = s.attempt_id
     JOIN users u ON u.id = a.user_id
@@ -188,12 +188,12 @@ async function loadAttemptBreakdown(attemptId: string) {
   const result = await pool.query<AnswerStatRow>(
     `
     SELECT
-      subj.name AS subject_name,
-      ch.name AS chapter_name,
+      subj.name AS "subjectName",
+      ch.name AS "chapterName",
       q.difficulty,
-      q.public_id,
-      aa.selected_option,
-      q.correct_option
+      q.public_id AS "publicId",
+      aa.selected_option AS "selectedOption",
+      q.correct_option AS "correctOption"
     FROM attempt_answers aa
     JOIN questions q ON q.id = aa.question_id
     JOIN subjects subj ON subj.id = q.subject_id
@@ -300,7 +300,7 @@ function buildPracticeModules(topics: TopicStat[]) {
 
 function buildDashboardMetrics(latest: Awaited<ReturnType<typeof loadLatestSubmission>>, previousAccuracy: number | null) {
   if (!latest) return fallbackDashboardMetrics;
-  const accuracy = Number(latest.accuracy_pct);
+  const accuracy = Number(latest.accuracyPct);
   const delta = previousAccuracy == null ? '+0% vs previous attempt' : `${accuracy - Number(previousAccuracy) >= 0 ? '+' : ''}${Math.round(accuracy - Number(previousAccuracy))}% vs previous attempt`;
   const practiceHours = Math.max(1, Math.round((latest.timeTakenSeconds / 3600) * 10) / 10);
   return [
@@ -389,7 +389,9 @@ async function buildStudentDashboardData(userId: string) {
   const weeklyProgress = Array.from({ length: 7 }, (_, index) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - index));
-    const day = d.toISOString().slice(0, 10);
+    // Use a local-date key so it matches the DB's `::date` (session timezone),
+    // not UTC — otherwise the day can shift and the bar disappears.
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const label = dayKey(d);
     const accuracy = dayMap.get(day) ?? 0;
     return { day: label, percent: accuracy };
@@ -430,8 +432,8 @@ async function buildStudentInsights(userId: string) {
   const weakAreas = buildWeakAreas(stats.topics);
   const recentAttempts = await loadRecentAttempts(userId);
   const consistencyScore = clamp(Math.round((recentAttempts.length / 6) * 100));
-  const learningSpeed = clamp(Math.round(Number(latest.accuracy_pct) + Math.max(0, (Number(previousAccuracy ?? latest.accuracy_pct) - Number(latest.accuracy_pct)) * 2)));
-  const retentionScore = clamp(Math.round((Number(latest.accuracy_pct) + consistencyScore + (stats.topics[0]?.percent ?? Number(latest.accuracy_pct))) / 3));
+  const learningSpeed = clamp(Math.round(Number(latest.accuracyPct) + Math.max(0, (Number(previousAccuracy ?? latest.accuracyPct) - Number(latest.accuracyPct)) * 2)));
+  const retentionScore = clamp(Math.round((Number(latest.accuracyPct) + consistencyScore + (stats.topics[0]?.percent ?? Number(latest.accuracyPct))) / 3));
 
   return {
     insightsProfile: [
@@ -439,7 +441,7 @@ async function buildStudentInsights(userId: string) {
         label: 'Learning Speed',
         percent: learningSpeed,
         tone: toneForPercent(learningSpeed),
-        caption: `Latest accuracy ${latest.accuracy_pct}%`,
+        caption: `Latest accuracy ${latest.accuracyPct}%`,
       },
       {
         label: 'Consistency Score',

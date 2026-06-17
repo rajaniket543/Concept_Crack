@@ -167,7 +167,7 @@ export default function AIAdaptiveInsights() {
             </div>
           }
         >
-          <div className="flex-1 grid grid-cols-12 grid-rows-6 gap-2 min-h-[400px]">
+          <div className="flex-1">
             <HeatmapGrid
               cells={cells.map((c) => ({
                 cellClass: c.cellClass,

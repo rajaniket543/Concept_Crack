@@ -1,15 +1,16 @@
 import { Pool, type PoolClient as PgPoolClient } from 'pg';
 
+// Local development falls back to a Postgres instance on localhost so the app
+// runs with no setup. Production (e.g. Render) always provides DATABASE_URL.
+const localFallbackUrl = `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/prepmind`;
+
 const databaseUrl =
   process.env.DATABASE_URL ??
   process.env.POSTGRES_URL ??
   process.env.POSTGRESQL_URL ??
   process.env.DATABASE_URI ??
-  process.env.PGURI;
-
-if (!databaseUrl) {
-  throw new Error('A PostgreSQL connection string is required. Set DATABASE_URL or POSTGRES_URL.');
-}
+  process.env.PGURI ??
+  localFallbackUrl;
 
 export const pool = new Pool({
   connectionString: databaseUrl,

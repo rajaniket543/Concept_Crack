@@ -415,6 +415,40 @@ async function seedAttemptData(client: Awaited<ReturnType<typeof pool.connect>>)
     [attemptId],
   );
 
+  // Seed a short run of prior attempts so the weekly trend chart shows real
+  // progress and the "vs previous attempt" delta is meaningful. These only need
+  // a score row (the per-question breakdown uses the latest attempt above).
+  await client.query(
+    `DELETE FROM attempts WHERE user_id = $1 AND test_id = $2 AND id <> $3`,
+    [student.rows[0].id, test.rows[0].id, attemptId],
+  );
+  const history = [
+    { daysAgo: 6, accuracy: 71, score: 121, timeTaken: 2880 },
+    { daysAgo: 5, accuracy: 74, score: 126, timeTaken: 2760 },
+    { daysAgo: 4, accuracy: 79, score: 134, timeTaken: 2700 },
+    { daysAgo: 3, accuracy: 82, score: 139, timeTaken: 2640 },
+    { daysAgo: 2, accuracy: 85, score: 144, timeTaken: 2580 },
+    { daysAgo: 1, accuracy: 86, score: 146, timeTaken: 2550 },
+  ];
+  for (const [index, h] of history.entries()) {
+    const histAttempt = await client.query<{ id: string }>(
+      `
+      INSERT INTO attempts (test_id, user_id, status, started_at, submitted_at, time_taken_seconds, client_meta, lock_token)
+      VALUES ($1, $2, 'submitted', now() - ($3 || ' days')::interval, now() - ($3 || ' days')::interval, $4, '{}'::jsonb, $5)
+      RETURNING id;
+    `,
+      [test.rows[0].id, student.rows[0].id, h.daysAgo, h.timeTaken, hash(`hist-${index}`)],
+    );
+    const correct = Math.round((h.accuracy / 100) * 48);
+    await client.query(
+      `
+      INSERT INTO scores (attempt_id, total_score, total_possible, correct_count, incorrect_count, skipped_count, accuracy_pct, rank_in_batch, percentile, computed_at)
+      VALUES ($1, $2, 200, $3, $4, $5, $6, 42, 5, now() - ($7 || ' days')::interval);
+    `,
+      [histAttempt.rows[0].id, h.score, correct, 48 - correct, 2, h.accuracy, h.daysAgo],
+    );
+  }
+
   await client.query('DELETE FROM leaderboard_snapshots WHERE user_id = $1', [student.rows[0].id]);
   await client.query(
     `

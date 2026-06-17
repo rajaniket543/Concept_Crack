@@ -76,9 +76,9 @@ export default function AdminDashboard() {
           <Card title="AI Health Index" className="xl:col-span-4">
             <div className="space-y-4">
               {[
-                ['Inference Latency', '42ms', 'bg-primary'],
-                ['Accuracy Rate', '99.4%', 'bg-secondary'],
-                ['Tokens / Minute', '2.4M', 'bg-on-tertiary-container'],
+                ['Inference Latency', '42ms', 'text-primary'],
+                ['Accuracy Rate', '99.4%', 'text-secondary'],
+                ['Tokens / Minute', '2.4M', 'text-on-tertiary-container'],
               ].map(([label, value, tone]) => (
                 <div key={label} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
                   <div className="text-label-md uppercase tracking-widest text-on-surface-variant">{label}</div>

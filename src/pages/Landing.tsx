@@ -58,7 +58,7 @@ export default function Landing() {
               Get started free
             </Link>
             <Link
-              to={pathFor('exam')}
+              to={pathFor('login')}
               className="h-12 px-6 inline-flex items-center gap-2 rounded font-semibold text-label-lg border border-outline text-on-surface hover:bg-surface-container"
             >
               <span className="material-symbols-outlined text-[18px]">play_circle</span>
