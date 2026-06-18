@@ -1,298 +1,206 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { practiceModules, type PracticeModuleItem, type PracticeBadge } from '../../mocks/student';
+import TopBar from '../../components/TopBar';
+import { practiceModules, type PracticeModuleItem } from '../../mocks/student';
 import { apiRequest } from '../../lib/api';
 
 type Filter = 'all' | 'ai' | 'pyq';
 
-const BADGE_CLASS: Record<PracticeBadge, string> = {
-  Hard: 'bg-error-container text-on-error-container',
-  Medium: 'bg-secondary-fixed text-on-secondary-fixed',
-  Easy: 'bg-surface-container-highest text-on-surface-variant',
-  PYQ: 'bg-tertiary-fixed text-on-tertiary-fixed-variant',
-  'AI Pick': 'bg-primary-fixed text-on-primary-fixed-variant',
+const SUBJECT_META: Record<string, { color: string; bg: string; icon: string; gradient: string }> = {
+  Physics:     { color: '#5B4FE8', bg: 'rgba(91,79,232,0.10)',   icon: 'electric_bolt', gradient: 'linear-gradient(135deg, #5B4FE8, #818CF8)' },
+  Chemistry:   { color: '#8B5CF6', bg: 'rgba(139,92,246,0.10)',  icon: 'science',       gradient: 'linear-gradient(135deg, #7C3AED, #8B5CF6)' },
+  Mathematics: { color: '#10B981', bg: 'rgba(16,185,129,0.10)',  icon: 'calculate',     gradient: 'linear-gradient(135deg, #059669, #10B981)' },
 };
 
-const SUBJECT_HERO: Array<{
-  key: 'Physics' | 'Chemistry' | 'Mathematics';
-  title: string;
-  description: string;
-  topicCount: string;
-  hero?: boolean;
-}> = [
-  {
-    key: 'Physics',
-    title: 'Physics',
-    description: 'Quantum Mechanics & Electromagnetism',
-    topicCount: '24 Topics',
-    hero: true,
-  },
-  {
-    key: 'Chemistry',
-    title: 'Chemistry',
-    description: 'Organic & Inorganic',
-    topicCount: '12 Topics',
-  },
-  {
-    key: 'Mathematics',
-    title: 'Mathematics',
-    description: 'Calculus & Algebra',
-    topicCount: '18 Topics',
-  },
-];
-
-const SUBJECT_ICON: Record<'Physics' | 'Chemistry' | 'Mathematics', string> = {
-  Physics: 'electric_bolt',
-  Chemistry: 'science',
-  Mathematics: 'calculate',
+const DIFF_BADGE: Record<string, { bg: string; color: string }> = {
+  Easy:     { bg: 'rgba(16,185,129,0.10)',  color: '#059669' },
+  Medium:   { bg: 'rgba(245,158,11,0.10)',  color: '#B45309' },
+  Hard:     { bg: 'rgba(239,68,68,0.10)',   color: '#DC2626' },
+  PYQ:      { bg: 'rgba(6,182,212,0.10)',   color: '#0891B2' },
+  'AI Pick':{ bg: 'rgba(91,79,232,0.10)',   color: '#5B4FE8' },
 };
 
-const HERO_BG = 'bg-primary-container';
-const HERO_TEXT = 'text-white';
-const HERO_SUBTLE = 'text-on-primary-container';
+const subjects = ['Physics', 'Chemistry', 'Mathematics'];
 
 export default function PracticeModule() {
   const [filter, setFilter] = useState<Filter>('all');
+  const [activeSubject, setActiveSubject] = useState<string | null>(null);
   const [modules, setModules] = useState<PracticeModuleItem[]>(practiceModules);
 
   useEffect(() => {
     void apiRequest<{ practiceModules: PracticeModuleItem[] }>('/api/student/practice')
-      .then((payload) => setModules(payload.practiceModules))
+      .then(payload => setModules(payload.practiceModules))
       .catch(() => setModules(practiceModules));
   }, []);
 
-  const filtered: PracticeModuleItem[] = modules.filter((m) => {
-    if (filter === 'ai') return m.badges.includes('AI Pick');
-    if (filter === 'pyq') return m.badges.includes('PYQ');
+  const filtered = modules.filter(m => {
+    if (activeSubject && m.subject !== activeSubject) return false;
+    if (filter === 'ai')  return m.badges?.includes('AI Pick');
+    if (filter === 'pyq') return m.badges?.includes('PYQ');
     return true;
   });
 
+  const groupedBySubject = subjects.reduce((acc, s) => {
+    acc[s] = filtered.filter(m => m.subject === s);
+    return acc;
+  }, {} as Record<string, PracticeModuleItem[]>);
+
   return (
-    <div className="p-container-desktop space-y-stack-lg">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-on-surface-variant font-label-md text-label-md">
-        <Link to="/student" className="hover:text-primary transition-colors flex items-center gap-1 cursor-pointer">
-          <span className="material-symbols-outlined text-[18px]">dashboard</span>
-          Dashboard
-        </Link>
-        <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-        <span className="text-primary font-bold">Practice</span>
-      </nav>
+    <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <TopBar breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Practice' }]} />
 
-      {/* Subject Selection */}
-      <div>
-        <h2 className="font-headline-lg text-headline-lg mb-6 tracking-tight">Select Subject</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
-          {SUBJECT_HERO.map((s) => (
-            <div
-              key={s.key}
-              className={[
-                'group relative overflow-hidden rounded-2xl p-6 h-64 flex flex-col justify-between transition-all cursor-pointer',
-                s.hero
-                  ? `${HERO_BG} ${HERO_TEXT} md:col-span-1 hover:shadow-2xl`
-                  : 'bg-surface-container text-on-surface hover:bg-secondary-container hover:shadow-xl',
-              ].join(' ')}
-            >
-              <div className="flex justify-between items-start">
-                <div
-                  className={[
-                    'w-10 h-10 rounded-lg flex items-center justify-center transition-colors',
-                    s.hero
-                      ? 'bg-white/10 backdrop-blur-md'
-                      : 'bg-on-tertiary-container/10 group-hover:bg-on-secondary-container/20',
-                  ].join(' ')}
-                >
-                  <span
-                    className={[
-                      'material-symbols-outlined',
-                      s.hero ? 'text-white' : 'text-primary',
-                    ].join(' ')}
-                  >
-                    {SUBJECT_ICON[s.key]}
-                  </span>
-                </div>
-                <span className="font-label-md text-label-md bg-white/30 text-on-surface px-2 py-1 rounded">
-                  {s.topicCount}
-                </span>
-              </div>
-              <div>
-                <h3
-                  className={[
-                    s.hero ? 'font-headline-lg text-headline-lg text-white' : 'font-title-lg text-title-lg group-hover:text-white',
-                  ].join(' ')}
-                >
-                  {s.title}
-                </h3>
-                <p
-                  className={[
-                    'text-body-md',
-                    s.hero
-                      ? `${HERO_SUBTLE} opacity-80`
-                      : 'text-on-surface-variant group-hover:text-secondary-fixed opacity-70',
-                  ].join(' ')}
-                >
-                  {s.description}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Active Curriculum */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-2 gap-4">
-        <div>
-          <h2 className="font-headline-lg text-headline-lg tracking-tight">Active Curriculum</h2>
-          <p className="text-on-surface-variant font-body-md text-body-md">
-            Personalized practice sessions based on your learning gap.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 md:pb-0">
-          <FilterPill
-            active={filter === 'ai'}
-            onClick={() => setFilter('ai')}
-            icon="auto_awesome"
-            label="AI Recommended"
-            activeClass="border-primary text-primary"
-          />
-          <FilterPill
-            active={filter === 'pyq'}
-            onClick={() => setFilter('pyq')}
-            icon="history_edu"
-            label="PYQ Only"
-            activeClass="border-primary text-primary"
-          />
-          <button
-            type="button"
-            aria-label="More filters"
-            className="flex items-center justify-center w-10 h-10 rounded-full border border-outline-variant hover:bg-surface-container transition-colors"
-          >
-            <span className="material-symbols-outlined">filter_list</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Topic list */}
-      <div className="grid grid-cols-1 gap-4">
-        {filtered.map((m) => (
-          <div
-            key={m.id}
-            className="bg-surface-container-lowest rounded-2xl p-6 flex flex-col md:flex-row md:items-center gap-6 group hover:border-primary/50 transition-all shadow-sm border border-outline-variant"
-          >
-            <div className="w-16 h-16 rounded-xl bg-surface-container-highest flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-primary text-3xl">{m.icon}</span>
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1 flex-wrap">
-                <h4 className="font-title-lg text-title-lg">{m.title}</h4>
-                {m.badges.map((b) => (
-                  <span
-                    key={b}
-                    className={`px-2 py-0.5 rounded font-label-md text-label-md ${BADGE_CLASS[b]}`}
-                  >
-                    {b}
-                  </span>
-                ))}
-              </div>
-              <div className="flex items-center gap-6 flex-wrap">
-                <div className="flex items-center gap-1.5 text-on-surface-variant">
-                  <span className="material-symbols-outlined text-body-md">question_answer</span>
-                  <span className="font-label-md text-label-md">{m.questions} Questions</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-on-surface-variant">
-                  <span className="material-symbols-outlined text-body-md">timer</span>
-                  <span className="font-label-md text-label-md">{m.minutes} Mins</span>
-                </div>
-                <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-[260px]">
-                  <div className="flex-1 h-1.5 bg-surface-container rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary"
-                      style={{ width: `${m.progress}%` }}
-                    />
-                  </div>
-                  <span
-                    className={[
-                      'font-label-md text-label-md',
-                      m.progress === 100 ? 'text-on-tertiary-container' : 'text-primary',
-                    ].join(' ')}
-                  >
-                    {m.progress === 100 ? 'Completed' : `${m.progress}% Done`}
-                  </span>
-                </div>
-              </div>
-            </div>
-            {m.status === 'completed' ? (
-              <Link
-                to="/student/analysis"
-                className="bg-surface-variant text-on-surface-variant px-8 py-3 rounded-xl font-label-lg text-label-lg transition-all hover:bg-outline-variant active:scale-95 flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined">refresh</span>
-                Review
-              </Link>
-            ) : (
-              <Link
-                to="/student/exam"
-                className="bg-primary text-on-primary px-8 py-3 rounded-xl font-label-lg text-label-lg transition-all hover:shadow-lg active:scale-95 flex items-center gap-2 group-hover:pr-10 relative"
-              >
-                Start Practice
-                <span className="material-symbols-outlined absolute right-4 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                  play_arrow
-                </span>
-              </Link>
-            )}
-        </div>
-      ))}
-      </div>
-
-      {/* AI Insight Banner */}
-      <div className="bg-gradient-to-r from-primary-container to-secondary-container rounded-2xl p-8 text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-xl">
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center shrink-0 border border-white/20">
-            <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-              auto_awesome
-            </span>
-          </div>
+      <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h3 className="font-headline-lg text-headline-lg leading-tight mb-2">Feeling Unsure?</h3>
-            <p className="text-on-secondary-container text-body-lg opacity-90 max-w-md">
-              Our AI analyzed your recent mock tests. We recommend starting with{' '}
-              <b>Electrostatics</b> to improve your overall Physics percentile.
+            <h1 className="text-display-sm font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+              Practice
+            </h1>
+            <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
+              Topic-based adaptive questions, PYQs, and AI-curated sets
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            <div className="tab-pills">
+              {([['all', 'All'], ['ai', '✦ AI Pick'], ['pyq', 'PYQ']] as [Filter, string][]).map(([key, label]) => (
+                <button key={key} type="button" onClick={() => setFilter(key)} className={`tab-pill ${filter === key ? 'active' : ''}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        <Link
-          to="/student/insights"
-          className="bg-white text-primary px-8 py-4 rounded-full font-label-lg text-label-lg hover:shadow-xl transition-all active:scale-95 whitespace-nowrap"
-        >
-          Generate Custom Sprint
-        </Link>
+
+        {/* Subject cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {subjects.map(s => {
+            const meta = SUBJECT_META[s];
+            const count = groupedBySubject[s]?.length ?? 0;
+            const isActive = activeSubject === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setActiveSubject(isActive ? null : s)}
+                className="rounded-xl p-5 text-left transition-all duration-200 hover:-translate-y-0.5"
+                style={{
+                  background: isActive ? meta.gradient : 'var(--surface)',
+                  border: `1px solid ${isActive ? 'transparent' : 'var(--border)'}`,
+                  boxShadow: isActive ? `0 8px 24px ${meta.color}40` : 'var(--shadow-xs)',
+                }}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div
+                    className="w-11 h-11 rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: isActive ? 'rgba(255,255,255,0.20)' : meta.bg }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '20px', color: isActive ? '#fff' : meta.color }}>{meta.icon}</span>
+                  </div>
+                  <span
+                    className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                    style={isActive ? { backgroundColor: 'rgba(255,255,255,0.20)', color: '#fff' } : { backgroundColor: meta.bg, color: meta.color }}
+                  >
+                    {count} topics
+                  </span>
+                </div>
+                <div className="font-semibold text-base mb-0.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isActive ? '#fff' : 'var(--text-primary)' }}>{s}</div>
+                <div className="text-xs" style={{ color: isActive ? 'rgba(255,255,255,0.70)' : 'var(--text-muted)' }}>
+                  {s === 'Physics' && 'Mechanics, Electromagnetism, Optics'}
+                  {s === 'Chemistry' && 'Organic, Inorganic, Physical Chem'}
+                  {s === 'Mathematics' && 'Calculus, Algebra, Trigonometry'}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Practice modules by subject */}
+        {subjects.map(subj => {
+          const items = groupedBySubject[subj];
+          if (!items?.length) return null;
+          if (activeSubject && activeSubject !== subj) return null;
+          const meta = SUBJECT_META[subj];
+          return (
+            <div key={subj}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ backgroundColor: meta.bg }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '14px', color: meta.color }}>{meta.icon}</span>
+                </div>
+                <h2 className="text-title-lg font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{subj}</h2>
+                <span className="text-label-sm px-2 py-0.5 rounded-full" style={{ backgroundColor: meta.bg, color: meta.color }}>{items.length} sets</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {items.map(m => (
+                  <PracticeCard key={m.id ?? m.title} module={m} meta={meta} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
+        {filtered.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <span className="material-symbols-outlined">search_off</span>
+            </div>
+            <h3 className="empty-state-title">No practice sets found</h3>
+            <p className="empty-state-body">Try changing the filter or subject selection.</p>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-interface FilterPillProps {
-  active: boolean;
-  onClick: () => void;
-  icon: string;
-  label: string;
-  activeClass?: string;
-}
-
-function FilterPill({ active, onClick, icon, label, activeClass = 'border-primary text-primary' }: FilterPillProps) {
+function PracticeCard({ module: m, meta }: { module: PracticeModuleItem; meta: { color: string; bg: string } }) {
+  const hasAI = m.badges?.includes('AI Pick');
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        'flex items-center gap-2 px-4 py-2 rounded-full font-label-lg text-label-lg transition-colors whitespace-nowrap border',
-        active
-          ? activeClass + ' bg-primary-fixed'
-          : 'border-outline-variant text-on-surface-variant hover:bg-surface-container',
-      ].join(' ')}
+    <Link
+      to="/student/exam"
+      className="group rounded-xl p-5 flex flex-col gap-3 transition-all duration-200 hover:-translate-y-1"
+      style={{
+        backgroundColor: 'var(--surface)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-xs)',
+      }}
     >
-      <span className="material-symbols-outlined text-[18px]">{icon}</span>
-      {label}
-    </button>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {m.badges?.map(b => {
+            const d = DIFF_BADGE[b] ?? DIFF_BADGE['Easy'];
+            return (
+              <span key={b} className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style={{ backgroundColor: d.bg, color: d.color }}>{b}</span>
+            );
+          })}
+        </div>
+        {hasAI && (
+          <span className="material-symbols-outlined filled shrink-0" style={{ fontSize: '16px', color: '#5B4FE8' }}>auto_awesome</span>
+        )}
+      </div>
+
+      <div>
+        <h3 className="text-body-md font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{m.title}</h3>
+        <p className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{(m as any).description}</p>
+      </div>
+
+      <div className="flex items-center justify-between mt-auto">
+        <div className="flex items-center gap-3 text-label-sm" style={{ color: 'var(--text-faint)' }}>
+          <span className="flex items-center gap-1">
+            <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>quiz</span>
+            {(m as any).questionCount ?? m.questions ?? 10}q
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>schedule</span>
+            {(m as any).durationMins ?? m.minutes ?? 15}m
+          </span>
+        </div>
+        <span
+          className="material-symbols-outlined transition-transform group-hover:translate-x-1"
+          style={{ fontSize: '18px', color: meta.color }}
+        >
+          arrow_forward
+        </span>
+      </div>
+    </Link>
   );
 }

@@ -1,361 +1,246 @@
 import { useEffect, useState } from 'react';
-import { Doughnut, Bar } from 'react-chartjs-2';
 import { Link } from 'react-router-dom';
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-} from 'chart.js';
 import Card from '../../components/Card';
-import MetricCard from './components/MetricCard';
-import ProgressBar from './components/ProgressBar';
-import DonutChart from './components/DonutChart';
-import AIInsightBanner from './components/AIInsightBanner';
+import TopBar from '../../components/TopBar';
 import { analysis } from '../../mocks/student';
 import { pathFor } from '../../lib/pages';
 import { apiRequest } from '../../lib/api';
 
-ChartJS.register(ArcElement, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
-
 export default function TestAnalysis() {
-  const [data, setData] = useState<typeof analysis>(analysis);
+  const [data, setData] = useState<any>(analysis);
 
   useEffect(() => {
-    void apiRequest<typeof analysis>('/api/student/analysis/latest')
+    void apiRequest<any>('/api/student/analysis/latest')
       .then(setData)
       .catch(() => setData(analysis));
   }, []);
 
-  const analysisMetrics = [
-    {
-      label: 'Global Rank',
-      value: `#${data.rank}`,
-      delta: `Top ${data.rankPercentile}% of ${(data.totalStudents / 1000).toFixed(1)}k Students`,
-      icon: 'workspace_premium',
-      tone: 'secondary' as const,
-    },
-    {
-      label: 'Accuracy',
-      value: `${data.accuracyPct}%`,
-      delta: `${data.correctCount}/50 Questions Correct`,
-      icon: 'my_location',
-      tone: 'primary' as const,
-    },
-    {
-      label: 'Time Taken',
-      value: `${data.timeMinutes}m`,
-      delta: `${data.timeVsAvgMinutes}m ahead of average`,
-      icon: 'timer',
-      tone: 'muted' as const,
-    },
+  const metrics = [
+    { label: 'Global Rank', value: `#${data.rank}`, sub: `Top ${data.rankPercentile}% of ${(data.totalStudents / 1000).toFixed(1)}k`, icon: 'military_tech', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+    { label: 'Accuracy',    value: `${data.accuracyPct}%`, sub: `${data.correctCount}/50 correct`,           icon: 'my_location',    color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+    { label: 'Score',       value: `${data.score ?? data.correctCount * 4}`, sub: `Out of ${(data.totalStudents > 0 ? 200 : 200)}`,       icon: 'stars',          color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+    { label: 'Time Taken',  value: `${data.timeMinutes}m`, sub: `${data.timeVsAvgMinutes}m faster than avg`, icon: 'timer',          color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
   ];
 
-  const donutData = {
-    labels: ['Correct', 'Incorrect', 'Skipped'],
-    datasets: [
-      {
-        data: [data.correctCount, data.incorrectCount, data.skippedCount],
-        backgroundColor: ['#000666', '#ba1a1a', '#e1e3e4'],
-        borderWidth: 0,
-        hoverOffset: 10,
-      },
-    ],
-  };
-
-  const donutOptions = {
-    responsive: true,
-    cutout: '70%',
-    plugins: { legend: { display: false } },
-  };
-
-  const barData = {
-    labels: data.topicPerformance.map((t) => t.topic),
-    datasets: [
-      {
-        label: 'Your Accuracy %',
-        data: data.topicPerformance.map((t) => t.yours),
-        backgroundColor: '#7c4dff',
-        borderRadius: 8,
-        barThickness: 32,
-      },
-      {
-        label: 'Group Avg %',
-        data: data.topicPerformance.map((t) => t.groupAvg),
-        backgroundColor: '#e1e3e4',
-        borderRadius: 8,
-        barThickness: 32,
-      },
-    ],
-  };
-
-  const barOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      y: { beginAtZero: true, max: 100, grid: { display: false } },
-      x: { grid: { display: false } },
-    },
-    plugins: {
-      legend: {
-        position: 'bottom' as const,
-        labels: { usePointStyle: true, padding: 20, font: { family: 'Inter', size: 12 } },
-      },
-    },
-  };
+  const donutTotal = (data.correctCount ?? 0) + (data.incorrectCount ?? 0) + (data.skippedCount ?? 0);
+  const donutData = [
+    { label: 'Correct',   count: data.correctCount   ?? 0, color: '#10B981' },
+    { label: 'Incorrect', count: data.incorrectCount ?? 0, color: '#EF4444' },
+    { label: 'Skipped',   count: data.skippedCount   ?? 0, color: '#9CA3AF' },
+  ];
 
   return (
-    <div className="p-container-desktop space-y-stack-lg">
-      {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <nav className="flex items-center gap-2 text-on-surface-variant font-label-md text-label-md mb-2">
-            <span>My Exams</span>
-            <span className="material-symbols-outlined text-sm">chevron_right</span>
-            <span className="text-secondary font-semibold">Mock Test #42 Analysis</span>
-          </nav>
-          <h1 className="font-headline-lg text-headline-lg text-primary">Performance Deep-Dive</h1>
-          <p className="text-on-surface-variant font-body-md text-body-md">
-            Advanced Mathematics &amp; Analytical Reasoning — Completed on Oct 24, 2023
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            className="flex items-center gap-2 border border-outline px-4 py-2 rounded-lg font-label-lg text-label-lg text-on-surface hover:bg-surface-container-high transition-colors"
-          >
-            <span className="material-symbols-outlined">download</span>
-            Report
-          </button>
-          <Link
-            to={pathFor('exam')}
-            className="flex items-center gap-2 bg-secondary text-on-secondary px-6 py-2 rounded-lg font-label-lg text-label-lg shadow-md hover:opacity-90 transition-opacity"
-          >
+    <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <TopBar
+        breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Test Analysis' }]}
+        actions={
+          <Link to={pathFor('exam')} className="btn-primary btn-md flex items-center gap-1.5">
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>refresh</span>
             Retake Test
           </Link>
-        </div>
-      </header>
+        }
+      />
 
-      {/* Row 1: Key metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
-        <div className="md:col-span-3 bg-surface-container-lowest p-card rounded-xl border border-outline-variant shadow-sm flex flex-col items-center justify-center text-center">
-          <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest mb-2">
-            Total Score
-          </span>
-          <DonutChart
-            percent={data.totalPct}
-            size={128}
-            strokeWidth={8}
-            strokeColor="text-primary"
-            centerLabel={`${data.totalPct}%`}
-            centerLabelClass="font-headline-lg text-headline-lg text-primary"
-          />
-          <p className="font-label-lg text-label-lg text-on-surface mt-2">
-            {data.totalScore} / {data.totalPossible} Points
-          </p>
-        </div>
-        {analysisMetrics.map((m) => (
-          <div key={m.label} className="md:col-span-3">
-            <MetricCard tile={m} />
-          </div>
-        ))}
-      </div>
-
-      {/* Row 2: Donut + AI insights */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
-        <Card title="Question Breakdown" className="md:col-span-4">
-          <div className="h-64 flex items-center justify-center">
-            <Doughnut data={donutData} options={donutOptions} />
-          </div>
-          <div className="mt-6 grid grid-cols-3 gap-2 text-center">
-            <div>
-              <div className="w-3 h-3 bg-primary rounded-full mx-auto mb-1" />
-              <p className="text-[10px] text-on-surface-variant uppercase">Correct</p>
-              <p className="font-label-lg text-label-lg">{data.correctCount}</p>
-            </div>
-            <div>
-              <div className="w-3 h-3 bg-error rounded-full mx-auto mb-1" />
-              <p className="text-[10px] text-on-surface-variant uppercase">Incorrect</p>
-              <p className="font-label-lg text-label-lg">{data.incorrectCount}</p>
-            </div>
-            <div>
-              <div className="w-3 h-3 bg-surface-container-highest rounded-full mx-auto mb-1" />
-              <p className="text-[10px] text-on-surface-variant uppercase">Skipped</p>
-              <p className="font-label-lg text-label-lg">{data.skippedCount}</p>
-            </div>
-          </div>
-        </Card>
-
-        <AIInsightBanner
-          tone="primary-container"
-          title="AI Strategic Insights"
-          className="md:col-span-8"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-            <InsightPill
-              tone="text-secondary-fixed"
-              icon="trending_up"
-              heading="Strengths"
-              body="Your logic and deduction speed is in the 98th percentile. Complex probability puzzles are a breeze for you."
-              bodyClass="text-primary-fixed"
-            />
-            <InsightPill
-              tone="text-error-container"
-              icon="priority_high"
-              heading="Weaknesses"
-              body="Calculus-based problems took 40% longer than your average. Error rate increases in multi-step equations."
-              bodyClass="text-primary-fixed"
-            />
-            <InsightPill
-              tone="text-tertiary-fixed"
-              icon="auto_fix_high"
-              heading="Focus Areas"
-              bodyClass="text-primary-fixed"
-            >
-              <ul className="text-body-md font-body-md space-y-2 text-primary-fixed">
-                <li className="flex items-start gap-2">
-                  <span className="material-symbols-outlined text-xs mt-1">circle</span>
-                  Integration by Parts
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="material-symbols-outlined text-xs mt-1">circle</span>
-                  Vector Calculus Logic
-                </li>
-              </ul>
-            </InsightPill>
-          </div>
-          <div className="mt-8 flex justify-end">
-            <Link
-              to={pathFor('practice')}
-              className="bg-surface-container-lowest text-primary px-6 py-3 rounded-full font-label-lg text-label-lg flex items-center gap-2 hover:scale-105 transition-transform"
-            >
-              Generate Personalized Study Plan
-              <span className="material-symbols-outlined">arrow_forward</span>
-            </Link>
-          </div>
-        </AIInsightBanner>
-      </div>
-
-      {/* Row 3: Topic + Difficulty */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter">
-        <Card title="Topic Performance Accuracy" className="md:col-span-7">
-          <div className="h-[300px]">
-            <Bar data={barData} options={barOptions} />
-          </div>
-        </Card>
-
-        <Card title="Difficulty Breakdown" className="md:col-span-5">
-          <div className="space-y-8">
-            {data.difficulty.map((d) => {
-              const pct = Math.round((d.solved / d.total) * 100);
-              return (
-                <div key={d.level} className="space-y-2">
-                  <div className="flex justify-between font-label-lg text-label-lg">
-                    <span className="text-on-surface-variant">{d.level} Questions</span>
-                    <span className="text-primary font-bold">{pct}% Correct</span>
-                  </div>
-                  <ProgressBar
-                    percent={pct}
-                    barClass={d.barClass}
-                    trackClass="bg-surface-container-highest"
-                    withLabel={false}
-                  />
-                  <p className="text-body-md text-on-surface-variant text-right">
-                    {d.solved} of {d.total} solved
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      </div>
-
-      {/* Recommended Material */}
-      <section>
-        <h3 className="font-headline-lg text-headline-lg text-primary mb-6">
-          Recommended Material
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <RecommendCard
-            badge="Video Lesson"
-            badgeClass="bg-secondary text-on-secondary"
-            title="Advanced Integration Masterclass"
-            subtitle="Focuses on multi-step variable calculus."
-            imageAlt="tablet with math formulas"
-          />
-          <RecommendCard
-            badge="Practice Set"
-            badgeClass="bg-tertiary-fixed-dim text-on-tertiary-fixed"
-            title="Analytical Logic Puzzles Vol 2."
-            subtitle="150 questions on deductive reasoning."
-            imageAlt="notebook with geometric sketches"
-          />
-          <Link
-            to={pathFor('practice')}
-            className="flex flex-col items-center justify-center border-2 border-dashed border-outline-variant rounded-2xl p-6 bg-surface-container-low hover:bg-surface-container-high transition-colors text-center"
-          >
-            <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-3">
-              add_circle
-            </span>
-            <span className="font-label-lg text-label-lg text-on-surface">
-              Explore All Recommendations
-            </span>
-            <p className="text-[10px] text-on-surface-variant mt-2">
-              Personalized based on Mock #42
+      <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-display-sm font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+              Test Analysis
+            </h1>
+            <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
+              {data.testTitle ?? 'JEE Full Syllabus Mock #3'} · {data.testDate ?? 'Dec 14, 2025'}
             </p>
-          </Link>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="badge badge-success">
+              <span className="material-symbols-outlined filled" style={{ fontSize: '12px' }}>check_circle</span>
+              Submitted
+            </span>
+          </div>
         </div>
-      </section>
+
+        {/* Metric cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          {metrics.map(m => (
+            <div key={m.label} className="card">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: m.bg }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: m.color }}>{m.icon}</span>
+              </div>
+              <div className="text-2xl font-bold font-headline mb-0.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>{m.value}</div>
+              <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{m.label}</div>
+              <div className="text-label-sm mt-0.5" style={{ color: 'var(--text-faint)' }}>{m.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Charts row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Donut */}
+          <Card title="Score Breakdown" subtitle="Correct vs incorrect vs skipped">
+            <DonutChart data={donutData} total={donutTotal} />
+            <div className="grid grid-cols-3 gap-3 mt-5">
+              {donutData.map(d => (
+                <div key={d.label} className="text-center">
+                  <div className="text-xl font-bold font-headline" style={{ color: d.color, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{d.count}</div>
+                  <div className="text-label-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{d.label}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Topic accuracy */}
+          <Card title="Topic-wise Accuracy" subtitle="Breakdown by chapter" className="lg:col-span-2">
+            <div className="space-y-3.5">
+              {(data.topicAccuracy ?? []).map((t: any) => (
+                <div key={t.topic}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-body-md" style={{ color: 'var(--text-primary)' }}>{t.topic}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-label-lg font-semibold" style={{ color: t.pct >= 70 ? '#10B981' : t.pct >= 40 ? '#F59E0B' : '#EF4444' }}>{t.pct}%</span>
+                      <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{t.correct}/{t.total}</span>
+                    </div>
+                  </div>
+                  <div className="progress-bar">
+                    <div
+                      className="progress-bar-fill"
+                      style={{ width: `${t.pct}%`, backgroundColor: t.pct >= 70 ? '#10B981' : t.pct >= 40 ? '#F59E0B' : '#EF4444', transition: 'width 0.7s ease' }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        {/* Difficulty distribution + AI recommendations */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Difficulty breakdown */}
+          <Card title="Difficulty Distribution" subtitle="Performance by question difficulty">
+            <div className="space-y-4">
+              {[
+                { label: 'Easy',   pct: data.easyPct   ?? 82, color: '#10B981', bg: 'rgba(16,185,129,0.10)' },
+                { label: 'Medium', pct: data.mediumPct ?? 65, color: '#F59E0B', bg: 'rgba(245,158,11,0.10)' },
+                { label: 'Hard',   pct: data.hardPct   ?? 41, color: '#EF4444', bg: 'rgba(239,68,68,0.10)'  },
+              ].map(d => (
+                <div key={d.label} className="p-4 rounded-xl" style={{ backgroundColor: d.bg }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-body-md font-semibold" style={{ color: d.color }}>{d.label}</span>
+                    <span className="text-headline-sm font-bold font-headline" style={{ color: d.color, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{d.pct}%</span>
+                  </div>
+                  <div className="progress-bar" style={{ backgroundColor: 'rgba(255,255,255,0.40)' }}>
+                    <div className="progress-bar-fill" style={{ width: `${d.pct}%`, backgroundColor: d.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* AI improvement suggestions */}
+          <Card
+            title="AI Improvement Plan"
+            subtitle="Personalized next steps"
+            action={
+              <Link to="/student/insights" className="text-label-md font-semibold hover:underline" style={{ color: '#5B4FE8' }}>
+                Full insights →
+              </Link>
+            }
+            className="lg:col-span-2"
+          >
+            <div className="ai-panel mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#5B4FE8' }}>auto_awesome</span>
+                <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>AI Analysis Summary</span>
+              </div>
+              <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}>
+                Your performance in Organic Chemistry (48%) and Rotational Motion (52%) needs improvement. Focus on these topics for maximum rank improvement.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { topic: 'Organic Chemistry',  reason: 'Low accuracy on mechanism questions', priority: 'High',   icon: 'science',        color: '#EF4444' },
+                { topic: 'Rotational Motion',  reason: 'Time spent too high per question',    priority: 'High',   icon: 'rotate_right',   color: '#F59E0B' },
+                { topic: 'Differential Calc',  reason: 'Integration shortcuts missing',        priority: 'Medium', icon: 'calculate',      color: '#8B5CF6' },
+                { topic: 'Ionic Equilibrium',  reason: 'Good accuracy but slow speed',         priority: 'Medium', icon: 'science',        color: '#06B6D4' },
+              ].map(item => (
+                <Link
+                  key={item.topic}
+                  to="/student/practice"
+                  className="group flex items-start gap-3 p-3.5 rounded-xl transition-all hover:-translate-y-0.5"
+                  style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}
+                >
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${item.color}15` }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px', color: item.color }}>{item.icon}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-body-md font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>{item.topic}</div>
+                    <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{item.reason}</div>
+                  </div>
+                  <span
+                    className="text-label-sm font-bold shrink-0"
+                    style={{ color: item.priority === 'High' ? '#EF4444' : '#F59E0B' }}
+                  >
+                    {item.priority}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
 
-interface InsightPillProps {
-  tone: string;
-  icon: string;
-  heading: string;
-  body?: string;
-  bodyClass?: string;
-  children?: React.ReactNode;
-}
+// ── Inline DonutChart ────────────────────────────────────────────────────────
+function DonutChart({ data, total }: { data: { label: string; count: number; color: string }[]; total: number }) {
+  const size = 160;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 56;
+  const strokeW = 16;
 
-function InsightPill({ tone, icon, heading, body, bodyClass, children }: InsightPillProps) {
+  let cumulative = 0;
+  const segments = data.map(d => {
+    const pct = total > 0 ? d.count / total : 0;
+    const start = cumulative;
+    cumulative += pct;
+    return { ...d, pct, start };
+  });
+
+  function arc(start: number, end: number) {
+    const startAngle = start * 2 * Math.PI - Math.PI / 2;
+    const endAngle   = end   * 2 * Math.PI - Math.PI / 2;
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+    const large = (end - start) > 0.5 ? 1 : 0;
+    return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
+  }
+
+  const topScore = data[0];
+
   return (
-    <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/10">
-      <div className={`flex items-center gap-2 mb-3 ${tone}`}>
-        <span className="material-symbols-outlined">{icon}</span>
-        <span className="font-label-lg text-label-lg">{heading}</span>
-      </div>
-      {body ? <p className={`text-body-md font-body-md leading-relaxed ${bodyClass ?? ''}`}>{body}</p> : children}
-    </div>
-  );
-}
-
-interface RecommendCardProps {
-  badge: string;
-  badgeClass: string;
-  title: string;
-  subtitle: string;
-  imageAlt: string;
-}
-
-function RecommendCard({ badge, badgeClass, title, subtitle }: RecommendCardProps) {
-  return (
-    <div className="group relative overflow-hidden rounded-2xl bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-all cursor-pointer">
-      <div className="aspect-video w-full bg-surface-container-highest relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent" />
-        <span className={`absolute bottom-3 left-3 ${badgeClass} px-2 py-1 rounded text-[10px] font-bold uppercase`}>
-          {badge}
-        </span>
-      </div>
-      <div className="p-4">
-        <h4 className="font-label-lg text-label-lg text-on-surface group-hover:text-secondary transition-colors">
-          {title}
-        </h4>
-        <p className="text-body-md text-on-surface-variant mt-1">{subtitle}</p>
+    <div className="relative flex items-center justify-center" style={{ height: `${size}px` }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-label="Score donut chart">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth={strokeW} />
+        {segments.map(seg => seg.pct > 0 && (
+          <path
+            key={seg.label}
+            d={arc(seg.start, seg.start + seg.pct)}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth={strokeW}
+            strokeLinecap="round"
+          />
+        ))}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+        <div className="text-xl font-bold font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+          {topScore?.count ?? 0}
+        </div>
+        <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>correct</div>
       </div>
     </div>
   );

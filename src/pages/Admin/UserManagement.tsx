@@ -1,14 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
-import PageHeader from '../../components/PageHeader';
-import MetricCard from '../Student/components/MetricCard';
-import ProgressBar from '../Student/components/ProgressBar';
+import TopBar from '../../components/TopBar';
 import { apiRequest } from '../../lib/api';
 import { userMetrics, users } from '../../mocks/portal';
-import { pathFor } from '../../lib/pages';
 
 const TABS = ['All', 'Students', 'Faculty', 'Administrators'] as const;
+
+const ROLE_BADGE: Record<string, { bg: string; color: string }> = {
+  Student:      { bg: 'rgba(91,79,232,0.10)',  color: '#5B4FE8' },
+  Faculty:      { bg: 'rgba(139,92,246,0.10)', color: '#7C3AED' },
+  Admin:        { bg: 'rgba(239,68,68,0.10)',  color: '#DC2626' },
+  Parent:       { bg: 'rgba(16,185,129,0.10)', color: '#059669' },
+};
+const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
+  Active:    { bg: 'rgba(16,185,129,0.10)', color: '#059669' },
+  Inactive:  { bg: 'var(--surface-muted)',  color: 'var(--text-faint)' },
+  Suspended: { bg: 'rgba(239,68,68,0.10)',  color: '#DC2626' },
+};
 
 export default function UserManagement() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('All');
@@ -17,10 +25,10 @@ export default function UserManagement() {
     metrics: userMetrics,
     users,
     aiUsageInsights: [
-      { label: 'Student logins', percent: 86 },
-      { label: 'Faculty activity', percent: 72 },
-      { label: 'Admin operations', percent: 54 },
-      { label: 'Parent check-ins', percent: 41 },
+      { label: 'Student logins',    percent: 86 },
+      { label: 'Faculty activity',  percent: 72 },
+      { label: 'Admin operations',  percent: 54 },
+      { label: 'Parent check-ins',  percent: 41 },
     ],
     recommendation: 'User activity is concentrated in weekday mornings. Schedule maintenance after 02:00 UTC.',
   });
@@ -28,172 +36,199 @@ export default function UserManagement() {
   useEffect(() => {
     let cancelled = false;
     apiRequest('/api/admin/users')
-      .then((payload) => {
-        if (!cancelled) setData(payload);
-      })
+      .then(payload => { if (!cancelled) setData(payload); })
       .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  const filteredUsers = useMemo(() => {
-    return data.users.filter((user: any) => {
-      const matchesTab =
-        tab === 'All' ||
-        (tab === 'Students' && user.role === 'Student') ||
-        (tab === 'Faculty' && user.role === 'Faculty') ||
-        (tab === 'Administrators' && user.role === 'Admin');
-      const matchesSearch =
-        `${user.name} ${user.email} ${user.role} ${user.status}`.toLowerCase().includes(search.toLowerCase());
-      return matchesTab && matchesSearch;
-    });
-  }, [data.users, search, tab]);
+  const filtered = useMemo(() => data.users.filter((user: any) => {
+    const tabMatch = tab === 'All' ||
+      (tab === 'Students' && user.role === 'Student') ||
+      (tab === 'Faculty' && user.role === 'Faculty') ||
+      (tab === 'Administrators' && user.role === 'Admin');
+    const searchMatch = `${user.name} ${user.email} ${user.role} ${user.status}`.toLowerCase().includes(search.toLowerCase());
+    return tabMatch && searchMatch;
+  }), [data.users, tab, search]);
+
+  const metricMeta = [
+    { icon: 'group',           color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+    { icon: 'person_add',      color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+    { icon: 'person_off',      color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
+    { icon: 'co_present',      color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
+  ];
 
   return (
-    <div className="min-h-full bg-surface">
-      <PageHeader
-        title="User Management"
-        subtitle="Search, filter, and oversee platform users."
-        actions={
-          <>
-            <Link
-              to={pathFor('admin')}
-              className="px-4 h-10 inline-flex items-center rounded-lg border border-outline text-on-surface hover:bg-surface-container"
-            >
-              Admin Dashboard
-            </Link>
-            <Link
-              to={pathFor('institutes')}
-              className="px-4 h-10 inline-flex items-center rounded-lg bg-secondary text-on-secondary hover:opacity-90"
-            >
-              Institutes
-            </Link>
-          </>
-        }
+    <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <TopBar
+        breadcrumb={[{ label: 'Admin', href: '/admin' }, { label: 'User Management' }]}
+        showSearch={false}
       />
 
-      <div className="p-container-desktop space-y-stack-lg">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-gutter">
-          {data.metrics.map((tile: any) => (
-            <MetricCard key={tile.label} tile={tile} />
-          ))}
+      <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-display-sm font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+              User Management
+            </h1>
+            <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
+              Manage students, faculty, parents, and administrators across all institutions
+            </p>
+          </div>
+          <button type="button" className="btn-primary btn-md flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>person_add</span>
+            Add User
+          </button>
         </div>
 
-        <Card title="Filters">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-            <label className="md:col-span-5 block">
-              <span className="text-label-md text-on-surface-variant">Search users</span>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Name, email, role, or status"
-                className="mt-2 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 outline-none focus:border-primary"
-              />
-            </label>
-            <div className="md:col-span-7 flex flex-wrap gap-2">
-              {TABS.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setTab(item)}
-                  className={[
-                    'rounded-full px-4 py-2 text-label-lg border transition-colors',
-                    tab === item
-                      ? 'bg-primary text-on-primary border-primary'
-                      : 'border-outline-variant text-on-surface hover:bg-surface-container',
-                  ].join(' ')}
-                >
-                  {item}
-                </button>
+        {/* Metrics */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          {data.metrics.map((m: any, i: number) => {
+            const meta = metricMeta[i] ?? metricMeta[0];
+            return (
+              <div key={m.label} className="card">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: meta.bg }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: meta.color }}>{meta.icon}</span>
+                </div>
+                <div className="text-2xl font-bold font-headline mb-0.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>{m.value}</div>
+                <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{m.label}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Filters + table */}
+        <Card noPad>
+          <div className="p-4 border-b flex flex-col sm:flex-row sm:items-center gap-3" style={{ borderColor: 'var(--border)' }}>
+            {/* Tab pills */}
+            <div className="tab-pills">
+              {TABS.map(t => (
+                <button key={t} type="button" onClick={() => setTab(t)} className={`tab-pill ${tab === t ? 'active' : ''}`}>{t}</button>
               ))}
             </div>
+            {/* Search */}
+            <div className="ml-auto search-bar w-full sm:w-72">
+              <span className="material-symbols-outlined text-[18px] shrink-0">search</span>
+              <input
+                type="search"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search users..."
+                className="flex-1 bg-transparent outline-none text-sm"
+                style={{ color: 'var(--text-primary)' }}
+              />
+            </div>
           </div>
-        </Card>
 
-        <Card title="User Directory">
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="data-table">
               <thead>
-                <tr className="border-b border-outline-variant text-label-md uppercase tracking-widest text-on-surface-variant">
-                  <th className="py-3 pr-4">User</th>
-                  <th className="py-3 pr-4">Role</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4">Last Active</th>
-                  <th className="py-3 pr-4 text-right">Action</th>
+                <tr>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>Institute</th>
+                  <th>Last Active</th>
+                  <th>Status</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user: any) => (
-                  <tr key={user.email} className="border-b border-outline-variant/40 last:border-b-0">
-                    <td className="py-4 pr-4">
-                      <div className="font-label-lg text-label-lg text-on-surface">{user.name}</div>
-                      <div className="text-body-md text-on-surface-variant">{user.email}</div>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <span className="rounded-full bg-secondary-fixed px-3 py-1 text-[11px] font-bold uppercase tracking-widest">
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <span
-                        className={[
-                          'inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-widest',
-                          user.status === 'Active'
-                            ? 'bg-primary-fixed text-on-primary-fixed'
-                            : user.status === 'Pending'
-                              ? 'bg-secondary-fixed text-on-secondary-fixed'
-                              : 'bg-error-container text-on-error-container',
-                        ].join(' ')}
-                      >
-                        <span className="w-2 h-2 rounded-full bg-current" />
-                        {user.status}
-                      </span>
-                    </td>
-                    <td className="py-4 pr-4">{user.lastActive}</td>
-                    <td className="py-4 pr-4 text-right">
-                      <button type="button" className="text-primary font-label-lg hover:underline">
-                        Edit
-                      </button>
+                {filtered.map((user: any) => {
+                  const roleStyle = ROLE_BADGE[user.role] ?? ROLE_BADGE.Student;
+                  const statusStyle = STATUS_BADGE[user.status ?? 'Active'] ?? STATUS_BADGE.Active;
+                  return (
+                    <tr key={user.email ?? user.name}>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                            {user.initials ?? user.name?.slice(0, 2)}
+                          </div>
+                          <div>
+                            <div className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{user.name}</div>
+                            <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{user.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="badge text-label-sm px-2.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: roleStyle.bg, color: roleStyle.color }}>
+                          {user.role}
+                        </span>
+                      </td>
+                      <td><span className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{user.institute ?? '—'}</span></td>
+                      <td><span className="text-body-md" style={{ color: 'var(--text-muted)' }}>{user.lastActive ?? user.lastLogin ?? '—'}</span></td>
+                      <td>
+                        <span className="badge text-label-sm px-2.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: statusStyle.bg, color: statusStyle.color }}>
+                          {user.status ?? 'Active'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-1">
+                          <button type="button" className="icon-btn icon-btn-sm" title="Edit user">
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span>
+                          </button>
+                          <button type="button" className="icon-btn icon-btn-sm" title="More options">
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>more_vert</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="text-center py-10" style={{ color: 'var(--text-faint)' }}>
+                      No users match your search.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
-        </Card>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-gutter">
-          <Card title="AI Usage Insights" className="xl:col-span-7">
-            <div className="space-y-4">
-              {data.aiUsageInsights.map((item: any) => (
-                <ProgressBar
-                  key={item.label}
-                  label={item.label}
-                  trailing={`${item.percent}%`}
-                  percent={item.percent}
-                  barClass={item.label === 'Faculty activity' ? 'bg-secondary' : 'bg-primary'}
-                />
-              ))}
-            </div>
-            <div className="mt-5 rounded-2xl bg-secondary-fixed p-4">
-              <div className="font-label-lg text-label-lg text-secondary">Recommendation</div>
-              <p className="mt-2 text-body-lg text-on-surface">{data.recommendation}</p>
-            </div>
-          </Card>
-
-          <Card title="Quick Actions" className="xl:col-span-5">
-            <div className="space-y-3">
-              {['Broadcast Announcement', 'Reset Global Passwords', 'Export Activity Logs'].map((item) => (
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: 'var(--border)' }}>
+            <span className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{filtered.length} users</span>
+            <div className="flex items-center gap-1">
+              {[1, 2, 3].map(p => (
                 <button
-                  key={item}
+                  key={p}
                   type="button"
-                  className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3 text-left hover:bg-surface-container"
+                  className="w-8 h-8 rounded-md text-sm font-semibold transition-colors"
+                  style={p === 1
+                    ? { backgroundColor: '#5B4FE8', color: '#fff' }
+                    : { color: 'var(--text-muted)' }
+                  }
                 >
-                  <div className="font-label-lg text-label-lg text-on-surface">{item}</div>
-                  <div className="text-body-md text-on-surface-variant">Available to super-admins and institute owners.</div>
+                  {p}
                 </button>
               ))}
+            </div>
+          </div>
+        </Card>
+
+        {/* AI Usage Insights */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <Card title="AI Usage Insights" subtitle="Role-based engagement metrics">
+            <div className="space-y-4">
+              {data.aiUsageInsights.map((item: any) => (
+                <div key={item.label}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-body-md" style={{ color: 'var(--text-primary)' }}>{item.label}</span>
+                    <span className="text-label-lg font-semibold" style={{ color: '#5B4FE8' }}>{item.percent}%</span>
+                  </div>
+                  <div className="progress-bar">
+                    <div className="progress-bar-fill" style={{ width: `${item.percent}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+          <Card title="AI Recommendation" subtitle="Operational insights from PrepMInd AI">
+            <div className="ai-panel">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#5B4FE8' }}>auto_awesome</span>
+                <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>System Insight</span>
+              </div>
+              <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{data.recommendation}</p>
             </div>
           </Card>
         </div>

@@ -14,7 +14,8 @@ export type PageKey =
   | 'questionBank'
   | 'admin'
   | 'users'
-  | 'institutes';
+  | 'institutes'
+  | 'settings';
 
 export type LoginRole = 'student' | 'parent' | 'faculty' | 'admin';
 
@@ -40,6 +41,7 @@ export const pages: PageDef[] = [
   { key: 'admin', label: 'Admin Dashboard', group: 'Admin', path: '/admin' },
   { key: 'users', label: 'User Management', group: 'Admin', path: '/admin/users' },
   { key: 'institutes', label: 'Institute Management', group: 'Admin', path: '/admin/institutes' },
+  { key: 'settings', label: 'Settings', group: 'Main', path: '/settings' },
 ];
 
 export const pageByKey: Record<PageKey, PageDef> = pages.reduce(

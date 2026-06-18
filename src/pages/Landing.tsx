@@ -1,188 +1,503 @@
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { pathFor } from '../lib/pages';
 import { features, stats, testimonials } from '../mocks';
+import { useTheme } from '../lib/theme';
+
+const pricingTiers = [
+  {
+    name: 'Free',
+    price: { monthly: 0, annual: 0 },
+    description: 'Get started with AI-powered prep',
+    features: [
+      '5 mock tests per month',
+      'Basic performance analytics',
+      'Access to 500 questions',
+      'Community leaderboard',
+      'Email support',
+    ],
+    cta: 'Start Free',
+    highlight: false,
+  },
+  {
+    name: 'Pro',
+    price: { monthly: 799, annual: 599 },
+    description: 'Everything you need to crack your exam',
+    features: [
+      'Unlimited mock tests',
+      'AI adaptive study plan',
+      'Full question bank (50,000+)',
+      'Detailed topic analysis',
+      'AI performance insights',
+      'Priority support',
+      'Parent dashboard access',
+    ],
+    cta: 'Start Pro Trial',
+    highlight: true,
+  },
+  {
+    name: 'Enterprise',
+    price: { monthly: null, annual: null },
+    description: 'For coaching institutes & schools',
+    features: [
+      'Everything in Pro',
+      'Batch management',
+      'Faculty dashboard',
+      'Custom question bank',
+      'Institutional analytics',
+      'Dedicated account manager',
+      'SLA & custom integrations',
+    ],
+    cta: 'Contact Sales',
+    highlight: false,
+  },
+];
+
+const faqItems = [
+  { q: 'Which exams does PrepMInd cover?', a: 'PrepMInd currently supports JEE (Main + Advanced), NEET UG, UPSC Prelims, and CAT. More exams are added regularly.' },
+  { q: 'How does the AI adaptive engine work?', a: 'Our AI analyzes every answer you give — time spent, accuracy pattern, error type — and builds a real-time model of your strengths and gaps to recommend exactly what to practice next.' },
+  { q: 'Can I use PrepMInd on mobile?', a: 'Yes. The web app is fully responsive and works on all modern browsers. Dedicated iOS and Android apps are in development.' },
+  { q: 'Is there a free trial for Pro?', a: 'Yes — all new accounts get a 14-day free Pro trial with no credit card required.' },
+];
 
 export default function Landing() {
+  const [billing, setBilling] = useState<'monthly' | 'annual'>('annual');
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const { toggleTheme, isDark } = useTheme();
+
   return (
-    <div className="min-h-screen bg-background text-on-surface">
-      {/* Top bar */}
-      <header className="px-container-desktop py-5 flex items-center justify-between border-b border-outline-variant bg-surface-container-lowest">
-        <Link to={pathFor('landing')} className="flex items-center gap-2 font-extrabold text-lg">
-          <span className="w-9 h-9 rounded-md bg-primary flex items-center justify-center">
-            <span className="material-symbols-outlined text-on-primary">psychology</span>
-          </span>
-          PrepMind AI
+    <div
+      className="min-h-screen"
+      style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: isDark ? '#0F0E17' : '#FFFFFF', color: isDark ? '#F9FAFB' : '#111827' }}
+    >
+      {/* ── Nav ── */}
+      <header
+        className="sticky top-0 z-50 flex items-center justify-between px-6 lg:px-10"
+        style={{
+          height: '64px',
+          backgroundColor: isDark ? 'rgba(15,14,23,0.90)' : 'rgba(255,255,255,0.90)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : '#E5E7EB'}`,
+        }}
+      >
+        <Link to={pathFor('landing')} className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+            <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>psychology</span>
+          </div>
+          <span className="font-headline font-bold text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>PrepMInd</span>
         </Link>
-        <nav className="hidden md:flex items-center gap-6 text-label-lg text-on-surface-variant">
-          <a href="#features" className="hover:text-on-surface">Features</a>
-          <a href="#testimonials" className="hover:text-on-surface">Testimonials</a>
-          <a href="#stats" className="hover:text-on-surface">Stats</a>
+
+        <nav className="hidden lg:flex items-center gap-8 text-sm font-medium" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
+          <a href="#features" className="hover:text-[#5B4FE8] transition-colors">Features</a>
+          <a href="#stats" className="hover:text-[#5B4FE8] transition-colors">Why PrepMInd</a>
+          <a href="#pricing" className="hover:text-[#5B4FE8] transition-colors">Pricing</a>
+          <a href="#faq" className="hover:text-[#5B4FE8] transition-colors">FAQ</a>
         </nav>
+
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+            style={{ backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6', color: isDark ? '#9CA3AF' : '#6B7280' }}
+            aria-label="Toggle theme"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{isDark ? 'light_mode' : 'dark_mode'}</span>
+          </button>
           <Link
             to={pathFor('login')}
-            className="h-10 px-4 inline-flex items-center rounded font-semibold text-label-lg text-on-surface hover:bg-surface-container"
+            className="h-9 px-4 rounded-lg text-sm font-semibold flex items-center transition-colors"
+            style={{ color: isDark ? '#E5E7EB' : '#374151', backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6' }}
           >
-            Sign in
+            Log in
           </Link>
           <Link
             to={pathFor('login')}
-            className="h-10 px-4 inline-flex items-center rounded font-semibold text-label-lg bg-primary text-on-primary hover:bg-primary-container"
+            className="h-9 px-4 rounded-lg text-sm font-semibold flex items-center text-white transition-all hover:-translate-y-px"
+            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
           >
-            Start free trial
+            Start Free Trial
           </Link>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="px-container-desktop py-20 grid lg:grid-cols-2 gap-12 items-center">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary-container/15 text-secondary text-label-md font-semibold mb-6">
-            <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
-            AI-POWERED LEARNING
+      {/* ── Hero ── */}
+      <section
+        className="relative overflow-hidden"
+        style={{
+          background: isDark
+            ? 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(91,79,232,0.25) 0%, transparent 70%), #0F0E17'
+            : 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(91,79,232,0.10) 0%, transparent 70%), #FFFFFF',
+          minHeight: '88vh',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        {/* Mesh bg */}
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          <div className="absolute top-20 left-1/4 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: 'radial-gradient(circle, #5B4FE8, transparent)' }} />
+          <div className="absolute bottom-20 right-1/4 w-64 h-64 rounded-full opacity-15 blur-3xl" style={{ background: 'radial-gradient(circle, #8B5CF6, transparent)' }} />
+          <div className="absolute top-1/2 right-10 w-48 h-48 rounded-full opacity-10 blur-2xl" style={{ background: 'radial-gradient(circle, #06B6D4, transparent)' }} />
+        </div>
+
+        <div className="relative w-full max-w-6xl mx-auto px-6 lg:px-10 py-24 text-center">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold mb-8" style={{ background: 'rgba(91,79,232,0.12)', border: '1px solid rgba(91,79,232,0.25)', color: '#5B4FE8' }}>
+            <span className="material-symbols-outlined filled" style={{ fontSize: '14px' }}>auto_awesome</span>
+            Powered by Generative AI
           </div>
-          <h1 className="text-display-lg text-on-surface leading-[64px] tracking-tight">
-            Learn smarter,<br />
-            <span className="text-secondary">not harder.</span>
+
+          <h1
+            className="font-headline font-extrabold leading-tight tracking-tight mb-6"
+            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 'clamp(2.5rem, 6vw, 4.5rem)', letterSpacing: '-0.04em' }}
+          >
+            Crack Any Exam with
+            <br />
+            <span style={{ background: 'linear-gradient(135deg, #5B4FE8, #8B5CF6, #06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+              AI-Powered Intelligence
+            </span>
           </h1>
-          <p className="text-body-lg text-on-surface-variant mt-6 max-w-xl">
-            PrepMind AI builds a personalized study plan for every student, adapts in real time to your strengths and gaps,
-            and gets you exam-ready with predictive analytics.
+
+          <p
+            className="text-lg leading-relaxed mb-10 max-w-2xl mx-auto"
+            style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}
+          >
+            PrepMInd adapts to your unique learning style, identifies knowledge gaps in real-time, and creates a personalized path to your dream rank. Used by 2M+ students across JEE, NEET, UPSC, and CAT.
           </p>
-          <div className="flex flex-wrap items-center gap-3 mt-8">
+
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <Link
               to={pathFor('login')}
-              className="h-12 px-6 inline-flex items-center gap-2 rounded font-semibold text-label-lg bg-primary text-on-primary hover:bg-primary-container"
+              className="h-12 px-7 rounded-xl text-base font-semibold text-white flex items-center gap-2 transition-all hover:-translate-y-0.5"
+              style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 6px 20px rgba(91,79,232,0.40)' }}
             >
-              <span className="material-symbols-outlined text-[18px]">rocket_launch</span>
-              Get started free
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>rocket_launch</span>
+              Start Preparing Free
             </Link>
             <Link
               to={pathFor('login')}
-              className="h-12 px-6 inline-flex items-center gap-2 rounded font-semibold text-label-lg border border-outline text-on-surface hover:bg-surface-container"
+              className="h-12 px-7 rounded-xl text-base font-semibold flex items-center gap-2 transition-all hover:-translate-y-0.5"
+              style={{ backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6', border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`, color: isDark ? '#E5E7EB' : '#374151' }}
             >
-              <span className="material-symbols-outlined text-[18px]">play_circle</span>
-              Explore simulator
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>play_circle</span>
+              Watch Demo
             </Link>
           </div>
-        </div>
-        <div className="relative">
-          <div className="aspect-[4/3] rounded-xl bg-gradient-to-br from-primary to-secondary-container shadow-elev-3 p-8 text-on-primary flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <div className="text-label-md uppercase tracking-widest opacity-80">Live AI Insight</div>
-              <span className="material-symbols-outlined">auto_awesome</span>
-            </div>
-            <div>
-              <div className="text-headline-lg-mobile">Your retention is 87%</div>
-              <div className="text-body-md opacity-80 mt-1">
-                Suggested: 12 questions in Electrostatics · 8 in Optics
+
+          {/* Social proof */}
+          <div className="flex flex-wrap items-center justify-center gap-6 mt-12 text-sm" style={{ color: isDark ? '#6B7280' : '#9CA3AF' }}>
+            <div className="flex items-center gap-2">
+              <div className="flex -space-x-2">
+                {['A', 'R', 'P'].map((l, i) => (
+                  <div key={i} className="w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold text-white"
+                    style={{ borderColor: isDark ? '#0F0E17' : '#fff', background: `hsl(${240 + i * 40}, 70%, 55%)` }}>
+                    {l}
+                  </div>
+                ))}
               </div>
+              <span>2M+ students</span>
             </div>
-            <div className="grid grid-cols-7 gap-1.5">
-              {Array.from({ length: 35 }).map((_, i) => {
-                const tone = (i * 13) % 7;
-                const colors = [
-                  'bg-on-primary/10',
-                  'bg-on-primary/25',
-                  'bg-tertiary-fixed/40',
-                  'bg-tertiary-fixed/65',
-                  'bg-tertiary-fixed/85',
-                  'bg-tertiary-fixed',
-                  'bg-secondary-container',
-                ];
-                return <div key={i} className={`h-4 rounded ${colors[tone]}`} />;
-              })}
+            <div className="flex items-center gap-1.5">
+              {[1,2,3,4,5].map(i => <span key={i} className="material-symbols-outlined filled text-amber-400" style={{ fontSize: '16px' }}>star</span>)}
+              <span>4.9/5 rating</span>
             </div>
+            <span>JEE · NEET · UPSC · CAT</span>
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section id="features" className="px-container-desktop py-20">
-        <div className="max-w-2xl mb-12">
-          <div className="text-label-md uppercase tracking-widest text-secondary font-bold mb-3">Why PrepMind</div>
-          <h2 className="text-headline-lg text-on-surface">Everything you need to go from syllabus to selection.</h2>
-        </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="bg-surface-container-lowest border border-outline-variant rounded-lg p-card shadow-elev-1"
-            >
-              <div className="w-11 h-11 rounded-md bg-primary-fixed text-primary flex items-center justify-center mb-4">
-                <span className="material-symbols-outlined">{f.icon}</span>
-              </div>
-              <h3 className="text-title-lg text-on-surface">{f.title}</h3>
-              <p className="text-body-md text-on-surface-variant mt-2">{f.body}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section id="stats" className="px-container-desktop py-16">
-        <div className="bg-primary text-on-primary rounded-xl p-card grid grid-cols-2 md:grid-cols-4 gap-8">
-          {stats.map((s) => (
+      {/* ── Stats Band ── */}
+      <section
+        id="stats"
+        className="py-6 border-y"
+        style={{ backgroundColor: isDark ? '#1E1D2E' : '#F9FAFB', borderColor: isDark ? '#2D2B42' : '#E5E7EB' }}
+      >
+        <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          {stats.map(s => (
             <div key={s.label}>
-              <div className="text-headline-lg">{s.value}</div>
-              <div className="text-label-md uppercase tracking-widest opacity-80 mt-1">{s.label}</div>
+              <div className="text-2xl font-headline font-bold mb-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#5B4FE8' }}>{s.value}</div>
+              <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: isDark ? '#6B7280' : '#9CA3AF' }}>{s.label}</div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section id="testimonials" className="px-container-desktop py-20">
-        <div className="max-w-2xl mb-12">
-          <div className="text-label-md uppercase tracking-widest text-secondary font-bold mb-3">What people say</div>
-          <h2 className="text-headline-lg text-on-surface">Trusted by students, parents, and faculty.</h2>
+      {/* ── Features ── */}
+      <section id="features" className="py-24 max-w-6xl mx-auto px-6 lg:px-10">
+        <div className="text-center mb-16">
+          <div className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4" style={{ color: '#5B4FE8', backgroundColor: 'rgba(91,79,232,0.10)' }}>
+            Platform Capabilities
+          </div>
+          <h2 className="text-4xl font-headline font-bold mb-4 tracking-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+            Everything you need to reach your dream rank
+          </h2>
+          <p className="text-lg max-w-2xl mx-auto" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
+            From adaptive AI practice to deep analytics — PrepMInd covers every angle of exam preparation.
+          </p>
         </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          {testimonials.map((t) => (
-            <figure
-              key={t.name}
-              className="bg-surface-container-lowest border border-outline-variant rounded-lg p-card shadow-elev-1"
-            >
-              <blockquote className="text-body-lg text-on-surface">"{t.quote}"</blockquote>
-              <figcaption className="flex items-center gap-3 mt-6">
-                <div className="w-10 h-10 rounded-full bg-primary text-on-primary font-bold flex items-center justify-center">
-                  {t.initials}
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {features.map((f, i) => {
+            const iconColors = ['#5B4FE8', '#7C3AED', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6'];
+            const bgColors = ['rgba(91,79,232,0.10)', 'rgba(124,58,237,0.10)', 'rgba(6,182,212,0.10)', 'rgba(16,185,129,0.10)', 'rgba(245,158,11,0.10)', 'rgba(139,92,246,0.10)'];
+            return (
+              <div
+                key={f.title}
+                className="rounded-xl p-6 group transition-all duration-200 hover:-translate-y-1"
+                style={{
+                  backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF',
+                  border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
+                  boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
+                }}
+              >
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
+                  style={{ backgroundColor: bgColors[i % bgColors.length] }}
+                >
+                  <span className="material-symbols-outlined" style={{ color: iconColors[i % iconColors.length], fontSize: '22px' }}>{f.icon}</span>
                 </div>
-                <div>
-                  <div className="text-label-lg text-on-surface">{t.name}</div>
-                  <div className="text-label-md text-on-surface-variant">{t.role}</div>
-                </div>
-              </figcaption>
-            </figure>
-          ))}
+                <h3 className="text-base font-semibold mb-2" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#F9FAFB' : '#111827' }}>{f.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>{f.body}</p>
+              </div>
+            );
+          })}
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="px-container-desktop py-20">
-        <div className="bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-xl p-12 text-center">
-          <h2 className="text-headline-lg">Ready to study smarter?</h2>
-          <p className="text-body-lg opacity-80 mt-3 max-w-2xl mx-auto">
-            Join 1.2 million learners and 420+ institutes using PrepMind AI to unlock their potential.
-          </p>
-          <div className="mt-8">
-            <Link
-              to={pathFor('login')}
-              className="h-12 px-6 inline-flex items-center gap-2 rounded font-semibold text-label-lg bg-secondary text-on-secondary hover:opacity-90"
-            >
-              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-              Start free trial
-            </Link>
+      {/* ── Testimonials ── */}
+      <section
+        id="testimonials"
+        className="py-24"
+        style={{ backgroundColor: isDark ? '#1A1929' : '#F9FAFB' }}
+      >
+        <div className="max-w-6xl mx-auto px-6 lg:px-10">
+          <div className="text-center mb-16">
+            <div className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4" style={{ color: '#10B981', backgroundColor: 'rgba(16,185,129,0.10)' }}>
+              Student Stories
+            </div>
+            <h2 className="text-4xl font-headline font-bold tracking-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+              Trusted by toppers across India
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {testimonials.map(t => (
+              <figure
+                key={t.name}
+                className="rounded-xl p-6 flex flex-col"
+                style={{
+                  backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF',
+                  border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
+                  boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
+                }}
+              >
+                <div className="flex mb-4 gap-0.5">
+                  {[1,2,3,4,5].map(i => <span key={i} className="material-symbols-outlined filled text-amber-400" style={{ fontSize: '16px' }}>star</span>)}
+                </div>
+                <blockquote className="flex-1 text-sm leading-relaxed mb-5" style={{ color: isDark ? '#D1D5DB' : '#374151' }}>
+                  "{t.quote}"
+                </blockquote>
+                <figcaption className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                    {t.initials}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold" style={{ color: isDark ? '#F9FAFB' : '#111827' }}>{t.name}</div>
+                    <div className="text-xs" style={{ color: isDark ? '#6B7280' : '#9CA3AF' }}>{t.role}</div>
+                  </div>
+                </figcaption>
+              </figure>
+            ))}
           </div>
         </div>
       </section>
 
-      <footer className="px-container-desktop py-8 border-t border-outline-variant text-label-md text-on-surface-variant flex flex-col md:flex-row items-center justify-between gap-2">
-        <div>© 2026 PrepMind AI · All rights reserved</div>
-        <div className="flex items-center gap-4">
-          <a href="#" className="hover:text-on-surface">Privacy</a>
-          <a href="#" className="hover:text-on-surface">Terms</a>
-          <a href="#" className="hover:text-on-surface">Contact</a>
+      {/* ── Pricing ── */}
+      <section id="pricing" className="py-24 max-w-6xl mx-auto px-6 lg:px-10">
+        <div className="text-center mb-12">
+          <div className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4" style={{ color: '#5B4FE8', backgroundColor: 'rgba(91,79,232,0.10)' }}>
+            Pricing
+          </div>
+          <h2 className="text-4xl font-headline font-bold tracking-tight mb-4" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+            Simple, transparent pricing
+          </h2>
+          {/* Billing toggle */}
+          <div className="inline-flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6' }}>
+            {(['monthly', 'annual'] as const).map(b => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setBilling(b)}
+                className="px-5 h-8 rounded-md text-sm font-semibold transition-all"
+                style={billing === b ? { backgroundColor: isDark ? '#2D2B42' : '#fff', color: '#5B4FE8', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' } : { color: isDark ? '#6B7280' : '#9CA3AF' }}
+              >
+                {b === 'monthly' ? 'Monthly' : 'Annual (save 25%)'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6 items-stretch">
+          {pricingTiers.map(tier => (
+            <div
+              key={tier.name}
+              className="rounded-2xl p-8 flex flex-col"
+              style={tier.highlight
+                ? { background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', color: '#fff', boxShadow: '0 8px 32px rgba(91,79,232,0.40)' }
+                : { backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF', border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}` }
+              }
+            >
+              <div className="mb-6">
+                <div className="text-sm font-semibold uppercase tracking-widest mb-2" style={{ color: tier.highlight ? 'rgba(255,255,255,0.70)' : '#9CA3AF' }}>
+                  {tier.name}
+                </div>
+                <div className="flex items-end gap-1 mb-2">
+                  {tier.price.monthly === null ? (
+                    <span className="text-4xl font-headline font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Custom</span>
+                  ) : tier.price.monthly === 0 ? (
+                    <span className="text-4xl font-headline font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Free</span>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-headline font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                        ₹{billing === 'monthly' ? tier.price.monthly : tier.price.annual}
+                      </span>
+                      <span className="text-sm mb-2" style={{ color: tier.highlight ? 'rgba(255,255,255,0.60)' : '#9CA3AF' }}>/mo</span>
+                    </>
+                  )}
+                </div>
+                <p className="text-sm" style={{ color: tier.highlight ? 'rgba(255,255,255,0.70)' : isDark ? '#9CA3AF' : '#6B7280' }}>
+                  {tier.description}
+                </p>
+              </div>
+              <ul className="flex-1 space-y-3 mb-8">
+                {tier.features.map(feat => (
+                  <li key={feat} className="flex items-start gap-2.5 text-sm">
+                    <span className="material-symbols-outlined filled mt-0.5" style={{ fontSize: '16px', color: tier.highlight ? '#A5F3FC' : '#10B981', flexShrink: 0 }}>check_circle</span>
+                    <span style={{ color: tier.highlight ? 'rgba(255,255,255,0.85)' : isDark ? '#D1D5DB' : '#374151' }}>{feat}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                to={pathFor('login')}
+                className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center transition-all hover:-translate-y-px"
+                style={tier.highlight
+                  ? { backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', backdropFilter: 'blur(4px)' }
+                  : { backgroundColor: isDark ? '#2D2B42' : '#5B4FE8', color: tier.name === 'Free' ? (isDark ? '#F9FAFB' : '#5B4FE8') : '#fff', border: isDark ? '1px solid #3D3B58' : 'none' }
+                }
+              >
+                {tier.cta}
+              </Link>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section
+        id="faq"
+        className="py-24"
+        style={{ backgroundColor: isDark ? '#1A1929' : '#F9FAFB' }}
+      >
+        <div className="max-w-2xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-headline font-bold tracking-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+              Frequently asked questions
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {faqItems.map((item, i) => (
+              <div
+                key={i}
+                className="rounded-xl overflow-hidden"
+                style={{ backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF', border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}` }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left"
+                >
+                  <span className="text-sm font-semibold" style={{ color: isDark ? '#F9FAFB' : '#111827' }}>{item.q}</span>
+                  <span
+                    className="material-symbols-outlined shrink-0 transition-transform duration-200"
+                    style={{ fontSize: '20px', color: '#5B4FE8', transform: openFaq === i ? 'rotate(180deg)' : 'none' }}
+                  >
+                    expand_more
+                  </span>
+                </button>
+                {openFaq === i && (
+                  <div className="px-5 pb-4 text-sm leading-relaxed" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
+                    {item.a}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Final CTA ── */}
+      <section className="py-24 max-w-4xl mx-auto px-6 text-center">
+        <div
+          className="rounded-3xl p-16"
+          style={{ background: 'linear-gradient(135deg, #5B4FE8 0%, #7C3AED 60%, #06B6D4 100%)', boxShadow: '0 16px 64px rgba(91,79,232,0.40)' }}
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold mb-6" style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff' }}>
+            <span className="material-symbols-outlined filled" style={{ fontSize: '14px' }}>auto_awesome</span>
+            Start your journey today
+          </div>
+          <h2 className="text-4xl font-headline font-extrabold text-white mb-4 tracking-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+            Ready to crack your exam?
+          </h2>
+          <p className="text-lg mb-10 max-w-lg mx-auto" style={{ color: 'rgba(255,255,255,0.75)' }}>
+            Join 2M+ students who are already using AI-powered preparation to reach their dream rank.
+          </p>
+          <Link
+            to={pathFor('login')}
+            className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-base font-semibold text-[#5B4FE8] bg-white transition-all hover:-translate-y-0.5"
+            style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.20)' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>arrow_forward</span>
+            Get Started Free
+          </Link>
+        </div>
+      </section>
+
+      {/* ── Footer ── */}
+      <footer
+        className="py-10 px-6 lg:px-10"
+        style={{ backgroundColor: isDark ? '#0F0E17' : '#111827', borderTop: `1px solid ${isDark ? '#1E1D2E' : '#1F2937'}` }}
+      >
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-10">
+            <div className="col-span-2">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                  <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>psychology</span>
+                </div>
+                <span className="font-headline font-bold text-white text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>PrepMInd</span>
+              </div>
+              <p className="text-sm leading-relaxed mb-4" style={{ color: '#9CA3AF' }}>
+                AI-powered exam preparation platform for JEE, NEET, UPSC, and CAT.
+              </p>
+            </div>
+            {[
+              { title: 'Product', links: ['Features', 'Pricing', 'Question Bank', 'Mock Tests', 'AI Insights'] },
+              { title: 'Company', links: ['About', 'Blog', 'Careers', 'Contact'] },
+              { title: 'Legal', links: ['Privacy Policy', 'Terms of Service', 'Refund Policy'] },
+            ].map(col => (
+              <div key={col.title}>
+                <h4 className="text-sm font-semibold text-white mb-3">{col.title}</h4>
+                <ul className="space-y-2">
+                  {col.links.map(l => (
+                    <li key={l}><a href="#" className="text-sm transition-colors hover:text-white" style={{ color: '#9CA3AF' }}>{l}</a></li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6" style={{ borderTop: '1px solid #1F2937' }}>
+            <p className="text-xs" style={{ color: '#6B7280' }}>© 2026 PrepMInd. All rights reserved.</p>
+            <p className="text-xs" style={{ color: '#6B7280' }}>Made with ♥ for students across India</p>
+          </div>
         </div>
       </footer>
     </div>

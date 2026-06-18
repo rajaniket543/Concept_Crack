@@ -1,6 +1,13 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { PageKey, pathFor } from '../lib/pages';
 import { logout } from '../lib/auth';
+import { useTheme } from '../lib/theme';
+import { useState } from 'react';
+
+interface NavSection {
+  label?: string;
+  items: NavItem[];
+}
 
 interface NavItem {
   key: PageKey;
@@ -10,21 +17,32 @@ interface NavItem {
 
 interface LayoutProps {
   brand: string;
-  nav: NavItem[];
-  /**
-   * 'default' = deep-blue sidebar with nav.
-   * 'focus'  = no sidebar, full-bleed main area (used by the exam screen).
-   */
+  role?: 'student' | 'faculty' | 'parent' | 'admin';
+  nav: NavItem[] | NavSection[];
   variant?: 'default' | 'focus';
 }
 
-export default function Layout({ brand, nav, variant = 'default' }: LayoutProps) {
+function isNavSection(x: NavItem | NavSection): x is NavSection {
+  return 'items' in x;
+}
+
+export default function Layout({ brand, role = 'student', nav, variant = 'default' }: LayoutProps) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { theme, toggleTheme, isDark } = useTheme();
+  const [collapsed, setCollapsed] = useState(false);
+
+  const roleAccent: Record<string, string> = {
+    student: '#5B4FE8',
+    faculty: '#8B5CF6',
+    parent:  '#10B981',
+    admin:   '#EF4444',
+  };
+  const accent = roleAccent[role] ?? '#5B4FE8';
 
   if (variant === 'focus') {
     return (
-      <div className="min-h-screen flex flex-col bg-background text-on-surface">
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
         <main className="flex-1 min-w-0">
           <Outlet />
         </main>
@@ -32,61 +50,142 @@ export default function Layout({ brand, nav, variant = 'default' }: LayoutProps)
     );
   }
 
+  // Normalize nav to sections
+  const sections: NavSection[] = nav.every(isNavSection)
+    ? (nav as NavSection[])
+    : [{ items: nav as NavItem[] }];
+
+  const sidebarWidth = collapsed ? '60px' : '260px';
+
+  function renderNavItem(item: NavItem) {
+    const target = pathFor(item.key);
+    const active = pathname === target || pathname.startsWith(target + '/');
+    return (
+      <Link
+        key={item.key}
+        to={target}
+        title={collapsed ? item.label : undefined}
+        className={`sidebar-item ${active ? 'active' : ''}`}
+        style={active ? { backgroundColor: accent } : undefined}
+      >
+        <span className="material-symbols-outlined item-icon">{item.icon}</span>
+        {!collapsed && <span className="truncate text-sm">{item.label}</span>}
+      </Link>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex bg-background text-on-surface">
-      <aside className="w-64 shrink-0 bg-primary text-on-primary flex flex-col">
-        <div className="px-6 py-6 flex items-center gap-3 border-b border-white/10">
-          <div className="w-9 h-9 rounded-md bg-secondary-container flex items-center justify-center">
-            <span className="material-symbols-outlined text-on-primary-container">psychology</span>
+    <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg)' }}>
+      {/* Sidebar */}
+      <aside
+        className="shrink-0 flex flex-col h-screen sticky top-0 overflow-y-auto transition-all duration-200"
+        style={{
+          width: sidebarWidth,
+          backgroundColor: 'var(--sidebar-bg)',
+          borderRight: '1px solid var(--sidebar-border)',
+          zIndex: 40,
+        }}
+      >
+        {/* Logo */}
+        <div
+          className="flex items-center gap-3 px-4 shrink-0"
+          style={{ height: '64px', borderBottom: '1px solid var(--sidebar-border)' }}
+        >
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+          >
+            <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>psychology</span>
           </div>
-          <div>
-            <div className="font-extrabold tracking-tight">PrepMind AI</div>
-            <div className="text-[11px] uppercase tracking-widest text-on-primary-container/80">{brand}</div>
-          </div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <div className="font-headline font-bold text-white text-sm tracking-tight truncate">PrepMInd</div>
+              <div className="text-[10px] uppercase tracking-widest truncate" style={{ color: 'var(--sidebar-text-muted)' }}>{brand}</div>
+            </div>
+          )}
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(true)}
+              className="ml-auto w-6 h-6 flex items-center justify-center rounded transition-colors"
+              style={{ color: 'var(--sidebar-text-muted)' }}
+              title="Collapse sidebar"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_left</span>
+            </button>
+          )}
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {nav.map((item) => {
-            const target = pathFor(item.key);
-            const active = pathname === target;
-            return (
-              <Link
-                key={item.key}
-                to={target}
-                className={[
-                  'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold',
-                  active ? 'bg-white/15 text-on-primary' : 'text-on-primary/80 hover:bg-white/10',
-                ].join(' ')}
-              >
-                <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                {item.label}
-              </Link>
-            );
-          })}
+
+        {/* Collapsed expand button */}
+        {collapsed && (
+          <button
+            type="button"
+            onClick={() => setCollapsed(false)}
+            className="mx-auto mt-3 w-8 h-8 flex items-center justify-center rounded-md transition-colors"
+            style={{ color: 'var(--sidebar-text-muted)', backgroundColor: 'var(--sidebar-hover)' }}
+            title="Expand sidebar"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_right</span>
+          </button>
+        )}
+
+        {/* Navigation */}
+        <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-0.5">
+          {sections.map((section, si) => (
+            <div key={si}>
+              {section.label && !collapsed && (
+                <div
+                  className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-widest font-semibold"
+                  style={{ color: 'var(--sidebar-text-muted)' }}
+                >
+                  {section.label}
+                </div>
+              )}
+              {section.items.map(renderNavItem)}
+            </div>
+          ))}
         </nav>
-        <div className="px-3 py-4 border-t border-white/10 space-y-1">
+
+        {/* Footer */}
+        <div
+          className="px-2 py-3 space-y-0.5 shrink-0"
+          style={{ borderTop: '1px solid var(--sidebar-border)' }}
+        >
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={collapsed ? (isDark ? 'Light mode' : 'Dark mode') : undefined}
+            className="sidebar-item w-full"
+          >
+            <span className="material-symbols-outlined item-icon">
+              {isDark ? 'light_mode' : 'dark_mode'}
+            </span>
+            {!collapsed && <span className="text-sm">{isDark ? 'Light mode' : 'Dark mode'}</span>}
+          </button>
           <Link
             to={pathFor('landing')}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold text-on-primary/80 hover:bg-white/10"
+            title={collapsed ? 'Home' : undefined}
+            className="sidebar-item"
           >
-            <span className="material-symbols-outlined text-[20px]">home</span>
-            Home
+            <span className="material-symbols-outlined item-icon">home</span>
+            {!collapsed && <span className="text-sm">Home</span>}
           </Link>
           <button
             type="button"
-            onClick={async () => {
-              await logout();
-              navigate(pathFor('login'));
-            }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold text-on-primary/80 hover:bg-white/10"
+            title={collapsed ? 'Sign out' : undefined}
+            onClick={async () => { await logout(); navigate(pathFor('login')); }}
+            className="sidebar-item w-full"
           >
-            <span className="material-symbols-outlined text-[20px]">logout</span>
-            Sign out
+            <span className="material-symbols-outlined item-icon">logout</span>
+            {!collapsed && <span className="text-sm">Sign out</span>}
           </button>
         </div>
       </aside>
-      <main className="flex-1 min-w-0">
+
+      {/* Main */}
+      <div className="flex-1 min-w-0 flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
         <Outlet />
-      </main>
+      </div>
     </div>
   );
 }

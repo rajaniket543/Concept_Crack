@@ -1,262 +1,216 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import PodiumCard from './components/PodiumCard';
-import RankTable from './components/RankTable';
+import TopBar from '../../components/TopBar';
+import Card from '../../components/Card';
 import { leaderboard } from '../../mocks/student';
-import { pathFor } from '../../lib/pages';
 import { apiRequest } from '../../lib/api';
 
-type Comparison = 'Global Rank' | 'Peer Comparison';
 type Period = 'Daily' | 'Weekly' | 'Monthly';
-type Subject = 'Physics' | 'Mathematics' | 'AI & Ethics';
+
+const PODIUM_COLORS = ['#F59E0B', '#9CA3AF', '#CD7F32'];
+const PODIUM_HEIGHT = ['h-28', 'h-20', 'h-16'];
+const MEDAL_ICONS = ['emoji_events', 'workspace_premium', 'military_tech'];
 
 export default function LeaderboardRankings() {
-  const [comparison, setComparison] = useState<Comparison>('Global Rank');
-  const [batchPeriod, setBatchPeriod] = useState<Period>('Weekly');
-  const [subjectName, setSubjectName] = useState<Subject>('AI & Ethics');
-  const [data, setData] = useState(leaderboard);
+  const [period, setPeriod] = useState<Period>('Weekly');
+  const [data, setData] = useState<any>(leaderboard);
 
   useEffect(() => {
-    void apiRequest<typeof leaderboard>('/api/student/leaderboard')
+    void apiRequest<any>('/api/student/leaderboard')
       .then(setData)
       .catch(() => setData(leaderboard));
   }, []);
 
-  return (
-    <div className="p-gutter md:p-container-desktop space-y-stack-lg">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="font-headline-lg text-headline-lg text-primary mb-2">Academic Standings</h1>
-          <p className="text-body-lg text-on-surface-variant max-w-xl">
-            Track your progress against the global community. Real-time data powered by PrepMind AI
-            analysis.
-          </p>
-        </div>
-        <div className="inline-flex bg-surface-container-low p-1 rounded-full border border-outline-variant">
-          {(['Global Rank', 'Peer Comparison'] as Comparison[]).map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setComparison(c)}
-              className={[
-                'px-6 py-2 text-label-lg font-label-lg rounded-full transition-colors',
-                comparison === c
-                  ? 'bg-white shadow-sm text-primary'
-                  : 'text-on-surface-variant hover:text-primary',
-              ].join(' ')}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      </div>
+  const top3 = [data.topStudents?.[1], data.topStudents?.[0], data.topStudents?.[2]].filter(Boolean);
+  const rest = data.topStudents?.slice(3) ?? [];
 
-      {/* Podium + Your Performance */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
-        <div className="lg:col-span-8 bg-white border border-outline-variant rounded-xl p-card flex flex-col justify-between overflow-hidden relative">
-          <div className="absolute top-0 left-0 w-full h-1/2 podium-gradient pointer-events-none" />
-          <div className="relative z-10 flex justify-between items-start mb-8">
-            <h2 className="font-title-lg text-title-lg text-on-surface">Overall Rank — Top 3</h2>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="px-4 py-1 bg-surface-container text-label-md font-label-md rounded-lg text-on-surface-variant border border-outline-variant/50"
-              >
-                Weekly
-              </button>
-              <span className="material-symbols-outlined text-on-surface-variant">
-                filter_list
-              </span>
-            </div>
+  return (
+    <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <TopBar breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Leaderboard' }]} />
+
+      <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-display-sm font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+              Leaderboard
+            </h1>
+            <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
+              Real-time rankings across your batch, institution, and nationally
+            </p>
           </div>
-          <div className="relative z-10 flex items-end justify-center gap-4 md:gap-12 pt-12 pb-4">
-            {data.podium.map((p) => (
-              <PodiumCard key={p.rank} entry={p} />
+          <div className="tab-pills">
+            {(['Daily', 'Weekly', 'Monthly'] as Period[]).map(p => (
+              <button key={p} type="button" onClick={() => setPeriod(p)} className={`tab-pill ${period === p ? 'active' : ''}`}>{p}</button>
             ))}
           </div>
         </div>
 
-        <div className="lg:col-span-4 bg-primary-container text-on-primary rounded-xl p-card flex flex-col shadow-lg border border-primary-container/20">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="font-title-lg text-title-lg">Your Performance</h2>
-            <span className="material-symbols-outlined opacity-60">trending_up</span>
-          </div>
-          <div className="flex-1 flex flex-col justify-center">
-            <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-[56px] font-bold leading-none">
-                {data.userPerformance.rank}
-              </span>
-              <span className="text-on-primary-container font-label-lg">
-                / {data.userPerformance.outOf.toLocaleString()}
-              </span>
-            </div>
-            <p className="text-body-lg text-on-primary-container mb-8">
-              {data.userPerformance.percentile}
-            </p>
-            <div className="space-y-4">
-              <div className="bg-white/10 rounded-xl p-4 border border-white/10">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-label-md opacity-80">Subject Mastery</span>
-                  <span className="text-label-md font-bold">
-                    {data.userPerformance.masteryPct}%
-                  </span>
+        {/* Your rank summary */}
+        <div
+          className="rounded-xl p-5"
+          style={{ background: 'linear-gradient(135deg, rgba(91,79,232,0.08), rgba(124,58,237,0.05))', border: '1px solid rgba(91,79,232,0.20)', borderLeft: '3px solid #5B4FE8' }}
+        >
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+            {[
+              { label: 'Your Rank',      value: `#${data.myRank ?? 247}`,      color: '#5B4FE8', icon: 'person' },
+              { label: 'Batch Rank',     value: `#${data.batchRank ?? 12}`,    color: '#10B981', icon: 'group' },
+              { label: 'Percentile',     value: `${data.percentile ?? 94}th`,  color: '#F59E0B', icon: 'trending_up' },
+              { label: 'Points',         value: `${data.points ?? 8420}`,      color: '#8B5CF6', icon: 'stars' },
+            ].map(item => (
+              <div key={item.label} className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${item.color}15` }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: item.color }}>{item.icon}</span>
                 </div>
-                <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-tertiary-fixed"
-                    style={{ width: `${data.userPerformance.masteryPct}%` }}
-                  />
+                <div>
+                  <div className="text-xl font-bold font-headline" style={{ color: item.color, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{item.value}</div>
+                  <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{item.label}</div>
                 </div>
               </div>
-              <div className="bg-white/10 rounded-xl p-4 border border-white/10">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-label-md opacity-80">Daily Streak</span>
-                  <span className="text-label-md font-bold">
-                    {data.userPerformance.streakDays} Days
-                  </span>
-                </div>
-                <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-secondary-fixed-dim"
-                    style={{
-                      width: `${Math.min(100, (data.userPerformance.streakDays / 30) * 100)}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
-          <Link
-            to={pathFor('analysis')}
-            className="mt-8 w-full py-3 bg-white text-primary font-label-lg text-label-lg rounded-xl hover:bg-surface-container transition-colors active:scale-95 duration-200 inline-flex items-center justify-center"
+        </div>
+
+        {/* Main content: podium + table */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Podium */}
+          <Card title="Top 3 — This Period" subtitle={`${period} leaderboard`}>
+            <div className="flex items-end justify-center gap-3 mt-4 mb-6">
+              {top3.map((student: any, idx) => {
+                const podiumOrder = [1, 0, 2]; // 2nd, 1st, 3rd
+                const rank = podiumOrder[idx] + 1;
+                const colorIdx = rank - 1;
+                return (
+                  <div key={student?.name ?? idx} className="flex flex-col items-center gap-2">
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white`}
+                      style={{ background: `linear-gradient(135deg, ${PODIUM_COLORS[colorIdx]}cc, ${PODIUM_COLORS[colorIdx]})` }}
+                    >
+                      {student?.initials ?? student?.name?.slice(0, 2)}
+                    </div>
+                    <div className="text-xs text-center">
+                      <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{student?.name?.split(' ')[0]}</div>
+                      <div style={{ color: PODIUM_COLORS[colorIdx] }}>{student?.score ?? student?.points}pts</div>
+                    </div>
+                    <div
+                      className={`w-16 ${PODIUM_HEIGHT[rank - 1]} rounded-t-lg flex items-end justify-center pb-2`}
+                      style={{ backgroundColor: `${PODIUM_COLORS[colorIdx]}20`, border: `1px solid ${PODIUM_COLORS[colorIdx]}40` }}
+                    >
+                      <span className="material-symbols-outlined filled" style={{ fontSize: '20px', color: PODIUM_COLORS[colorIdx] }}>
+                        {MEDAL_ICONS[rank - 1]}
+                      </span>
+                    </div>
+                    <div
+                      className="w-16 h-6 rounded-b-lg flex items-center justify-center text-xs font-bold text-white"
+                      style={{ backgroundColor: PODIUM_COLORS[colorIdx] }}
+                    >
+                      #{rank}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Subject breakdown */}
+            <div className="space-y-2">
+              <p className="text-label-sm font-semibold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Top subjects</p>
+              {['Physics', 'Chemistry', 'Mathematics'].map((s, i) => {
+                const colors = ['#5B4FE8', '#8B5CF6', '#10B981'];
+                const scores = [82, 76, 88];
+                return (
+                  <div key={s} className="flex items-center gap-3">
+                    <span className="text-body-sm w-24" style={{ color: 'var(--text-secondary)' }}>{s}</span>
+                    <div className="flex-1 progress-bar">
+                      <div className="progress-bar-fill" style={{ width: `${scores[i]}%`, backgroundColor: colors[i] }} />
+                    </div>
+                    <span className="text-label-sm font-semibold w-10 text-right" style={{ color: colors[i] }}>{scores[i]}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+
+          {/* Full rank table */}
+          <Card
+            title="Batch Rankings"
+            subtitle={`Top performers this ${period.toLowerCase()}`}
+            action={<span className="badge badge-brand">{data.topStudents?.length ?? 0} students</span>}
+            className="lg:col-span-2"
+            noPad
           >
-            View Detailed Insights
-          </Link>
-        </div>
-      </div>
-
-      {/* Two Rank Tables */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-gutter">
-        <div>
-          <div className="flex items-center justify-end mb-2">
-            <select
-              value={batchPeriod}
-              onChange={(e) => setBatchPeriod(e.target.value as Period)}
-              className="bg-surface-container-low border-outline-variant rounded-lg text-label-md font-label-md py-1 px-3"
-            >
-              <option>Daily</option>
-              <option>Weekly</option>
-              <option>Monthly</option>
-            </select>
-          </div>
-          <RankTable
-            title="Batch Rank"
-            subtitle="Section A-12 · Engineering Finals"
-            rows={data.batch}
-            variant="points"
-          />
-          <div className="mt-2 text-center">
-            <button
-              type="button"
-              className="text-primary font-label-lg text-label-lg hover:underline transition-all"
-            >
-              View All Batch Members
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-end mb-2">
-            <select
-              value={subjectName}
-              onChange={(e) => setSubjectName(e.target.value as Subject)}
-              className="bg-surface-container-low border-outline-variant rounded-lg text-label-md font-label-md py-1 px-3"
-            >
-              <option>Physics</option>
-              <option>Mathematics</option>
-              <option>AI &amp; Ethics</option>
-            </select>
-          </div>
-          <RankTable
-            title="Subject Rank"
-            subtitle={`Comparing Performance in ${subjectName}`}
-            rows={data.subject}
-            variant="accuracy"
-          />
-          <div className="mt-2 text-center">
-            <button
-              type="button"
-              className="text-primary font-label-lg text-label-lg hover:underline transition-all"
-            >
-              Explore Other Subjects
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Motivational AI Insights Card */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter items-center bg-gradient-to-br from-primary to-primary-container rounded-3xl p-8 md:p-12 text-white relative overflow-hidden">
-        <div className="absolute -right-20 -top-20 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
-        <div className="absolute left-1/4 bottom-0 w-60 h-60 bg-secondary/10 rounded-full blur-2xl" />
-        <div className="md:col-span-7 relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-full mb-6 border border-white/20">
-            <span className="material-symbols-outlined text-[20px] text-tertiary-fixed">
-              auto_awesome
-            </span>
-            <span className="text-label-md font-bold tracking-wide uppercase">
-              AI Motivation Engine
-            </span>
-          </div>
-          <h2 className="font-headline-lg md:text-display-lg text-headline-lg-mobile leading-tight mb-6">
-            {data.motivation.headline}
-          </h2>
-          <p className="text-body-lg text-white/80 mb-8 max-w-lg">
-            {data.motivation.body}
-          </p>
-          <div className="flex flex-wrap gap-4">
-            <Link
-              to={pathFor('practice')}
-              className="px-8 py-3 bg-tertiary-fixed text-primary font-bold rounded-xl hover:shadow-lg hover:shadow-tertiary-fixed/20 transition-all active:scale-95"
-            >
-              Start Boost Session
-            </Link>
-            <Link
-              to={pathFor('insights')}
-              className="px-8 py-3 bg-white/10 border border-white/20 text-white font-bold rounded-xl hover:bg-white/20 transition-all"
-            >
-              View Roadmap
-            </Link>
-          </div>
-        </div>
-        <div className="md:col-span-5 relative z-10 flex justify-center items-center h-full">
-          <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl border border-white/20 shadow-2xl animate-float">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-secondary flex items-center justify-center rounded-xl">
-                <span className="material-symbols-outlined text-white">psychology</span>
-              </div>
-              <div>
-                <h4 className="font-bold text-on-surface">Skill Projection</h4>
-                <p className="text-label-md text-on-surface-variant">AI-Enhanced Forecast</p>
-              </div>
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Student</th>
+                    <th>Score</th>
+                    <th>Accuracy</th>
+                    <th>Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.topStudents?.map((student: any, i: number) => {
+                    const isMe = student.isCurrentUser;
+                    const rankChange = student.rankChange ?? (Math.random() > 0.5 ? Math.ceil(Math.random() * 5) : -Math.ceil(Math.random() * 3));
+                    return (
+                      <tr
+                        key={student.name}
+                        style={isMe ? { backgroundColor: 'rgba(91,79,232,0.06)' } : undefined}
+                      >
+                        <td>
+                          <div className="flex items-center gap-2">
+                            {i < 3 ? (
+                              <span className="material-symbols-outlined filled" style={{ fontSize: '18px', color: PODIUM_COLORS[i] }}>{MEDAL_ICONS[i]}</span>
+                            ) : (
+                              <span className="text-body-md font-semibold w-5 text-center" style={{ color: 'var(--text-muted)' }}>#{i + 1}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                              style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                            >
+                              {student.initials ?? student.name?.slice(0, 2)}
+                            </div>
+                            <div>
+                              <div className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>
+                                {student.name}
+                                {isMe && <span className="ml-1.5 badge badge-brand" style={{ fontSize: '9px' }}>You</span>}
+                              </div>
+                              <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{student.institute ?? 'Batch A'}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>
+                            {student.score ?? student.points}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="text-body-md" style={{ color: 'var(--text-secondary)' }}>
+                            {student.accuracy ?? student.accuracyPct ?? 75}%
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className="inline-flex items-center gap-0.5 text-label-md"
+                            style={{ color: rankChange > 0 ? '#10B981' : rankChange < 0 ? '#EF4444' : '#9CA3AF' }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
+                              {rankChange > 0 ? 'arrow_upward' : rankChange < 0 ? 'arrow_downward' : 'remove'}
+                            </span>
+                            {rankChange !== 0 ? Math.abs(rankChange) : '—'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div className="space-y-6">
-              <div>
-                <div className="flex justify-between text-on-surface text-label-md mb-2">
-                  <span>Logic Reasoning</span>
-                  <span>+14% Weekly</span>
-                </div>
-                <div className="h-2 w-48 bg-black/5 rounded-full">
-                  <div className="h-full bg-secondary rounded-full w-[82%]" />
-                </div>
-              </div>
-              <div className="bg-primary/5 p-4 rounded-lg">
-                <p className="text-label-md text-primary font-bold italic">
-                  "Consistency is your greatest edge, David. Keep the streak alive!"
-                </p>
-              </div>
-            </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>

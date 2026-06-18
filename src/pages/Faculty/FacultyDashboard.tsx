@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
-import PageHeader from '../../components/PageHeader';
-import MetricCard from '../Student/components/MetricCard';
-import ProgressBar from '../Student/components/ProgressBar';
+import TopBar from '../../components/TopBar';
 import { apiRequest } from '../../lib/api';
 import { facultyAlerts, facultyMetrics, facultyStudents, facultyTrend } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
@@ -23,167 +21,214 @@ export default function FacultyDashboard() {
   useEffect(() => {
     let cancelled = false;
     apiRequest('/api/faculty/dashboard')
-      .then((payload) => {
-        if (!cancelled) setData(payload);
-      })
+      .then(payload => { if (!cancelled) setData(payload); })
       .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
+  const metricMeta = [
+    { icon: 'group',        color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+    { icon: 'trending_up',  color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+    { icon: 'quiz',         color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+    { icon: 'star',         color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
+  ];
+
   return (
-    <div className="min-h-full bg-surface">
-      <PageHeader
-        title="Academic Overview"
-        subtitle="Advanced CS - 2024 (Section A)"
+    <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <TopBar
+        breadcrumb={[{ label: 'Faculty Dashboard' }]}
         actions={
-          <>
-            <Link
-              to={pathFor('questionBank')}
-              className="px-4 h-10 inline-flex items-center rounded-lg border border-outline text-on-surface hover:bg-surface-container"
-            >
-              Question Bank
-            </Link>
-            <Link
-              to={pathFor('admin')}
-              className="px-4 h-10 inline-flex items-center rounded-lg bg-secondary text-on-secondary hover:opacity-90"
-            >
-              Admin View
-            </Link>
-          </>
+          <Link
+            to={pathFor('questionBank')}
+            className="btn-primary btn-md flex items-center gap-1.5"
+            style={{ background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>library_books</span>
+            Question Bank
+          </Link>
         }
       />
 
-      <div className="p-container-desktop space-y-stack-lg">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-gutter">
-          {data.metrics.map((tile: any) => (
-            <MetricCard key={tile.label} tile={tile} />
-          ))}
+      <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">
+        <div>
+          <h1 className="text-display-sm font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+            Academic Overview
+          </h1>
+          <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>Advanced CS — 2024 · Section A · Batch performance and student insights</p>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-gutter">
-          <Card title="Batch Performance Trend" className="xl:col-span-8">
-            <div className="h-72 flex items-end gap-4">
-              {data.trend.map((point: any) => (
-                <div key={point.label} className="flex-1 flex flex-col items-center gap-3">
-                  <div className="w-full rounded-t-xl bg-primary/10 flex items-end h-56">
-                    <div
-                      className="w-full rounded-t-xl bg-secondary"
-                      style={{ height: `${point.percent}%` }}
-                    />
+        {/* Metrics */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          {data.metrics.map((m: any, i: number) => {
+            const meta = metricMeta[i] ?? metricMeta[0];
+            return (
+              <div key={m.label} className="card">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: meta.bg }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: meta.color }}>{meta.icon}</span>
+                </div>
+                <div className="text-2xl font-bold font-headline mb-0.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>{m.value}</div>
+                <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{m.label}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Charts row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Batch trend */}
+          <Card title="Batch Performance Trend" subtitle="Average score over last 8 weeks" className="lg:col-span-2">
+            <BatchTrendChart data={data.trend} />
+          </Card>
+
+          {/* Curriculum gap */}
+          <Card title="AI Curriculum Gap Alert" subtitle="Topics needing immediate attention">
+            <div
+              className="rounded-xl p-4 mb-4"
+              style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.08), rgba(245,158,11,0.06))', border: '1px solid rgba(239,68,68,0.20)', borderLeft: '3px solid #EF4444' }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#EF4444' }}>warning</span>
+                <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Gap Identified</span>
+              </div>
+              <p className="text-body-sm" style={{ color: 'var(--text-secondary)' }}>{data.curriculumGap.headline}</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-label-sm font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-faint)' }}>Focus Areas</p>
+              {data.curriculumGap.focusAreas.map((area: string, i: number) => {
+                const colors = ['#EF4444', '#F59E0B', '#8B5CF6'];
+                return (
+                  <div key={area} className="flex items-center gap-3 p-3 rounded-lg" style={{ backgroundColor: 'var(--surface-muted)' }}>
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
+                    <span className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{area}</span>
+                    <Link to={pathFor('questionBank')} className="ml-auto text-label-sm font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Assign →</Link>
                   </div>
-                  <div className="text-label-md font-label-md text-on-surface-variant">{point.label}</div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+
+        {/* Alerts + student table */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Student alerts */}
+          <Card title="Student Alerts" subtitle="Students needing attention" action={<span className="badge badge-danger">{data.alerts?.length ?? 0} alerts</span>}>
+            <div className="space-y-3">
+              {data.alerts?.slice(0, 5).map((alert: any, i: number) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 p-3.5 rounded-xl"
+                  style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}
+                >
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                    {alert.initials ?? (alert.name?.slice(0, 2) ?? 'ST')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-body-md font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{alert.name}</div>
+                    <div className="text-body-sm truncate" style={{ color: 'var(--text-muted)' }}>{alert.message ?? alert.reason ?? 'Performance dip detected'}</div>
+                  </div>
+                  <span
+                    className="text-label-sm font-bold shrink-0"
+                    style={{ color: alert.severity === 'critical' ? '#EF4444' : '#F59E0B' }}
+                  >
+                    {alert.severity === 'critical' ? 'Critical' : 'Warning'}
+                  </span>
                 </div>
               ))}
             </div>
           </Card>
 
-          <Card title="Quick Actions" className="xl:col-span-4">
-            <div className="space-y-3">
-              {[
-                { icon: 'add_circle', label: 'Add Question' },
-                { icon: 'quiz', label: 'Create Test' },
-                { icon: 'notifications_active', label: 'Send Notification' },
-              ].map((action) => (
-                <button
-                  key={action.label}
-                  type="button"
-                  className="w-full flex items-center justify-between rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-3 hover:bg-surface-container"
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-secondary">{action.icon}</span>
-                    <span className="font-label-lg text-label-lg text-on-surface">{action.label}</span>
-                  </span>
-                  <span className="material-symbols-outlined text-on-surface-variant">chevron_right</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-6 rounded-2xl bg-secondary-fixed p-4">
-              <div className="flex items-center gap-2 text-secondary">
-                <span className="material-symbols-outlined">warning</span>
-                <span className="font-label-lg text-label-lg">Intervention Required</span>
-              </div>
-              <div className="mt-4 space-y-3">
-                {data.alerts.map((alert: any) => (
-                  <div key={alert.name} className="rounded-xl bg-white p-3 border border-outline-variant/50">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="font-label-lg text-label-lg text-on-surface">{alert.name}</div>
-                        <div className="text-body-md text-on-surface-variant">{alert.reason}</div>
-                      </div>
-                      <span className="text-[11px] uppercase tracking-widest text-secondary font-bold">
-                        {alert.delta}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* Student performance table */}
+          <Card title="Student Performance" subtitle="Top 10 by latest test score" className="lg:col-span-2" noPad>
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Score</th>
+                    <th>Accuracy</th>
+                    <th>Rank</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.students?.slice(0, 8).map((s: any, i: number) => (
+                    <tr key={s.name ?? i}>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                            {s.initials ?? s.name?.slice(0, 2)}
+                          </div>
+                          <div>
+                            <div className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{s.name}</div>
+                            <div className="text-label-sm" style={{ color: 'var(--text-faint)' }}>Batch A</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <div className="progress-bar w-16">
+                            <div className="progress-bar-fill" style={{ width: `${s.score ?? 75}%`, backgroundColor: '#5B4FE8' }} />
+                          </div>
+                          <span className="text-body-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{s.score ?? 75}%</span>
+                        </div>
+                      </td>
+                      <td><span className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{s.accuracy ?? s.accuracyPct ?? 72}%</span></td>
+                      <td><span className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>#{s.rank ?? (i + 1)}</span></td>
+                      <td>
+                        <span className={`badge ${s.trend === 'up' || i < 3 ? 'badge-success' : i < 6 ? 'badge-warning' : 'badge-danger'}`}>
+                          {s.trend === 'up' || i < 3 ? 'Good' : i < 6 ? 'Average' : 'At Risk'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Card>
         </div>
-
-        <Card title="Student Analytics" action={<span className="text-label-md text-on-surface-variant">Page 1 of 4</span>}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-outline-variant text-label-md uppercase tracking-widest text-on-surface-variant">
-                  <th className="py-3 pr-4">Rank</th>
-                  <th className="py-3 pr-4">Student</th>
-                  <th className="py-3 pr-4 text-right">Accuracy</th>
-                  <th className="py-3 pr-4 text-right">Attendance</th>
-                  <th className="py-3 pr-4 text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.students.map((row: any) => (
-                  <tr key={row.rank} className="border-b border-outline-variant/40 last:border-b-0">
-                    <td className="py-4 pr-4 font-bold text-primary">{row.rank}</td>
-                    <td className="py-4 pr-4 font-label-lg text-label-lg text-on-surface">{row.name}</td>
-                    <td className="py-4 pr-4 text-right">{row.accuracy}</td>
-                    <td className="py-4 pr-4 text-right">{row.attendance}</td>
-                    <td className="py-4 pr-4 text-right text-secondary">{row.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-
-        <Card title="Curriculum Gap">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-            <div className="md:col-span-8">
-              <div className="text-body-lg text-on-surface-variant">
-                {data.curriculumGap.headline} The AI engine suggests a targeted revision block and two follow-up tests this week.
-              </div>
-              <div className="mt-4 space-y-3">
-                {[
-                  ['Algebra', 86],
-                  ['Complexity', 64],
-                  ['Probability', 91],
-                ].map(([label, value]) => (
-                  <ProgressBar
-                    key={label}
-                    label={label as string}
-                    trailing={`${value}%`}
-                    percent={value as number}
-                    barClass={label === 'Complexity' ? 'bg-secondary' : 'bg-primary'}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="md:col-span-4">
-              <button
-                type="button"
-                className="w-full rounded-2xl bg-primary text-on-primary py-4 font-label-lg hover:opacity-90"
-              >
-                Generate Revision Plan
-              </button>
-            </div>
-          </div>
-        </Card>
       </div>
+    </div>
+  );
+}
+
+function BatchTrendChart({ data }: { data: any[] }) {
+  if (!data?.length) return <div className="h-40 skeleton rounded-lg" />;
+  const weeks = data.map((_, i) => `W${i + 1}`);
+  const maxVal = 100;
+  const W = 500; const H = 120;
+  const pad = { t: 10, r: 10, b: 24, l: 30 };
+
+  const pts = data.map((d, i) => {
+    const x = pad.l + (i / (data.length - 1)) * (W - pad.l - pad.r);
+    const v = d.avg ?? d.score ?? d.value ?? 65;
+    const y = pad.t + (1 - v / maxVal) * (H - pad.t - pad.b);
+    return [x, y] as [number, number];
+  });
+
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+  const area = `${line} L ${pts[pts.length-1][0]} ${H-pad.b} L ${pts[0][0]} ${H-pad.b} Z`;
+
+  return (
+    <div style={{ height: `${H + 8}px` }}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: `${H}px` }}>
+        <defs>
+          <linearGradient id="faculty-trend" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[25,50,75].map(v => {
+          const y = pad.t + (1 - v/maxVal) * (H - pad.t - pad.b);
+          return <line key={v} x1={pad.l} y1={y} x2={W-pad.r} y2={y} stroke="var(--border)" strokeWidth="1" strokeDasharray="4 4" />;
+        })}
+        {weeks.map((w, i) => {
+          const x = pad.l + (i/(weeks.length-1)) * (W - pad.l - pad.r);
+          return <text key={w} x={x} y={H-4} textAnchor="middle" fontSize="9" fill="var(--text-faint)">{w}</text>;
+        })}
+        <path d={area} fill="url(#faculty-trend)" />
+        <path d={line} fill="none" stroke="#8B5CF6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#8B5CF6" stroke="var(--surface)" strokeWidth="2" />)}
+      </svg>
     </div>
   );
 }

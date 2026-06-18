@@ -1,16 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
-import PageHeader from '../../components/PageHeader';
-import MetricCard from '../Student/components/MetricCard';
-import HeatmapGrid from '../Student/components/HeatmapGrid';
+import TopBar from '../../components/TopBar';
 import { apiRequest } from '../../lib/api';
 import { buildHeatmapCells, instituteMetrics, institutes } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
 
+const REGIONS = ['All', 'Asia-Pacific', 'North India', 'West India', 'South India'];
+const PLANS   = ['All', 'Starter', 'Growth', 'Enterprise'];
+
+const PLAN_BADGE: Record<string, { bg: string; color: string }> = {
+  Enterprise: { bg: 'rgba(91,79,232,0.10)',  color: '#5B4FE8' },
+  Growth:     { bg: 'rgba(16,185,129,0.10)', color: '#059669' },
+  Starter:    { bg: 'var(--surface-muted)',   color: 'var(--text-muted)' },
+};
+
+const HEATMAP_LEVELS = [
+  'rgba(91,79,232,0.06)', 'rgba(91,79,232,0.18)', 'rgba(91,79,232,0.38)',
+  'rgba(91,79,232,0.60)', 'rgba(91,79,232,0.90)',
+];
+
 export default function InstituteManagement() {
   const [region, setRegion] = useState('All');
-  const [plan, setPlan] = useState('All');
+  const [plan,   setPlan]   = useState('All');
   const [data, setData] = useState<any>({
     metrics: instituteMetrics,
     institutes,
@@ -22,141 +34,223 @@ export default function InstituteManagement() {
   useEffect(() => {
     let cancelled = false;
     apiRequest('/api/admin/institutes')
-      .then((payload) => {
-        if (!cancelled) setData(payload);
-      })
+      .then(payload => { if (!cancelled) setData(payload); })
       .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  const filteredInstitutes = useMemo(() => {
-    return data.institutes.filter((item: any) => {
-      const matchesRegion = region === 'All' || item.region === region;
-      const matchesPlan = plan === 'All' || item.plan === plan;
-      return matchesRegion && matchesPlan;
-    });
-  }, [data.institutes, plan, region]);
+  const filteredInstitutes = useMemo(() => data.institutes.filter((item: any) => {
+    const matchesRegion = region === 'All' || item.region === region;
+    const matchesPlan   = plan   === 'All' || item.plan   === plan;
+    return matchesRegion && matchesPlan;
+  }), [data.institutes, plan, region]);
+
+  const metricMeta = [
+    { icon: 'apartment',    color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+    { icon: 'group',        color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+    { icon: 'trending_up',  color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+    { icon: 'workspace_premium', color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
+  ];
 
   return (
-    <div className="min-h-full bg-surface">
-      <PageHeader
-        title="Institute Management"
-        subtitle="Region-level visibility, plans, and performance monitoring."
+    <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <TopBar
+        breadcrumb={[{ label: 'Admin', href: '/admin' }, { label: 'Institute Management' }]}
+        showSearch={false}
         actions={
-          <>
-            <Link
-              to={pathFor('admin')}
-              className="px-4 h-10 inline-flex items-center rounded-lg border border-outline text-on-surface hover:bg-surface-container"
-            >
-              Admin Dashboard
+          <div className="flex items-center gap-2">
+            <Link to={pathFor('admin')} className="btn-outline btn-md flex items-center gap-1.5">
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+              Dashboard
             </Link>
-            <Link
-              to={pathFor('users')}
-              className="px-4 h-10 inline-flex items-center rounded-lg bg-secondary text-on-secondary hover:opacity-90"
-            >
-              Users
-            </Link>
-          </>
+            <button type="button" className="btn-primary btn-md flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_business</span>
+              Add Institute
+            </button>
+          </div>
         }
       />
 
-      <div className="p-container-desktop space-y-stack-lg">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-gutter">
-          {data.metrics.map((tile: any) => (
-            <MetricCard key={tile.label} tile={tile} />
-          ))}
+      <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">
+        <div>
+          <h1 className="text-display-sm font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+            Institute Management
+          </h1>
+          <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
+            Region-level visibility, subscription plans, and performance monitoring
+          </p>
         </div>
 
-        <Card title="Directory Filters">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="block">
-              <span className="text-label-md text-on-surface-variant">Region</span>
+        {/* Metrics */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          {data.metrics.map((m: any, i: number) => {
+            const meta = metricMeta[i] ?? metricMeta[0];
+            return (
+              <div key={m.label} className="card">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: meta.bg }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: meta.color }}>{meta.icon}</span>
+                </div>
+                <div className="text-2xl font-bold font-headline mb-0.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>{m.value}</div>
+                <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{m.label}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Filters */}
+        <Card title="Directory Filters" subtitle="Narrow by region or subscription plan">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Region</label>
               <select
                 value={region}
-                onChange={(e) => setRegion(e.target.value)}
-                className="mt-2 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 outline-none focus:border-primary"
+                onChange={e => setRegion(e.target.value)}
+                className="input-field w-full"
+                style={{ backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
               >
-                <option>All</option>
-                <option>Asia-Pacific</option>
-                <option>North India</option>
-                <option>West India</option>
-                <option>South India</option>
+                {REGIONS.map(r => <option key={r}>{r}</option>)}
               </select>
-            </label>
-            <label className="block">
-              <span className="text-label-md text-on-surface-variant">Plan</span>
+            </div>
+            <div>
+              <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Plan</label>
               <select
                 value={plan}
-                onChange={(e) => setPlan(e.target.value)}
-                className="mt-2 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 outline-none focus:border-primary"
+                onChange={e => setPlan(e.target.value)}
+                className="input-field w-full"
+                style={{ backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
               >
-                <option>All</option>
-                <option>Starter</option>
-                <option>Growth</option>
-                <option>Enterprise</option>
+                {PLANS.map(p => <option key={p}>{p}</option>)}
               </select>
-            </label>
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => { setRegion('All'); setPlan('All'); }}
+                className="btn-outline btn-md w-full"
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </Card>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-gutter">
-          <Card title="Coaching Centers Directory" className="xl:col-span-7">
+        {/* Table + Heatmap */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+          {/* Institutes table */}
+          <Card title="Coaching Centers Directory" subtitle={`${filteredInstitutes.length} institutes`} noPad className="xl:col-span-7">
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
+              <table className="data-table">
                 <thead>
-                  <tr className="border-b border-outline-variant text-label-md uppercase tracking-widest text-on-surface-variant">
-                    <th className="py-3 pr-4">Institute</th>
-                    <th className="py-3 pr-4">Region</th>
-                    <th className="py-3 pr-4">Plan</th>
-                    <th className="py-3 pr-4 text-right">Students</th>
-                    <th className="py-3 pr-4 text-right">Performance</th>
+                  <tr>
+                    <th>Institute</th>
+                    <th>Region</th>
+                    <th>Plan</th>
+                    <th className="text-right">Students</th>
+                    <th className="text-right">Performance</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInstitutes.map((item: any) => (
-                    <tr key={item.name} className="border-b border-outline-variant/40 last:border-b-0">
-                      <td className="py-4 pr-4 font-label-lg text-label-lg text-on-surface">{item.name}</td>
-                      <td className="py-4 pr-4">{item.region}</td>
-                      <td className="py-4 pr-4">{item.plan}</td>
-                      <td className="py-4 pr-4 text-right">{item.students}</td>
-                      <td className="py-4 pr-4 text-right text-primary font-bold">{item.performance}</td>
+                  {filteredInstitutes.map((item: any, i: number) => {
+                    const planStyle = PLAN_BADGE[item.plan] ?? PLAN_BADGE.Starter;
+                    return (
+                      <tr key={item.name ?? i}>
+                        <td>
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0"
+                              style={{ background: `hsl(${(i * 53) % 360}, 65%, 55%)` }}
+                            >
+                              {item.name?.slice(0, 2) ?? 'IN'}
+                            </div>
+                            <span className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{item.name}</span>
+                          </div>
+                        </td>
+                        <td><span className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{item.region}</span></td>
+                        <td>
+                          <span className="badge text-label-sm px-2.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: planStyle.bg, color: planStyle.color }}>
+                            {item.plan}
+                          </span>
+                        </td>
+                        <td className="text-right">
+                          <span className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>{item.students ?? item.studentCount ?? '—'}</span>
+                        </td>
+                        <td className="text-right">
+                          <span className="text-label-lg font-bold" style={{ color: '#5B4FE8' }}>{item.performance ?? item.avgScore ?? '—'}</span>
+                        </td>
+                        <td>
+                          <button type="button" className="icon-btn icon-btn-sm" title="Edit institute">
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredInstitutes.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="text-center py-10" style={{ color: 'var(--text-faint)' }}>
+                        No institutes match the selected filters.
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
           </Card>
 
-          <Card title="Regional Performance Heatmap" className="xl:col-span-5">
-            <HeatmapGrid
-              cells={data.regionalPerformanceHeatmap.map((cell: any) => ({
-                cellClass: cell.cellClass.replace('bg-primary', 'bg-secondary'),
-                tooltip: `${cell.topic} · ${cell.percent}%`,
-              }))}
-              cols={7}
-            />
+          {/* Regional heatmap */}
+          <Card
+            title="Regional Performance Heatmap"
+            subtitle="Activity intensity by region and time"
+            className="xl:col-span-5"
+            action={
+              <div className="flex items-center gap-1.5">
+                <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>Low</span>
+                {[0.06, 0.25, 0.55, 0.90].map((o, i) => (
+                  <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: `rgba(91,79,232,${o})` }} />
+                ))}
+                <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>High</span>
+              </div>
+            }
+          >
+            <div className="grid gap-1.5 mt-2" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
+              {(data.regionalPerformanceHeatmap ?? []).map((cell: any, i: number) => {
+                const intensity = cell.intensity ?? cell.level ?? (i % 5);
+                return (
+                  <div
+                    key={i}
+                    className="aspect-square rounded-sm transition-all hover:scale-110 cursor-default"
+                    style={{ backgroundColor: HEATMAP_LEVELS[Math.min(intensity, 4)] }}
+                    title={cell.tooltip ?? `${cell.label ?? cell.topic ?? `Cell ${i}`}: ${cell.percent ?? intensity * 20}%`}
+                  />
+                );
+              })}
+            </div>
           </Card>
         </div>
 
-        <Card title="AI Optimization Tip">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-            <div className="md:col-span-8">
-              <div className="text-body-lg text-on-surface-variant">
-                {data.optimizationTip}
-              </div>
+        {/* AI Optimization tip */}
+        <div
+          className="rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center gap-5"
+          style={{ background: 'linear-gradient(135deg, rgba(91,79,232,0.08), rgba(16,185,129,0.06))', border: '1px solid rgba(91,79,232,0.15)' }}
+        >
+          <div className="flex items-start gap-4 flex-1">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(91,79,232,0.12)' }}>
+              <span className="material-symbols-outlined filled" style={{ fontSize: '22px', color: '#5B4FE8' }}>auto_awesome</span>
             </div>
-            <div className="md:col-span-4">
-              <button
-                type="button"
-                className="w-full rounded-2xl bg-primary text-on-primary py-4 font-label-lg hover:opacity-90"
-              >
-                Implement Strategy
-              </button>
+            <div>
+              <div className="text-body-md font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>AI Optimization Tip</div>
+              <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{data.optimizationTip}</p>
             </div>
           </div>
-        </Card>
+          <button
+            type="button"
+            className="btn-primary btn-md shrink-0"
+            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+          >
+            Implement Strategy
+          </button>
+        </div>
       </div>
     </div>
   );

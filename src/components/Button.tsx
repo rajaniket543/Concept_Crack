@@ -1,48 +1,59 @@
 import { ButtonHTMLAttributes, ReactNode } from 'react';
 
-type Variant = 'primary' | 'secondary' | 'outline' | 'ghost';
-type Size = 'sm' | 'md' | 'lg';
+type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'gradient';
+type Size = 'sm' | 'md' | 'lg' | 'xl';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
   icon?: string;
+  iconAfter?: string;
+  loading?: boolean;
   children?: ReactNode;
 }
 
-const variantStyles: Record<Variant, string> = {
-  primary: 'bg-primary text-on-primary hover:bg-primary-container',
-  secondary: 'bg-secondary text-on-secondary hover:opacity-90',
-  outline: 'border border-outline text-on-surface hover:bg-surface-container',
-  ghost: 'text-on-surface hover:bg-surface-container',
+const variantClass: Record<Variant, string> = {
+  primary:  'btn-primary',
+  secondary:'btn-secondary',
+  outline:  'btn-outline',
+  ghost:    'btn-ghost',
+  danger:   'btn-danger',
+  gradient: 'btn-brand-gradient',
 };
 
-const sizeStyles: Record<Size, string> = {
-  sm: 'h-8 px-3 text-label-md',
-  md: 'h-10 px-4 text-label-lg',
-  lg: 'h-12 px-6 text-label-lg',
+const sizeClass: Record<Size, string> = {
+  sm: 'btn-sm',
+  md: 'btn-md',
+  lg: 'btn-lg',
+  xl: 'btn-xl',
 };
 
 export default function Button({
   variant = 'primary',
   size = 'md',
   icon,
+  iconAfter,
+  loading = false,
   children,
   className = '',
+  disabled,
   ...rest
 }: ButtonProps) {
   return (
     <button
       {...rest}
-      className={[
-        'inline-flex items-center justify-center gap-2 rounded font-semibold transition',
-        variantStyles[variant],
-        sizeStyles[size],
-        className,
-      ].join(' ')}
+      disabled={disabled || loading}
+      className={['btn', variantClass[variant], sizeClass[size], className].join(' ')}
     >
-      {icon && <span className="material-symbols-outlined text-[18px]">{icon}</span>}
+      {loading ? (
+        <span className="material-symbols-outlined animate-spin" style={{ fontSize: '16px' }}>progress_activity</span>
+      ) : icon ? (
+        <span className="material-symbols-outlined" style={{ fontSize: size === 'sm' ? '16px' : '18px' }}>{icon}</span>
+      ) : null}
       {children}
+      {iconAfter && !loading && (
+        <span className="material-symbols-outlined" style={{ fontSize: size === 'sm' ? '16px' : '18px' }}>{iconAfter}</span>
+      )}
     </button>
   );
 }
