@@ -131,10 +131,8 @@ export default function Login() {
 
         <div className="relative">
           <Link to={pathFor('landing')} className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
-              <span className="material-symbols-outlined text-white" style={{ fontSize: '20px' }}>psychology</span>
-            </div>
-            <span className="font-bold text-white text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>PrepMInd</span>
+            <img src="/logo.png" alt="Concept Crack" className="w-9 h-9 rounded-xl object-cover" />
+            <span className="font-bold text-white text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
           </Link>
         </div>
 
@@ -172,7 +170,7 @@ export default function Login() {
             {[1,2,3,4,5].map(i => <span key={i} className="material-symbols-outlined filled text-amber-400" style={{ fontSize: '14px' }}>star</span>)}
           </div>
           <p className="text-sm mb-3 italic" style={{ color: '#D1D5DB', lineHeight: 1.6 }}>
-            "PrepMInd's AI identified my weak areas in Physics in just 3 days. I improved my rank from 8,000 to 247."
+            "Concept Crack's AI identified my weak areas in Physics in just 3 days. I improved my rank from 8,000 to 247."
           </p>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>PS</div>
@@ -190,10 +188,8 @@ export default function Login() {
           {/* Mobile logo */}
           <div className="lg:hidden mb-8">
             <Link to={pathFor('landing')} className="inline-flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
-                <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>psychology</span>
-              </div>
-              <span className="font-bold text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#F9FAFB' : '#111827' }}>PrepMInd</span>
+              <img src="/logo.png" alt="Concept Crack" className="w-8 h-8 rounded-xl object-cover" />
+              <span className="font-bold text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#F9FAFB' : '#111827' }}>Concept Crack</span>
             </Link>
           </div>
 

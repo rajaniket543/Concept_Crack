@@ -222,7 +222,7 @@ export default function UserManagement() {
               ))}
             </div>
           </Card>
-          <Card title="AI Recommendation" subtitle="Operational insights from PrepMInd AI">
+          <Card title="AI Recommendation" subtitle="Operational insights from Concept Crack">
             <div className="ai-panel">
               <div className="flex items-center gap-2 mb-2">
                 <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#EC4899' }}>auto_awesome</span>

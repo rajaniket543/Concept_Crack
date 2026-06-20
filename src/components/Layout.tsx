@@ -91,15 +91,14 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
           className="flex items-center gap-3 px-4 shrink-0"
           style={{ height: '64px', borderBottom: '1px solid var(--sidebar-border)' }}
         >
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
-          >
-            <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>psychology</span>
-          </div>
+          <img
+            src="/logo.png"
+            alt="Concept Crack"
+            className="w-8 h-8 rounded-lg object-cover shrink-0"
+          />
           {!collapsed && (
             <div className="min-w-0">
-              <div className="font-headline font-bold text-white text-sm tracking-tight truncate">PrepMInd</div>
+              <div className="font-headline font-bold text-white text-sm tracking-tight truncate">Concept Crack</div>
               <div className="text-[10px] uppercase tracking-widest truncate" style={{ color: 'var(--sidebar-text-muted)' }}>{brand}</div>
             </div>
           )}

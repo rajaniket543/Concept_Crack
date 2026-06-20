@@ -55,7 +55,7 @@ export default function ExamInterface() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && ['c', 'v', 'i'].includes(e.key.toLowerCase())) {
         e.preventDefault();
-        alert('Action Restricted: PrepMInd AI maintains strict exam integrity.');
+        alert('Action Restricted: Concept Crack maintains strict exam integrity.');
       }
     };
     document.addEventListener('contextmenu', onContext);
@@ -166,10 +166,8 @@ export default function ExamInterface() {
       >
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
-              <span className="material-symbols-outlined text-white" style={{ fontSize: '16px' }}>psychology</span>
-            </div>
-            <span className="font-bold text-sm" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>PrepMInd</span>
+            <img src="/logo.png" alt="Concept Crack" className="w-7 h-7 rounded-lg object-cover" />
+            <span className="font-bold text-sm" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>Concept Crack</span>
           </div>
           <div className="w-px h-5" style={{ backgroundColor: 'var(--border)' }} />
           <div>

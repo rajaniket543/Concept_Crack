@@ -54,9 +54,9 @@ const pricingTiers = [
 ];
 
 const faqItems = [
-  { q: 'Which exams does PrepMInd cover?', a: 'PrepMInd currently supports JEE (Main + Advanced), NEET UG, UPSC Prelims, and CAT. More exams are added regularly.' },
+  { q: 'Which exams does Concept Crack cover?', a: 'Concept Crack currently supports JEE (Main + Advanced), NEET UG, UPSC Prelims, and CAT. More exams are added regularly.' },
   { q: 'How does the AI adaptive engine work?', a: 'Our AI analyzes every answer you give — time spent, accuracy pattern, error type — and builds a real-time model of your strengths and gaps to recommend exactly what to practice next.' },
-  { q: 'Can I use PrepMInd on mobile?', a: 'Yes. The web app is fully responsive and works on all modern browsers. Dedicated iOS and Android apps are in development.' },
+  { q: 'Can I use Concept Crack on mobile?', a: 'Yes. The web app is fully responsive and works on all modern browsers. Dedicated iOS and Android apps are in development.' },
   { q: 'Is there a free trial for Pro?', a: 'Yes — all new accounts get a 14-day free Pro trial with no credit card required.' },
 ];
 
@@ -81,15 +81,13 @@ export default function Landing() {
         }}
       >
         <Link to={pathFor('landing')} className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
-            <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>psychology</span>
-          </div>
-          <span className="font-headline font-bold text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>PrepMInd</span>
+          <img src="/logo.png" alt="Concept Crack" className="w-8 h-8 rounded-lg object-cover" />
+          <span className="font-headline font-bold text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
         </Link>
 
         <nav className="hidden lg:flex items-center gap-8 text-sm font-medium" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
           <a href="#features" className="hover:text-[#5B4FE8] transition-colors">Features</a>
-          <a href="#stats" className="hover:text-[#5B4FE8] transition-colors">Why PrepMInd</a>
+          <a href="#stats" className="hover:text-[#5B4FE8] transition-colors">Why Concept Crack</a>
           <a href="#pricing" className="hover:text-[#5B4FE8] transition-colors">Pricing</a>
           <a href="#faq" className="hover:text-[#5B4FE8] transition-colors">FAQ</a>
         </nav>
@@ -162,7 +160,7 @@ export default function Landing() {
             className="text-lg leading-relaxed mb-10 max-w-2xl mx-auto"
             style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}
           >
-            PrepMInd adapts to your unique learning style, identifies knowledge gaps in real-time, and creates a personalized path to your dream rank. Used by 2M+ students across JEE, NEET, UPSC, and CAT.
+            Concept Crack adapts to your unique learning style, identifies knowledge gaps in real-time, and creates a personalized path to your dream rank. Used by 2M+ students across JEE, NEET, UPSC, and CAT.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3">
@@ -232,7 +230,7 @@ export default function Landing() {
             Everything you need to reach your dream rank
           </h2>
           <p className="text-lg max-w-2xl mx-auto" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-            From adaptive AI practice to deep analytics — PrepMInd covers every angle of exam preparation.
+            From adaptive AI practice to deep analytics — Concept Crack covers every angle of exam preparation.
           </p>
         </div>
 
@@ -470,10 +468,8 @@ export default function Landing() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-10">
             <div className="col-span-2">
               <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
-                  <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>psychology</span>
-                </div>
-                <span className="font-headline font-bold text-white text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>PrepMInd</span>
+                <img src="/logo.png" alt="Concept Crack" className="w-8 h-8 rounded-lg object-cover" />
+                <span className="font-headline font-bold text-white text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
               </div>
               <p className="text-sm leading-relaxed mb-4" style={{ color: '#9CA3AF' }}>
                 AI-powered exam preparation platform for JEE, NEET, UPSC, and CAT.
@@ -495,7 +491,7 @@ export default function Landing() {
             ))}
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6" style={{ borderTop: '1px solid #1F2937' }}>
-            <p className="text-xs" style={{ color: '#6B7280' }}>© 2026 PrepMInd. All rights reserved.</p>
+            <p className="text-xs" style={{ color: '#6B7280' }}>© 2026 Concept Crack. All rights reserved.</p>
             <p className="text-xs" style={{ color: '#6B7280' }}>Made with ♥ for students across India</p>
           </div>
         </div>

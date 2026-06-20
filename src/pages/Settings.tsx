@@ -272,12 +272,12 @@ export default function Settings() {
 
           {/* ── Notifications ── */}
           {tab === 'Notifications' && (
-            <Card title="Notification Preferences" subtitle="Control what alerts you receive from PrepMInd">
+            <Card title="Notification Preferences" subtitle="Control what alerts you receive from Concept Crack">
               <div className="space-y-3">
                 {(
                   [
                     { key: 'examReminders',  label: 'Exam Reminders',         description: 'Get notified 1 hour before scheduled exams' },
-                    { key: 'aiInsights',     label: 'AI Insights',            description: 'Personalized learning tips from PrepMInd AI' },
+                    { key: 'aiInsights',     label: 'AI Insights',            description: 'Personalized learning tips from Concept Crack' },
                     { key: 'batchAlerts',    label: 'Batch Alerts',           description: 'Faculty updates and batch-wide announcements' },
                     { key: 'weeklyDigest',   label: 'Weekly Digest',          description: 'A summary of your progress every Sunday' },
                     { key: 'pushEnabled',    label: 'Push Notifications',     description: 'Browser push notifications when tab is closed' },

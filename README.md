@@ -1,6 +1,6 @@
-# PrepMind AI
+# Concept Crack
 
-PrepMind AI is an AI-powered learning and assessment platform built for students, parents, faculty, and administrators. It combines adaptive practice, exam simulation, performance analytics, and role-based dashboards to help learners study smarter and institutions track progress more effectively.
+Concept Crack is an AI-powered learning and assessment platform built for students, parents, faculty, and administrators. It combines adaptive practice, exam simulation, performance analytics, and role-based dashboards to help learners study smarter and institutions track progress more effectively.
 
 ## What it does
 

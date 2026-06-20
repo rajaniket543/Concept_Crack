@@ -655,11 +655,11 @@ const port = Number(process.env.PORT ?? process.env.API_PORT ?? 8787);
 async function startServer() {
   await ensureDatabaseReady();
   app.listen(port, () => {
-    console.log(`PrepMind app listening on http://localhost:${port}`);
+    console.log(`Concept Crack app listening on http://localhost:${port}`);
   });
 }
 
 startServer().catch((error) => {
-  console.error('Failed to start PrepMind server:', error);
+  console.error('Failed to start Concept Crack server:', error);
   process.exit(1);
 });

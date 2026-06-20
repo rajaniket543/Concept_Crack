@@ -1,7 +1,7 @@
-# PrepMind AI - Product Requirements Document
+# Concept Crack - Product Requirements Document
 
 ## Overview
-PrepMind AI is a comprehensive AI-powered personalized learning and assessment platform. It features four distinct portals (Student, Parent, Faculty, Admin) and focuses on adaptive learning through AI analytics.
+Concept Crack is a comprehensive AI-powered personalized learning and assessment platform. It features four distinct portals (Student, Parent, Faculty, Admin) and focuses on adaptive learning through AI analytics.
 
 ## Core Modules & Screens
 

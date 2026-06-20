@@ -1,9 +1,9 @@
-# PrepMind AI - Project Overview & Architecture
+# Concept Crack - Project Overview & Architecture
 
 ## CURRENT STATE: First Basic Prototype
 
 ### What It Is Now
-PrepMind AI is a **full-stack React + Express web application** featuring a multi-role learning platform with mock/demo data. It's currently a **working prototype with UI components and mock backend APIs** but lacks persistent data integration.
+Concept Crack is a **full-stack React + Express web application** featuring a multi-role learning platform with mock/demo data. It's currently a **working prototype with UI components and mock backend APIs** but lacks persistent data integration.
 
 ---
 
