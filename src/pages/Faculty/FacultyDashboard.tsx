@@ -27,10 +27,10 @@ export default function FacultyDashboard() {
   }, []);
 
   const metricMeta = [
-    { icon: 'group',        color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+    { icon: 'group',        color: '#14B8A6', bg: 'rgba(20,184,166,0.12)' },
     { icon: 'trending_up',  color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
     { icon: 'quiz',         color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-    { icon: 'star',         color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
+    { icon: 'star',         color: '#14B8A6', bg: 'rgba(20,184,166,0.12)' },
   ];
 
   return (
@@ -41,7 +41,7 @@ export default function FacultyDashboard() {
           <Link
             to={pathFor('questionBank')}
             className="btn-primary btn-md flex items-center gap-1.5"
-            style={{ background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' }}
+            style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>library_books</span>
             Question Bank
@@ -95,12 +95,12 @@ export default function FacultyDashboard() {
             <div className="space-y-2">
               <p className="text-label-sm font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-faint)' }}>Focus Areas</p>
               {data.curriculumGap.focusAreas.map((area: string, i: number) => {
-                const colors = ['#EF4444', '#F59E0B', '#8B5CF6'];
+                const colors = ['#EF4444', '#F59E0B', '#14B8A6'];
                 return (
                   <div key={area} className="flex items-center gap-3 p-3 rounded-lg" style={{ backgroundColor: 'var(--surface-muted)' }}>
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
                     <span className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{area}</span>
-                    <Link to={pathFor('questionBank')} className="ml-auto text-label-sm font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Assign →</Link>
+                    <Link to={pathFor('questionBank')} className="ml-auto text-label-sm font-semibold hover:underline" style={{ color: '#14B8A6' }}>Assign →</Link>
                   </div>
                 );
               })}
@@ -119,7 +119,7 @@ export default function FacultyDashboard() {
                   className="flex items-start gap-3 p-3.5 rounded-xl"
                   style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}
                 >
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>
                     {alert.initials ?? (alert.name?.slice(0, 2) ?? 'ST')}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -155,7 +155,7 @@ export default function FacultyDashboard() {
                     <tr key={s.name ?? i}>
                       <td>
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>
                             {s.initials ?? s.name?.slice(0, 2)}
                           </div>
                           <div>
@@ -167,7 +167,7 @@ export default function FacultyDashboard() {
                       <td>
                         <div className="flex items-center gap-2">
                           <div className="progress-bar w-16">
-                            <div className="progress-bar-fill" style={{ width: `${s.score ?? 75}%`, backgroundColor: '#5B4FE8' }} />
+                            <div className="progress-bar-fill" style={{ width: `${s.score ?? 75}%`, backgroundColor: '#14B8A6' }} />
                           </div>
                           <span className="text-body-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{s.score ?? 75}%</span>
                         </div>
@@ -213,8 +213,8 @@ function BatchTrendChart({ data }: { data: any[] }) {
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: `${H}px` }}>
         <defs>
           <linearGradient id="faculty-trend" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
+            <stop offset="0%" stopColor="#14B8A6" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#14B8A6" stopOpacity="0" />
           </linearGradient>
         </defs>
         {[25,50,75].map(v => {
@@ -226,8 +226,8 @@ function BatchTrendChart({ data }: { data: any[] }) {
           return <text key={w} x={x} y={H-4} textAnchor="middle" fontSize="9" fill="var(--text-faint)">{w}</text>;
         })}
         <path d={area} fill="url(#faculty-trend)" />
-        <path d={line} fill="none" stroke="#8B5CF6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#8B5CF6" stroke="var(--surface)" strokeWidth="2" />)}
+        <path d={line} fill="none" stroke="#14B8A6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#14B8A6" stroke="var(--surface)" strokeWidth="2" />)}
       </svg>
     </div>
   );

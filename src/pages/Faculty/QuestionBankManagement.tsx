@@ -83,7 +83,7 @@ export default function QuestionBankManagement() {
               type="button"
               onClick={() => setShowAddForm(v => !v)}
               className="btn-primary btn-md flex items-center gap-1.5"
-              style={{ background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' }}
+              style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
               Add Question
@@ -105,10 +105,10 @@ export default function QuestionBankManagement() {
         {/* AI Merge Suggestion Banner */}
         <div
           className="rounded-xl p-4 flex items-start gap-4"
-          style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(91,79,232,0.06))', border: '1px solid rgba(139,92,246,0.20)', borderLeft: '3px solid #8B5CF6' }}
+          style={{ background: 'linear-gradient(135deg, rgba(20,184,166,0.08), rgba(13,148,136,0.06))', border: '1px solid rgba(20,184,166,0.20)', borderLeft: '3px solid #14B8A6' }}
         >
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(139,92,246,0.12)' }}>
-            <span className="material-symbols-outlined filled" style={{ fontSize: '18px', color: '#8B5CF6' }}>fact_check</span>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(20,184,166,0.12)' }}>
+            <span className="material-symbols-outlined filled" style={{ fontSize: '18px', color: '#14B8A6' }}>fact_check</span>
           </div>
           <div className="flex-1">
             <div className="text-body-md font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>AI Audit Suggestion</div>
@@ -203,7 +203,7 @@ export default function QuestionBankManagement() {
                       <td><span className="text-body-md" style={{ color: 'var(--text-muted)' }}>{row.type}</span></td>
                       <td className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button type="button" className="text-label-sm font-semibold hover:underline" style={{ color: '#5B4FE8' }}>
+                          <button type="button" className="text-label-sm font-semibold hover:underline" style={{ color: '#14B8A6' }}>
                             Preview
                           </button>
                           <button type="button" className="icon-btn icon-btn-sm" title="Edit">
@@ -231,7 +231,7 @@ export default function QuestionBankManagement() {
           <Card title="Difficulty Distribution" subtitle="Balance across Easy / Medium / Hard" className="xl:col-span-5">
             <div className="space-y-4">
               {diffData.map((item: any) => {
-                const barColor = DIFF_BAR_COLOR[item.label] ?? '#5B4FE8';
+                const barColor = DIFF_BAR_COLOR[item.label] ?? '#14B8A6';
                 return (
                   <div key={item.label}>
                     <div className="flex items-center justify-between mb-1.5">
@@ -250,7 +250,7 @@ export default function QuestionBankManagement() {
           <Card title="Audit Mode" subtitle="AI-powered question analysis signals" className="xl:col-span-7">
             <div className="ai-panel mb-4">
               <div className="flex items-center gap-2 mb-2">
-                <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#5B4FE8' }}>fact_check</span>
+                <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#14B8A6' }}>fact_check</span>
                 <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Batch Audit Ready</span>
               </div>
               <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{suggestedMergeNote}</p>
@@ -320,7 +320,7 @@ export default function QuestionBankManagement() {
                   </select>
                 </div>
                 <div className="sm:col-span-2 flex gap-3">
-                  <button type="button" onClick={handleSaveDraft} className="btn-primary btn-md flex-1" style={{ background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' }}>
+                  <button type="button" onClick={handleSaveDraft} className="btn-primary btn-md flex-1" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>
                     Save Draft
                   </button>
                   <button type="button" onClick={() => setShowAddForm(false)} className="btn-outline btn-md">
@@ -332,7 +332,7 @@ export default function QuestionBankManagement() {
               {/* AI suggestion panel */}
               <div
                 className="xl:col-span-5 rounded-xl p-5 flex flex-col"
-                style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}
               >
                 <div className="text-label-sm font-semibold uppercase tracking-widest mb-3 opacity-75 text-white">AI Suggestion</div>
                 <p className="text-body-md text-white/80 flex-1">

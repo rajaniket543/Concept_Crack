@@ -762,9 +762,9 @@
 
   /* Sidebar variants per role */
   .sidebar-student  { --sidebar-accent: #5B4FE8; }
-  .sidebar-faculty  { --sidebar-accent: #8B5CF6; }
-  .sidebar-parent   { --sidebar-accent: #10B981; }
-  .sidebar-admin    { --sidebar-accent: #EF4444; }
+  .sidebar-faculty  { --sidebar-accent: #14B8A6; }
+  .sidebar-parent   { --sidebar-accent: #F97316; }
+  .sidebar-admin    { --sidebar-accent: #EC4899; }
 
   /* Reduce motion */
   @media (prefers-reduced-motion: reduce) {

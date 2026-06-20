@@ -10,14 +10,14 @@ const REGIONS = ['All', 'Asia-Pacific', 'North India', 'West India', 'South Indi
 const PLANS   = ['All', 'Starter', 'Growth', 'Enterprise'];
 
 const PLAN_BADGE: Record<string, { bg: string; color: string }> = {
-  Enterprise: { bg: 'rgba(91,79,232,0.10)',  color: '#5B4FE8' },
+  Enterprise: { bg: 'rgba(236,72,153,0.10)', color: '#EC4899' },
   Growth:     { bg: 'rgba(16,185,129,0.10)', color: '#059669' },
   Starter:    { bg: 'var(--surface-muted)',   color: 'var(--text-muted)' },
 };
 
 const HEATMAP_LEVELS = [
-  'rgba(91,79,232,0.06)', 'rgba(91,79,232,0.18)', 'rgba(91,79,232,0.38)',
-  'rgba(91,79,232,0.60)', 'rgba(91,79,232,0.90)',
+  'rgba(236,72,153,0.06)', 'rgba(236,72,153,0.18)', 'rgba(236,72,153,0.38)',
+  'rgba(236,72,153,0.60)', 'rgba(236,72,153,0.90)',
 ];
 
 export default function InstituteManagement() {
@@ -46,10 +46,10 @@ export default function InstituteManagement() {
   }), [data.institutes, plan, region]);
 
   const metricMeta = [
-    { icon: 'apartment',    color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+    { icon: 'apartment',    color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
     { icon: 'group',        color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
     { icon: 'trending_up',  color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-    { icon: 'workspace_premium', color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
+    { icon: 'workspace_premium', color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
   ];
 
   return (
@@ -63,7 +63,7 @@ export default function InstituteManagement() {
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
               Dashboard
             </Link>
-            <button type="button" className="btn-primary btn-md flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+            <button type="button" className="btn-primary btn-md flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add_business</span>
               Add Institute
             </button>
@@ -176,7 +176,7 @@ export default function InstituteManagement() {
                           <span className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>{item.students ?? item.studentCount ?? '—'}</span>
                         </td>
                         <td className="text-right">
-                          <span className="text-label-lg font-bold" style={{ color: '#5B4FE8' }}>{item.performance ?? item.avgScore ?? '—'}</span>
+                          <span className="text-label-lg font-bold" style={{ color: '#EC4899' }}>{item.performance ?? item.avgScore ?? '—'}</span>
                         </td>
                         <td>
                           <button type="button" className="icon-btn icon-btn-sm" title="Edit institute">
@@ -207,7 +207,7 @@ export default function InstituteManagement() {
               <div className="flex items-center gap-1.5">
                 <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>Low</span>
                 {[0.06, 0.25, 0.55, 0.90].map((o, i) => (
-                  <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: `rgba(91,79,232,${o})` }} />
+                  <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: `rgba(236,72,153,${o})` }} />
                 ))}
                 <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>High</span>
               </div>
@@ -232,11 +232,11 @@ export default function InstituteManagement() {
         {/* AI Optimization tip */}
         <div
           className="rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center gap-5"
-          style={{ background: 'linear-gradient(135deg, rgba(91,79,232,0.08), rgba(16,185,129,0.06))', border: '1px solid rgba(91,79,232,0.15)' }}
+          style={{ background: 'linear-gradient(135deg, rgba(236,72,153,0.08), rgba(219,39,119,0.06))', border: '1px solid rgba(236,72,153,0.15)' }}
         >
           <div className="flex items-start gap-4 flex-1">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(91,79,232,0.12)' }}>
-              <span className="material-symbols-outlined filled" style={{ fontSize: '22px', color: '#5B4FE8' }}>auto_awesome</span>
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(236,72,153,0.12)' }}>
+              <span className="material-symbols-outlined filled" style={{ fontSize: '22px', color: '#EC4899' }}>auto_awesome</span>
             </div>
             <div>
               <div className="text-body-md font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>AI Optimization Tip</div>
@@ -246,7 +246,7 @@ export default function InstituteManagement() {
           <button
             type="button"
             className="btn-primary btn-md shrink-0"
-            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+            style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}
           >
             Implement Strategy
           </button>

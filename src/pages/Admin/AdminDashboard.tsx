@@ -24,14 +24,14 @@ export default function AdminDashboard() {
   }, []);
 
   const metricMeta = [
-    { icon: 'group',          color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+    { icon: 'group',          color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
     { icon: 'apartment',      color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
     { icon: 'quiz',           color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-    { icon: 'trending_up',    color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
+    { icon: 'trending_up',    color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
   ];
 
   const HEATMAP_LEVELS = [
-    'rgba(91,79,232,0.06)', 'rgba(91,79,232,0.18)', 'rgba(91,79,232,0.38)', 'rgba(91,79,232,0.60)', 'rgba(91,79,232,0.90)',
+    'rgba(236,72,153,0.06)', 'rgba(236,72,153,0.18)', 'rgba(236,72,153,0.38)', 'rgba(236,72,153,0.60)', 'rgba(236,72,153,0.90)',
   ];
 
   return (
@@ -47,7 +47,7 @@ export default function AdminDashboard() {
             <Link
               to={pathFor('institutes')}
               className="btn-primary btn-md flex items-center gap-1.5"
-              style={{ background: 'linear-gradient(135deg, #EF4444, #DC2626)' }}
+              style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>apartment</span>
               Institutes
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-1.5">
                 <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>Low</span>
                 {[0.06, 0.25, 0.55, 0.90].map((o, i) => (
-                  <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: `rgba(91,79,232,${o})` }} />
+                  <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: `rgba(236,72,153,${o})` }} />
                 ))}
                 <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>High</span>
               </div>
@@ -207,7 +207,7 @@ export default function AdminDashboard() {
                     <td>
                       <div className="flex items-center gap-2">
                         <div className="progress-bar w-14">
-                          <div className="progress-bar-fill" style={{ width: `${inst.avgScore ?? 70}%`, backgroundColor: '#5B4FE8' }} />
+                          <div className="progress-bar-fill" style={{ width: `${inst.avgScore ?? 70}%`, backgroundColor: '#EC4899' }} />
                         </div>
                         <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{inst.avgScore ?? 70}%</span>
                       </div>
@@ -215,7 +215,7 @@ export default function AdminDashboard() {
                     <td>
                       <span
                         className="badge"
-                        style={inst.plan === 'Enterprise' ? { backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8' }
+                        style={inst.plan === 'Enterprise' ? { backgroundColor: 'rgba(236,72,153,0.10)', color: '#EC4899' }
                           : inst.plan === 'Growth' ? { backgroundColor: 'rgba(16,185,129,0.10)', color: '#059669' }
                           : { backgroundColor: 'var(--surface-muted)', color: 'var(--text-muted)' }
                         }
@@ -240,5 +240,5 @@ export default function AdminDashboard() {
 }
 
 const HEATMAP_LEVELS = [
-  'rgba(91,79,232,0.06)', 'rgba(91,79,232,0.18)', 'rgba(91,79,232,0.38)', 'rgba(91,79,232,0.60)', 'rgba(91,79,232,0.90)',
+  'rgba(236,72,153,0.06)', 'rgba(236,72,153,0.18)', 'rgba(236,72,153,0.38)', 'rgba(236,72,153,0.60)', 'rgba(236,72,153,0.90)',
 ];

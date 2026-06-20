@@ -25,13 +25,13 @@ export default function ParentDashboard() {
   }, []);
 
   const metricMeta = [
-    { icon: 'score',           color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
-    { icon: 'military_tech',   color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
-    { icon: 'calendar_month',  color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-    { icon: 'trending_up',     color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
+    { icon: 'score',           color: '#F97316', bg: 'rgba(249,115,22,0.12)' },
+    { icon: 'military_tech',   color: '#F97316', bg: 'rgba(249,115,22,0.12)' },
+    { icon: 'calendar_month',  color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+    { icon: 'trending_up',     color: '#F97316', bg: 'rgba(249,115,22,0.12)' },
   ];
 
-  const subjectColors: Record<string, string> = { Physics: '#5B4FE8', Chemistry: '#8B5CF6', Mathematics: '#10B981' };
+  const subjectColors: Record<string, string> = { Physics: '#F97316', Chemistry: '#EA580C', Mathematics: '#10B981' };
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
@@ -58,9 +58,9 @@ export default function ParentDashboard() {
         {/* Child info banner */}
         <div
           className="rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4"
-          style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(91,79,232,0.06))', border: '1px solid rgba(16,185,129,0.20)', borderLeft: '3px solid #10B981' }}
+          style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.08), rgba(234,88,12,0.06))', border: '1px solid rgba(249,115,22,0.20)', borderLeft: '3px solid #F97316' }}
         >
-          <div className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-white text-lg shrink-0" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+          <div className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-white text-lg shrink-0" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}>
             A
           </div>
           <div className="flex-1">
@@ -72,7 +72,7 @@ export default function ParentDashboard() {
               <span className="material-symbols-outlined filled" style={{ fontSize: '12px' }}>trending_up</span>
               On track
             </span>
-            <span className="text-label-sm px-3 py-1 rounded-full" style={{ backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8' }}>
+            <span className="text-label-sm px-3 py-1 rounded-full" style={{ backgroundColor: 'rgba(249,115,22,0.10)', color: '#EA580C' }}>
               47 days to exam
             </span>
           </div>
@@ -133,10 +133,10 @@ export default function ParentDashboard() {
             <div className="space-y-3">
               {(data.activity ?? []).map((a: any, i: number) => {
                 const typeIcon: Record<string, { icon: string; color: string }> = {
-                  test:     { icon: 'quiz',          color: '#5B4FE8' },
+                  test:     { icon: 'quiz',          color: '#F97316' },
                   practice: { icon: 'edit_note',     color: '#10B981' },
                   login:    { icon: 'login',         color: '#6B7280' },
-                  insights: { icon: 'auto_awesome',  color: '#8B5CF6' },
+                  insights: { icon: 'auto_awesome',  color: '#F97316' },
                 };
                 const meta = typeIcon[a.type ?? 'test'] ?? typeIcon.test;
                 return (
@@ -149,7 +149,7 @@ export default function ParentDashboard() {
                       <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{a.time ?? a.date}</div>
                     </div>
                     {a.score !== undefined && (
-                      <span className="text-label-lg font-bold shrink-0" style={{ color: '#5B4FE8' }}>{a.score}%</span>
+                      <span className="text-label-lg font-bold shrink-0" style={{ color: '#F97316' }}>{a.score}%</span>
                     )}
                   </div>
                 );
@@ -166,8 +166,8 @@ export default function ParentDashboard() {
                   className="flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all hover:-translate-y-px"
                   style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}
                 >
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(91,79,232,0.10)' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#5B4FE8' }}>description</span>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(249,115,22,0.10)' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#F97316' }}>description</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-body-md font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{r.title}</div>
@@ -178,9 +178,9 @@ export default function ParentDashboard() {
               ))}
               <div
                 className="rounded-xl p-4 text-center"
-                style={{ background: 'linear-gradient(135deg, rgba(91,79,232,0.08), rgba(124,58,237,0.06))', border: '1px solid rgba(91,79,232,0.15)' }}
+                style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.08), rgba(234,88,12,0.06))', border: '1px solid rgba(249,115,22,0.15)' }}
               >
-                <div className="text-lg font-bold font-headline mb-0.5" style={{ color: '#5B4FE8', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                <div className="text-lg font-bold font-headline mb-0.5" style={{ color: '#F97316', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                   {data.latestPrediction}%
                 </div>
                 <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>AI predicted exam score</div>
@@ -215,8 +215,8 @@ function GrowthChart({ data }: { data: any[] }) {
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: `${H}px` }}>
         <defs>
           <linearGradient id="parent-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10B981" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
+            <stop offset="0%" stopColor="#F97316" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#F97316" stopOpacity="0" />
           </linearGradient>
         </defs>
         {[25, 50, 75].map(v => {
@@ -228,8 +228,8 @@ function GrowthChart({ data }: { data: any[] }) {
           return <text key={l} x={x} y={H - 4} textAnchor="middle" fontSize="9" fill="var(--text-faint)">{l}</text>;
         })}
         <path d={area} fill="url(#parent-grad)" />
-        <path d={line} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#10B981" stroke="var(--surface)" strokeWidth="2" />)}
+        <path d={line} fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#F97316" stroke="var(--surface)" strokeWidth="2" />)}
       </svg>
     </div>
   );

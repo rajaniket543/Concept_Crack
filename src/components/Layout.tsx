@@ -34,9 +34,9 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
 
   const roleAccent: Record<string, string> = {
     student: '#5B4FE8',
-    faculty: '#8B5CF6',
-    parent:  '#10B981',
-    admin:   '#EF4444',
+    faculty: '#14B8A6',
+    parent:  '#F97316',
+    admin:   '#EC4899',
   };
   const accent = roleAccent[role] ?? '#5B4FE8';
 

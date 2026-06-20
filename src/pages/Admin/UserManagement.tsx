@@ -7,10 +7,10 @@ import { userMetrics, users } from '../../mocks/portal';
 const TABS = ['All', 'Students', 'Faculty', 'Administrators'] as const;
 
 const ROLE_BADGE: Record<string, { bg: string; color: string }> = {
-  Student:      { bg: 'rgba(91,79,232,0.10)',  color: '#5B4FE8' },
-  Faculty:      { bg: 'rgba(139,92,246,0.10)', color: '#7C3AED' },
-  Admin:        { bg: 'rgba(239,68,68,0.10)',  color: '#DC2626' },
-  Parent:       { bg: 'rgba(16,185,129,0.10)', color: '#059669' },
+  Student:      { bg: 'rgba(91,79,232,0.10)',   color: '#5B4FE8' },
+  Faculty:      { bg: 'rgba(6,182,212,0.10)',   color: '#0891B2' },
+  Admin:        { bg: 'rgba(236,72,153,0.10)',  color: '#DB2777' },
+  Parent:       { bg: 'rgba(245,158,11,0.10)',  color: '#D97706' },
 };
 const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
   Active:    { bg: 'rgba(16,185,129,0.10)', color: '#059669' },
@@ -51,10 +51,10 @@ export default function UserManagement() {
   }), [data.users, tab, search]);
 
   const metricMeta = [
-    { icon: 'group',           color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+    { icon: 'group',           color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
     { icon: 'person_add',      color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
     { icon: 'person_off',      color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
-    { icon: 'co_present',      color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
+    { icon: 'co_present',      color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
   ];
 
   return (
@@ -74,7 +74,7 @@ export default function UserManagement() {
               Manage students, faculty, parents, and administrators across all institutions
             </p>
           </div>
-          <button type="button" className="btn-primary btn-md flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+          <button type="button" className="btn-primary btn-md flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>person_add</span>
             Add User
           </button>
@@ -139,7 +139,7 @@ export default function UserManagement() {
                     <tr key={user.email ?? user.name}>
                       <td>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}>
                             {user.initials ?? user.name?.slice(0, 2)}
                           </div>
                           <div>
@@ -194,7 +194,7 @@ export default function UserManagement() {
                   type="button"
                   className="w-8 h-8 rounded-md text-sm font-semibold transition-colors"
                   style={p === 1
-                    ? { backgroundColor: '#5B4FE8', color: '#fff' }
+                    ? { backgroundColor: '#EC4899', color: '#fff' }
                     : { color: 'var(--text-muted)' }
                   }
                 >
@@ -213,7 +213,7 @@ export default function UserManagement() {
                 <div key={item.label}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-body-md" style={{ color: 'var(--text-primary)' }}>{item.label}</span>
-                    <span className="text-label-lg font-semibold" style={{ color: '#5B4FE8' }}>{item.percent}%</span>
+                    <span className="text-label-lg font-semibold" style={{ color: '#EC4899' }}>{item.percent}%</span>
                   </div>
                   <div className="progress-bar">
                     <div className="progress-bar-fill" style={{ width: `${item.percent}%` }} />
@@ -225,7 +225,7 @@ export default function UserManagement() {
           <Card title="AI Recommendation" subtitle="Operational insights from PrepMInd AI">
             <div className="ai-panel">
               <div className="flex items-center gap-2 mb-2">
-                <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#5B4FE8' }}>auto_awesome</span>
+                <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#EC4899' }}>auto_awesome</span>
                 <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>System Insight</span>
               </div>
               <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{data.recommendation}</p>
