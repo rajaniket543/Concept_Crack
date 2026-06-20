@@ -1,8 +1,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import Layout from './components/Layout';
+import RouteProgress from './components/RouteProgress';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import NotFound from './pages/NotFound';
 import StudentDashboard from './pages/Student/StudentDashboard';
 import PracticeModule from './pages/Student/PracticeModule';
 import ExamInterface from './pages/Student/ExamInterface';
@@ -145,7 +147,9 @@ function RequireAuth({
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <RouteProgress />
+      <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
 
@@ -178,7 +182,8 @@ export default function App() {
 
       <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
   );
 }

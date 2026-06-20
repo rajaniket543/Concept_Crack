@@ -9,6 +9,7 @@ import {
   type ExamMeta,
 } from '../../mocks/student';
 import { pathFor } from '../../lib/pages';
+import { useToast } from '../../components/Toast';
 
 const fallbackMeta = examMeta;
 
@@ -29,6 +30,7 @@ const PALETTE_STYLES: Record<PaletteState, { bg: string; color: string; border: 
 
 export default function ExamInterface() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [exam, setExam]             = useState<ExamMeta>(fallbackMeta);
   const [questions, setQuestions]   = useState(() => genExamQuestions(fallbackMeta.totalQuestions));
   const [seconds, setSeconds]       = useState(fallbackMeta.durationSeconds);
@@ -55,7 +57,7 @@ export default function ExamInterface() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && ['c', 'v', 'i'].includes(e.key.toLowerCase())) {
         e.preventDefault();
-        alert('Action Restricted: Concept Crack maintains strict exam integrity.');
+        toast('Action restricted — Concept Crack maintains strict exam integrity.', 'error');
       }
     };
     document.addEventListener('contextmenu', onContext);
@@ -64,7 +66,7 @@ export default function ExamInterface() {
       document.removeEventListener('contextmenu', onContext);
       document.removeEventListener('keydown', onKey);
     };
-  }, []);
+  }, [toast]);
 
   // Monitor opacity on mouse move
   useEffect(() => {

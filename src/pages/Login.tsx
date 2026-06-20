@@ -1,8 +1,12 @@
-import { FormEvent, useEffect, useState, type InputHTMLAttributes } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useState, type InputHTMLAttributes } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login as authLogin, requestOtp, verifyOtp, setAuthSession } from '../lib/auth';
 import { LoginRole, pathFor } from '../lib/pages';
 import { useTheme } from '../lib/theme';
+import { useToast } from '../components/Toast';
+
+const SUPPORT_EMAIL = 'support@conceptcrack.app';
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Method = 'email' | 'mobile' | 'otp';
 
@@ -22,6 +26,7 @@ const leftPanelFeatures = [
 export default function Login() {
   const navigate = useNavigate();
   const { isDark } = useTheme();
+  const toast = useToast();
   const [role, setRole] = useState<LoginRole>('student');
   const [method, setMethod] = useState<Method>('email');
   const [identifier, setIdentifier] = useState(roleDefs[0].identifier);
@@ -32,6 +37,20 @@ export default function Login() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [capsLock, setCapsLock] = useState(false);
+
+  const trimmedId = identifier.trim();
+  const emailLooksValid = method !== 'email' || EMAIL_REGEX.test(trimmedId);
+  const canSubmit =
+    !loading &&
+    trimmedId.length > 0 &&
+    emailLooksValid &&
+    (method === 'otp' ? (!challengeId || otpCode.trim().length > 0) : password.length > 0);
+
+  function detectCapsLock(e: KeyboardEvent<HTMLInputElement>) {
+    setCapsLock(e.getModifierState?.('CapsLock') ?? false);
+  }
 
   useEffect(() => {
     const preset = roleDefs.find(r => r.key === role) ?? roleDefs[0];
@@ -229,13 +248,15 @@ export default function Login() {
           </div>
 
           {/* Method tabs */}
-          <div className="flex items-center gap-0 mb-6 border-b" style={{ borderColor: isDark ? '#2D2B42' : '#E5E7EB' }}>
+          <div className="flex items-center gap-0 mb-6 border-b" style={{ borderColor: isDark ? '#2D2B42' : '#E5E7EB' }} role="tablist" aria-label="Sign-in method">
             {([{ key: 'email', label: 'Email' }, { key: 'mobile', label: 'Mobile' }, { key: 'otp', label: 'OTP Login' }] as { key: Method; label: string }[]).map(m => {
               const active = method === m.key;
               return (
                 <button
                   key={m.key}
                   type="button"
+                  role="tab"
+                  aria-selected={active}
                   onClick={() => { setMethod(m.key); setChallengeId(null); setOtpCode(''); setStatusMessage(null); setErrorMessage(null); }}
                   className="h-10 px-4 text-sm font-semibold -mb-px border-b-2 transition-all duration-150"
                   style={active
@@ -267,43 +288,60 @@ export default function Login() {
           <form onSubmit={onSubmit} className="space-y-4">
             {method === 'email' && (
               <>
-                <InputField
-                  label="Email address"
-                  type="email"
-                  value={identifier}
-                  onChange={e => setIdentifier(e.target.value)}
-                  icon="mail"
-                  placeholder="you@example.com"
-                  isDark={isDark}
-                  autoComplete="email"
-                />
-                <div className="relative">
+                <div>
                   <InputField
-                    label="Password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    icon="lock"
-                    placeholder="Enter your password"
+                    label="Email address"
+                    type="email"
+                    value={identifier}
+                    onChange={e => setIdentifier(e.target.value)}
+                    icon="mail"
+                    placeholder="you@example.com"
                     isDark={isDark}
-                    autoComplete="current-password"
+                    autoComplete="email"
+                    aria-invalid={!emailLooksValid}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(v => !v)}
-                    className="absolute right-3 bottom-2.5 w-9 h-9 flex items-center justify-center rounded transition-colors"
-                    style={{ color: isDark ? '#6B7280' : '#9CA3AF' }}
-                    tabIndex={-1}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{showPassword ? 'visibility_off' : 'visibility'}</span>
-                  </button>
+                  {!emailLooksValid && trimmedId.length > 0 && (
+                    <p className="text-xs mt-1.5" style={{ color: '#EF4444' }}>Enter a valid email address.</p>
+                  )}
+                </div>
+                <div>
+                  <div className="relative">
+                    <InputField
+                      label="Password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      onKeyUp={detectCapsLock}
+                      onKeyDown={detectCapsLock}
+                      icon="lock"
+                      placeholder="Enter your password"
+                      isDark={isDark}
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(v => !v)}
+                      className="absolute right-3 bottom-2.5 w-9 h-9 flex items-center justify-center rounded transition-colors"
+                      style={{ color: isDark ? '#6B7280' : '#9CA3AF' }}
+                      tabIndex={-1}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{showPassword ? 'visibility_off' : 'visibility'}</span>
+                    </button>
+                  </div>
+                  {capsLock && (
+                    <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: '#F59E0B' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>keyboard_capslock</span>
+                      Caps Lock is on
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center justify-between">
                   <label className="inline-flex items-center gap-2 text-sm cursor-pointer" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
                     <input
                       type="checkbox"
-                      defaultChecked
+                      checked={remember}
+                      onChange={e => setRemember(e.target.checked)}
                       className="rounded border"
                       style={{ accentColor: '#5B4FE8' }}
                     />
@@ -353,7 +391,7 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={!canSubmit}
               className="w-full h-11 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all hover:-translate-y-px disabled:opacity-60 disabled:pointer-events-none mt-2"
               style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
             >
@@ -377,6 +415,7 @@ export default function Login() {
 
           <button
             type="button"
+            onClick={() => toast('Google sign-in is coming soon.', 'info')}
             className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 transition-all hover:-translate-y-px"
             style={{
               backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF',
@@ -399,7 +438,7 @@ export default function Login() {
             <br />
             <Link to={pathFor('landing')} className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Learn more</Link>
             {' · '}
-            <a href="#" className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Contact admin</a>
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Contact admin</a>
           </p>
         </div>
       </main>

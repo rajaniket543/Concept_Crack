@@ -476,15 +476,30 @@ export default function Landing() {
               </p>
             </div>
             {[
-              { title: 'Product', links: ['Features', 'Pricing', 'Question Bank', 'Mock Tests', 'AI Insights'] },
-              { title: 'Company', links: ['About', 'Blog', 'Careers', 'Contact'] },
-              { title: 'Legal', links: ['Privacy Policy', 'Terms of Service', 'Refund Policy'] },
+              { title: 'Product', links: [
+                { label: 'Features', href: '#features' },
+                { label: 'Pricing', href: '#pricing' },
+                { label: 'Question Bank', href: '#features' },
+                { label: 'Mock Tests', href: '#features' },
+                { label: 'AI Insights', href: '#features' },
+              ] },
+              { title: 'Company', links: [
+                { label: 'About', href: '#stats' },
+                { label: 'Why Concept Crack', href: '#stats' },
+                { label: 'Careers', href: 'mailto:careers@conceptcrack.app' },
+                { label: 'Contact', href: 'mailto:support@conceptcrack.app' },
+              ] },
+              { title: 'Legal', links: [
+                { label: 'Privacy Policy', href: '#faq' },
+                { label: 'Terms of Service', href: '#faq' },
+                { label: 'Refund Policy', href: '#faq' },
+              ] },
             ].map(col => (
               <div key={col.title}>
                 <h4 className="text-sm font-semibold text-white mb-3">{col.title}</h4>
                 <ul className="space-y-2">
                   {col.links.map(l => (
-                    <li key={l}><a href="#" className="text-sm transition-colors hover:text-white" style={{ color: '#9CA3AF' }}>{l}</a></li>
+                    <li key={l.label}><a href={l.href} className="text-sm transition-colors hover:text-white" style={{ color: '#9CA3AF' }}>{l.label}</a></li>
                   ))}
                 </ul>
               </div>
