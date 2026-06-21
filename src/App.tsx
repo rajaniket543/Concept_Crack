@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import StudentDashboard from './pages/Student/StudentDashboard';
 import PracticeModule from './pages/Student/PracticeModule';
 import ExamInterface from './pages/Student/ExamInterface';
@@ -148,6 +149,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
       <Route path="/student" element={<StudentLayout />}>
         <Route index element={<RequireAuth><StudentDashboard /></RequireAuth>} />

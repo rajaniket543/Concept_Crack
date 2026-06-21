@@ -51,4 +51,10 @@ export const authSchemas = {
     resetToken: z.string().min(1, 'resetToken is required.'),
     newPassword: z.string().min(8, 'Password must be at least 8 characters.'),
   }),
+  register: z.object({
+    name: z.string().trim().min(2, 'Please enter your full name.').max(80),
+    email: z.string().trim().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Enter a valid email address.'),
+    mobile: z.string().trim().min(7, 'Enter a valid mobile number.').max(20),
+    password: z.string().min(8, 'Password must be at least 8 characters.'),
+  }),
 };

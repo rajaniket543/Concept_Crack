@@ -394,7 +394,11 @@ export default function Login() {
             Continue with Google
           </button>
 
-          <p className="text-xs text-center mt-6" style={{ color: isDark ? '#4B5563' : '#9CA3AF' }}>
+          <p className="text-sm text-center mt-6" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
+            New to Concept Crack?{' '}
+            <Link to={pathFor('register')} className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Create an account</Link>
+          </p>
+          <p className="text-xs text-center mt-3" style={{ color: isDark ? '#4B5563' : '#9CA3AF' }}>
             Demo credentials are pre-filled for quick testing.
             <br />
             <Link to={pathFor('landing')} className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Learn more</Link>

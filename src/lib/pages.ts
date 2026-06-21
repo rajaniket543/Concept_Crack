@@ -3,6 +3,7 @@ export type PageGroup = 'Main' | 'Student' | 'Parent' | 'Faculty' | 'Admin';
 export type PageKey =
   | 'landing'
   | 'login'
+  | 'register'
   | 'student'
   | 'practice'
   | 'exam'
@@ -29,6 +30,7 @@ export interface PageDef {
 export const pages: PageDef[] = [
   { key: 'landing', label: 'Landing', group: 'Main', path: '/' },
   { key: 'login', label: 'Login', group: 'Main', path: '/login' },
+  { key: 'register', label: 'Register', group: 'Main', path: '/register' },
   { key: 'student', label: 'Student Dashboard', group: 'Student', path: '/student' },
   { key: 'practice', label: 'Practice Module', group: 'Student', path: '/student/practice' },
   { key: 'exam', label: 'Exam Interface', group: 'Student', path: '/student/exam' },

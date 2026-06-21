@@ -9,6 +9,7 @@ import {
   createOtpChallenge as createDbOtpChallenge,
   createResetToken as createDbResetToken,
   createSession as createDbSession,
+  createStudentAccount,
   findUserByIdentifier,
   findUserById,
   getSessionFromToken,
@@ -359,6 +360,35 @@ app.post('/api/auth/login', validateBody(authSchemas.login), async (req, res) =>
           : user.role === 'faculty'
             ? '/faculty'
             : '/admin',
+  });
+});
+
+app.post('/api/auth/register', validateBody(authSchemas.register), async (req, res) => {
+  const { name, email, mobile, password } = req.body as {
+    name: string;
+    email: string;
+    mobile: string;
+    password: string;
+  };
+  const result = await createStudentAccount({ name, email, mobile, password });
+  if (!result.ok) {
+    return sendError(res, 409, result.reason);
+  }
+  const session = await createDbSession(result.user.id);
+  addAudit(result.user.id, 'student', 'register', `New student account created (${email})`);
+  addNotification('New student registered', `${name} just created an account.`, 'admin');
+  return sendOk(res, {
+    token: session.token,
+    expiresAt: session.expiresAt,
+    user: {
+      id: result.user.id,
+      name: result.user.name,
+      role: result.user.role,
+      email: result.user.email,
+      mobile: result.user.mobile,
+      permissions: result.user.permissions,
+    },
+    redirectTo: '/student',
   });
 });
 
