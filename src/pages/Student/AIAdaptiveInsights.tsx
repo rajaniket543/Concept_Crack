@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
+import { PageSkeleton, ErrorState } from '../../components/DataStates';
 import {
   insightsProfile,
   revisionPriorities,
@@ -31,24 +32,43 @@ export default function AIAdaptiveInsights() {
   const [cells, setCells] = useState(genInsightsHeatmap(72));
   const [profile, setProfile] = useState(insightsProfile);
   const [priorities, setPriorities] = useState(revisionPriorities);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     void apiRequest<{
       insightsProfile: typeof insightsProfile;
       revisionPriorities: typeof revisionPriorities;
       knowledgeGapHeatmap: ReturnType<typeof genInsightsHeatmap>;
     }>('/api/student/insights')
       .then(payload => {
+        if (cancelled) return;
         setProfile(payload.insightsProfile);
         setPriorities(payload.revisionPriorities);
         setCells(payload.knowledgeGapHeatmap);
       })
-      .catch(() => {
-        setProfile(insightsProfile);
-        setPriorities(revisionPriorities);
-        setCells(genInsightsHeatmap(72));
-      });
+      .catch(() => { if (!cancelled) setError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'AI Insights' }]} />
+        <div className="flex-1 p-6 lg:p-8 overflow-auto"><PageSkeleton /></div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'AI Insights' }]} />
+        <div className="flex-1 p-6 lg:p-8 overflow-auto"><ErrorState message="We couldn't load your insights." /></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>

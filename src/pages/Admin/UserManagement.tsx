@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
+import { PageSkeleton, ErrorState } from '../../components/DataStates';
 import { apiRequest } from '../../lib/api';
 import { userMetrics, users } from '../../mocks/portal';
 
@@ -33,11 +34,15 @@ export default function UserManagement() {
     recommendation: 'User activity is concentrated in weekday mornings. Schedule maintenance after 02:00 UTC.',
   });
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     apiRequest('/api/admin/users')
       .then(payload => { if (!cancelled) setData(payload); })
-      .catch(() => undefined);
+      .catch(() => { if (!cancelled) setError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
@@ -56,6 +61,23 @@ export default function UserManagement() {
     { icon: 'person_off',      color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
     { icon: 'co_present',      color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Users' }]} />
+        <div className="flex-1 p-6 lg:p-8 overflow-auto"><PageSkeleton /></div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Users' }]} />
+        <div className="flex-1 p-6 lg:p-8 overflow-auto"><ErrorState message="We couldn't load users." /></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
+import { PageSkeleton, ErrorState } from '../../components/DataStates';
 import { apiRequest } from '../../lib/api';
 import { facultyAlerts, facultyMetrics, facultyStudents, facultyTrend } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
@@ -18,11 +19,15 @@ export default function FacultyDashboard() {
     },
   });
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     apiRequest('/api/faculty/dashboard')
       .then(payload => { if (!cancelled) setData(payload); })
-      .catch(() => undefined);
+      .catch(() => { if (!cancelled) setError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
@@ -32,6 +37,23 @@ export default function FacultyDashboard() {
     { icon: 'quiz',         color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
     { icon: 'star',         color: '#14B8A6', bg: 'rgba(20,184,166,0.12)' },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Dashboard' }]} />
+        <div className="flex-1 p-6 lg:p-8 overflow-auto"><PageSkeleton /></div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Dashboard' }]} />
+        <div className="flex-1 p-6 lg:p-8 overflow-auto"><ErrorState message="We couldn't load the dashboard." /></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>

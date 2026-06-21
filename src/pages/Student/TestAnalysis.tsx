@@ -2,17 +2,23 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
+import { PageSkeleton, ErrorState } from '../../components/DataStates';
 import { analysis } from '../../mocks/student';
 import { pathFor } from '../../lib/pages';
 import { apiRequest } from '../../lib/api';
 
 export default function TestAnalysis() {
   const [data, setData] = useState<any>(analysis);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     void apiRequest<any>('/api/student/analysis/latest')
-      .then(setData)
-      .catch(() => setData(analysis));
+      .then((payload) => { if (!cancelled) setData(payload); })
+      .catch(() => { if (!cancelled) setError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const metrics = [
@@ -28,6 +34,23 @@ export default function TestAnalysis() {
     { label: 'Incorrect', count: data.incorrectCount ?? 0, color: '#EF4444' },
     { label: 'Skipped',   count: data.skippedCount   ?? 0, color: '#9CA3AF' },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Test Analysis' }]} />
+        <div className="flex-1 p-6 lg:p-8 overflow-auto"><PageSkeleton /></div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Test Analysis' }]} />
+        <div className="flex-1 p-6 lg:p-8 overflow-auto"><ErrorState message="We couldn't load your test analysis." /></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>

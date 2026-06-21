@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import TopBar from '../../components/TopBar';
 import Card from '../../components/Card';
+import { PageSkeleton, ErrorState } from '../../components/DataStates';
 import { leaderboard } from '../../mocks/student';
 import { apiRequest } from '../../lib/api';
 
@@ -13,15 +14,36 @@ const MEDAL_ICONS = ['emoji_events', 'workspace_premium', 'military_tech'];
 export default function LeaderboardRankings() {
   const [period, setPeriod] = useState<Period>('Weekly');
   const [data, setData] = useState<any>(leaderboard);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     void apiRequest<any>('/api/student/leaderboard')
-      .then(setData)
-      .catch(() => setData(leaderboard));
+      .then((payload) => { if (!cancelled) setData(payload); })
+      .catch(() => { if (!cancelled) setError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const top3 = [data.topStudents?.[1], data.topStudents?.[0], data.topStudents?.[2]].filter(Boolean);
-  const rest = data.topStudents?.slice(3) ?? [];
+
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Leaderboard' }]} />
+        <div className="flex-1 p-6 lg:p-8 overflow-auto"><PageSkeleton /></div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Leaderboard' }]} />
+        <div className="flex-1 p-6 lg:p-8 overflow-auto"><ErrorState message="We couldn't load the leaderboard." /></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
