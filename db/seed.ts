@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { pool, withTransaction } from './client';
+import { pool, withTransaction, type PoolClient } from './client';
 import {
   demoAccounts,
   rolePermissions,
@@ -17,7 +17,7 @@ function hash(text: string) {
   return crypto.createHash('sha256').update(text).digest('hex');
 }
 
-async function truncateAll(client: Awaited<ReturnType<typeof pool.connect>>) {
+async function truncateAll(client: PoolClient) {
   await client.query(`
     TRUNCATE TABLE
       leaderboard_snapshots,
@@ -44,7 +44,7 @@ async function truncateAll(client: Awaited<ReturnType<typeof pool.connect>>) {
   `);
 }
 
-async function seedRoles(client: Awaited<ReturnType<typeof pool.connect>>) {
+async function seedRoles(client: PoolClient) {
   await client.query(
     `
     INSERT INTO roles (key, label, description)
@@ -58,7 +58,7 @@ async function seedRoles(client: Awaited<ReturnType<typeof pool.connect>>) {
   );
 }
 
-async function seedInstitutes(client: Awaited<ReturnType<typeof pool.connect>>) {
+async function seedInstitutes(client: PoolClient) {
   for (const item of instituteRows) {
     await client.query(
       `
@@ -75,7 +75,7 @@ async function seedInstitutes(client: Awaited<ReturnType<typeof pool.connect>>) 
   }
 }
 
-async function seedBatches(client: Awaited<ReturnType<typeof pool.connect>>) {
+async function seedBatches(client: PoolClient) {
   const instituteMap = new Map<string, string>();
   const institutesResult = await client.query<{ id: string; name: string }>('SELECT id, name FROM institutes');
   for (const row of institutesResult.rows) instituteMap.set(row.name, row.id);
@@ -103,7 +103,7 @@ async function seedBatches(client: Awaited<ReturnType<typeof pool.connect>>) {
   }
 }
 
-async function seedSubjectsAndChapters(client: Awaited<ReturnType<typeof pool.connect>>) {
+async function seedSubjectsAndChapters(client: PoolClient) {
   const subjects = [
     { name: 'Mathematics', code: 'MATH' },
     { name: 'Physics', code: 'PHYS' },
@@ -154,7 +154,7 @@ async function seedSubjectsAndChapters(client: Awaited<ReturnType<typeof pool.co
   }
 }
 
-async function seedUsers(client: Awaited<ReturnType<typeof pool.connect>>) {
+async function seedUsers(client: PoolClient) {
   const instituteRowsResult = await client.query<{ id: string; name: string }>('SELECT id, name FROM institutes');
   const instituteMap = new Map(instituteRowsResult.rows.map((row) => [row.name, row.id]));
 
@@ -226,7 +226,7 @@ async function seedUsers(client: Awaited<ReturnType<typeof pool.connect>>) {
   }
 }
 
-async function seedQuestionsAndTests(client: Awaited<ReturnType<typeof pool.connect>>) {
+async function seedQuestionsAndTests(client: PoolClient) {
   const subjectRows = await client.query<{ id: string; name: string }>('SELECT id, name FROM subjects');
   const chapterRows = await client.query<{ id: string; subject_id: string; name: string }>('SELECT id, subject_id, name FROM chapters');
   const subjectMap = new Map(subjectRows.rows.map((row) => [row.name, row.id]));
@@ -337,7 +337,7 @@ async function seedQuestionsAndTests(client: Awaited<ReturnType<typeof pool.conn
   }
 }
 
-async function seedAttemptData(client: Awaited<ReturnType<typeof pool.connect>>) {
+async function seedAttemptData(client: PoolClient) {
   const student = await client.query<{ id: string }>('SELECT id FROM users WHERE email = $1 LIMIT 1', ['student@prepmind.ai']);
   const test = await client.query<{ id: string }>('SELECT id FROM tests WHERE code = $1 LIMIT 1', ['PM-992-AX']);
   const questionRows = await client.query<{ id: string; prompt: string; correct_option: string }>(
@@ -467,7 +467,7 @@ async function seedAttemptData(client: Awaited<ReturnType<typeof pool.connect>>)
   );
 }
 
-async function seedSupportTables(client: Awaited<ReturnType<typeof pool.connect>>) {
+async function seedSupportTables(client: PoolClient) {
   const student = await client.query<{ id: string; batch_id: string | null }>('SELECT id, batch_id FROM users WHERE email = $1 LIMIT 1', [
     'student@prepmind.ai',
   ]);
@@ -506,7 +506,7 @@ async function seedSupportTables(client: Awaited<ReturnType<typeof pool.connect>
   );
 }
 
-async function seedPortalAggregation(client: Awaited<ReturnType<typeof pool.connect>>) {
+async function seedPortalAggregation(client: PoolClient) {
   const parent = parentMetrics[0];
   const faculty = facultyMetrics[0];
   const admin = adminMetrics[0];

@@ -6,3 +6,8 @@ dist-ssr
 .vite
 *.tsbuildinfo
 .claude/
+
+# Environment files (keep .env.example tracked)
+.env
+.env.*
+!.env.example

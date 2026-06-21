@@ -64,6 +64,9 @@ import {
 } from '../src/mocks/portal';
 import { createToken, verifyPassword } from './security';
 import { DemoAccount, Role, demoAccounts, rolePermissions, seed, seedQuestions, userDirectory } from './seed';
+import helmet from 'helmet';
+import { config } from './config';
+import { validateBody, authSchemas } from './validation';
 
 type ExamStatus = 'active' | 'submitted';
 type AnswerKey = 'A' | 'B' | 'C' | 'D';
@@ -285,7 +288,17 @@ function getClientIp(req: Request) {
 }
 
 const app = express();
-app.use(cors({ origin: true, credentials: true }));
+app.disable('x-powered-by');
+// Security headers. CSP is disabled because this server also serves the SPA
+// (inline styles + Google Fonts); enable a tailored CSP when locking down further.
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(
+  cors({
+    // In production, restrict to ALLOWED_ORIGINS; in dev (none set) allow all.
+    origin: config.allowedOrigins.length > 0 ? config.allowedOrigins : true,
+    credentials: true,
+  }),
+);
 app.use(express.json({ limit: '2mb' }));
 
 app.use('/api/auth', rateLimit(60_000, 20));
@@ -300,7 +313,7 @@ app.get('/api/health', async (_req, res) => {
   });
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', validateBody(authSchemas.login), async (req, res) => {
   const identifier = getBodyString(req.body.identifier);
   const password = getBodyString(req.body.password);
   const role = getBodyString(req.body.role) as Role;
@@ -349,7 +362,7 @@ app.post('/api/auth/login', async (req, res) => {
   });
 });
 
-app.post('/api/auth/request-otp', async (req, res) => {
+app.post('/api/auth/request-otp', validateBody(authSchemas.requestOtp), async (req, res) => {
   const identifier = getBodyString(req.body.identifier);
   const role = getBodyString(req.body.role) as Role;
   const user = await findUserByIdentifier(identifier, role);
@@ -361,12 +374,15 @@ app.post('/api/auth/request-otp', async (req, res) => {
   return sendOk(res, {
     challengeId: challenge.challengeId,
     expiresInSeconds: 600,
-    devCode: challenge.code,
-    message: 'Use the dev code in local mode. Replace this with SMS/WhatsApp delivery in production.',
+    // Dev-only: never expose the actual code in production responses.
+    ...(config.exposeDevCodes ? { devCode: challenge.code } : {}),
+    message: config.exposeDevCodes
+      ? 'Dev mode: use the returned code. Wire SMS/WhatsApp delivery for production.'
+      : 'An OTP has been sent to your registered mobile number.',
   });
 });
 
-app.post('/api/auth/verify-otp', async (req, res) => {
+app.post('/api/auth/verify-otp', validateBody(authSchemas.verifyOtp), async (req, res) => {
   const challengeId = getBodyString(req.body.challengeId);
   const code = getBodyString(req.body.code);
   const user = await verifyOtpChallenge(challengeId, code);
@@ -397,20 +413,27 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   });
 });
 
-app.post('/api/auth/forgot-password', async (req, res) => {
+app.post('/api/auth/forgot-password', validateBody(authSchemas.forgotPassword), async (req, res) => {
   const identifier = getBodyString(req.body.identifier);
   const user = await findUserByIdentifier(identifier);
   if (!user) return sendError(res, 404, 'No account matches that identifier.');
   const resetToken = await createDbResetToken(user.id);
   addAudit(user.id, user.role, 'password_reset_requested', 'Password reset requested');
   return sendOk(res, {
-    resetToken: resetToken.resetToken,
-    resetLink: `/reset-password?token=${resetToken.resetToken}`,
-    message: 'Use /api/auth/reset-password with the returned token.',
+    message: config.exposeDevCodes
+      ? 'Use /api/auth/reset-password with the returned token.'
+      : 'A password reset link has been sent to your registered contact.',
+    // Dev-only: never expose the reset token/link in production responses.
+    ...(config.exposeDevCodes
+      ? {
+          resetToken: resetToken.resetToken,
+          resetLink: `/reset-password?token=${resetToken.resetToken}`,
+        }
+      : {}),
   });
 });
 
-app.post('/api/auth/reset-password', async (req, res) => {
+app.post('/api/auth/reset-password', validateBody(authSchemas.resetPassword), async (req, res) => {
   const resetToken = getBodyString(req.body.resetToken);
   const newPassword = getBodyString(req.body.newPassword);
   const userId = await consumeResetToken(resetToken);
@@ -650,13 +673,38 @@ app.use((req, res) => {
   return res.status(404).send('Not found');
 });
 
-const port = Number(process.env.PORT ?? process.env.API_PORT ?? 8787);
+// ── Global error handler (must be registered last) ──
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('Unhandled request error:', err);
+  if (res.headersSent) return;
+  const status =
+    typeof err === 'object' && err !== null && typeof (err as { status?: unknown }).status === 'number'
+      ? (err as { status: number }).status
+      : 500;
+  const message = !config.isProduction && err instanceof Error ? err.message : 'Internal server error.';
+  res.status(status).json({ ok: false, error: { message } });
+});
+
+const port = config.port;
 
 async function startServer() {
   await ensureDatabaseReady();
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(`Concept Crack app listening on http://localhost:${port}`);
   });
+
+  // Graceful shutdown: stop accepting connections, drain the DB pool, then exit.
+  const shutdown = (signal: string) => {
+    console.log(`${signal} received — shutting down gracefully...`);
+    server.close(() => {
+      void pool.end().finally(() => process.exit(0));
+    });
+    // Hard exit if connections don't drain in time.
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 startServer().catch((error) => {
