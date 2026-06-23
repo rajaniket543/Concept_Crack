@@ -1,3 +1,16 @@
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from './firebase';
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
 export type AuthRole = 'student' | 'parent' | 'faculty' | 'admin';
 
 export interface AuthUser {
@@ -15,6 +28,17 @@ export interface AuthSession {
   user: AuthUser;
   redirectTo: string;
 }
+
+// ── Role → portal path ───────────────────────────────────────────────────────
+
+const ROLE_PATH: Record<AuthRole, string> = {
+  student: '/student',
+  parent:  '/parent',
+  faculty: '/faculty',
+  admin:   '/admin',
+};
+
+// ── LocalStorage session (kept for backward-compat with portal pages) ────────
 
 const STORAGE_KEY = 'prepmind_auth_session';
 
@@ -41,62 +65,117 @@ export function getAuthToken() {
   return getAuthSession()?.token ?? null;
 }
 
-export async function login(payload: {
-  identifier: string;
-  password: string;
-  role: AuthRole;
-  method: 'email' | 'mobile';
-}) {
-  const response = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message ?? 'Login failed.');
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSession> {
+  const firebaseUser = auth.currentUser!;
+  const token = await firebaseUser.getIdToken();
+
+  const userRef = doc(db, 'users', uid);
+  const userSnap = await getDoc(userRef);
+
+  let userData: AuthUser;
+
+  if (userSnap.exists()) {
+    const data = userSnap.data();
+
+    // Role mismatch — wrong portal selected
+    if (data.role !== selectedRole) {
+      await signOut(auth);
+      throw new Error(
+        `This account is registered as "${data.role}". Please select the correct portal.`
+      );
+    }
+
+    userData = {
+      id:          uid,
+      name:        data.name        ?? firebaseUser.displayName ?? 'User',
+      role:        data.role        as AuthRole,
+      email:       data.email       ?? firebaseUser.email ?? '',
+      mobile:      data.mobile      ?? '',
+      permissions: data.permissions ?? [],
+    };
+
+    // Update last-active timestamp (fire-and-forget)
+    void setDoc(userRef, { lastActive: serverTimestamp() }, { merge: true });
+  } else {
+    // First-time login — auto-create the Firestore profile
+    userData = {
+      id:          uid,
+      name:        firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'User',
+      role:        selectedRole,
+      email:       firebaseUser.email ?? '',
+      mobile:      '',
+      permissions: [],
+    };
+    await setDoc(userRef, {
+      ...userData,
+      status:    'Active',
+      createdAt: serverTimestamp(),
+      lastActive: serverTimestamp(),
+    });
   }
-  const session = data.data as AuthSession;
+
+  const session: AuthSession = {
+    token,
+    expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour
+    user:      userData,
+    redirectTo: ROLE_PATH[selectedRole],
+  };
+
   setAuthSession(session);
   return session;
+}
+
+// ── Auth functions ───────────────────────────────────────────────────────────
+
+export async function login(payload: {
+  identifier: string;
+  password:   string;
+  role:       AuthRole;
+  method:     'email' | 'mobile';
+}): Promise<AuthSession> {
+  const credential = await signInWithEmailAndPassword(
+    auth,
+    payload.identifier.trim(),
+    payload.password
+  );
+  return buildSession(credential.user.uid, payload.role);
 }
 
 export async function requestOtp(payload: { identifier: string; role: AuthRole }) {
-  const response = await fetch('/api/auth/request-otp', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message ?? 'OTP request failed.');
-  }
-  return data.data as { challengeId: string; devCode: string; expiresInSeconds: number; message: string };
+  const actionCodeSettings = {
+    url:            `${window.location.origin}/login?role=${payload.role}`,
+    handleCodeInApp: true,
+  };
+  await sendSignInLinkToEmail(auth, payload.identifier.trim(), actionCodeSettings);
+  window.localStorage.setItem('otp_email', payload.identifier.trim());
+  window.localStorage.setItem('otp_role',  payload.role);
+  return {
+    challengeId:      'email-link',
+    devCode:          '',
+    expiresInSeconds: 600,
+    message:          `A sign-in link has been sent to ${payload.identifier}. Click the link in your email to sign in.`,
+  };
 }
 
 export async function verifyOtp(payload: { challengeId: string; code: string }) {
-  const response = await fetch('/api/auth/verify-otp', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message ?? 'OTP verification failed.');
+  if (!isSignInWithEmailLink(auth, window.location.href)) {
+    throw new Error('No valid sign-in link found. Please request a new OTP.');
   }
-  const session = data.data as AuthSession;
-  setAuthSession(session);
-  return session;
+  const email = window.localStorage.getItem('otp_email') ?? payload.code;
+  const role  = (window.localStorage.getItem('otp_role') ?? 'student') as AuthRole;
+  const credential = await signInWithEmailLink(auth, email, window.location.href);
+  window.localStorage.removeItem('otp_email');
+  window.localStorage.removeItem('otp_role');
+  return buildSession(credential.user.uid, role);
+}
+
+export async function forgotPassword(email: string) {
+  await sendPasswordResetEmail(auth, email.trim());
 }
 
 export async function logout() {
-  const token = getAuthToken();
-  if (token) {
-    await fetch('/api/auth/logout', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    }).catch(() => undefined);
-  }
   clearAuthSession();
+  await signOut(auth);
 }
-

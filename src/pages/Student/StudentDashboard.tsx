@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
-import { apiRequest } from '../../lib/api';
+import { getStudentDashboard } from '../../lib/db';
 import { getAuthSession } from '../../lib/auth';
 import {
   currentStudent,
@@ -48,7 +48,7 @@ export default function StudentDashboard() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    apiRequest('/api/student/dashboard')
+    getStudentDashboard(session?.user?.id ?? '')
       .then(payload => { if (!cancelled) setData(payload as DashData); })
       .catch(() => undefined)
       .finally(() => { if (!cancelled) setLoading(false); });

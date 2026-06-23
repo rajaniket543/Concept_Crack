@@ -1,0 +1,122 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ───────────────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    // Safely read the caller's role from Firestore (guards against missing doc)
+    function userExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && userExists() && getUserRole() == role;
+    }
+
+    function isAdmin()   { return hasRole('admin');   }
+    function isFaculty() { return hasRole('faculty'); }
+    function isStudent() { return hasRole('student'); }
+    function isParent()  { return hasRole('parent');  }
+
+    function isAdminOrFaculty() { return isAdmin() || isFaculty(); }
+
+    // ── /users/{uid} ───────────────────────────────────────────────────────────
+    // Each user can read/write their own profile. Admins can read all.
+    match /users/{uid} {
+      allow read:   if isAuthenticated() && (isOwner(uid) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(uid);
+      allow update: if isAuthenticated() && (isOwner(uid) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ── /studentStats/{uid} ────────────────────────────────────────────────────
+    // Students own their stats. Parents, faculty, and admins can read.
+    match /studentStats/{uid} {
+      allow read:  if isAuthenticated() && (isOwner(uid) || isAdminOrFaculty() || isParent());
+      allow write: if isAuthenticated() && (isOwner(uid) || isAdmin());
+    }
+
+    // ── /institutes/{id} ──────────────────────────────────────────────────────
+    // Any signed-in user can read. Only admins can write.
+    match /institutes/{id} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── /questions/{id} ───────────────────────────────────────────────────────
+    // Any signed-in user can read questions (needed for exams).
+    // Faculty and admins can create/update. Only admins can delete.
+    match /questions/{id} {
+      allow read:   if isAuthenticated();
+      allow create: if isAdminOrFaculty();
+      allow update: if isAdminOrFaculty();
+      allow delete: if isAdmin();
+    }
+
+    // ── /exams/{id} ───────────────────────────────────────────────────────────
+    match /exams/{id} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdminOrFaculty();
+    }
+
+    // ── /examAttempts/{id} ────────────────────────────────────────────────────
+    // Students can create and update only their own attempt (while active).
+    // Faculty and admins can read all attempts for reporting.
+    match /examAttempts/{id} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdminOrFaculty()
+      );
+      allow create: if isStudent() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid &&
+        resource.data.status == 'active';
+      allow delete: if isAdmin();
+    }
+
+    // ── /leaderboard/{id} ─────────────────────────────────────────────────────
+    // All signed-in users can read. Only admins write (or Cloud Functions later).
+    match /leaderboard/{id} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── /notifications/{id} ───────────────────────────────────────────────────
+    // Users can only read their own notifications.
+    match /notifications/{id} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow write: if isAdmin();
+    }
+
+    // ── /auditLogs/{id} ───────────────────────────────────────────────────────
+    // Admin-only visibility.
+    match /auditLogs/{id} {
+      allow read:  if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ── /_meta/{id} ───────────────────────────────────────────────────────────
+    // Used for seed tracking. Any authenticated user can read/write
+    // so the one-time demo setup button works before admin is assigned.
+    match /_meta/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+  }
+}

@@ -1,6 +1,7 @@
 import { FormEvent, KeyboardEvent, useEffect, useState, type InputHTMLAttributes } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { login as authLogin, requestOtp, verifyOtp, setAuthSession } from '../lib/auth';
+import { login as authLogin, requestOtp, verifyOtp, forgotPassword } from '../lib/auth';
+import { seedDemoAccounts, markDemoSeeded, type SeedResult } from '../lib/seed-demo';
 import { LoginRole, pathFor } from '../lib/pages';
 import { useTheme } from '../lib/theme';
 import { useToast } from '../components/Toast';
@@ -39,6 +40,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(true);
   const [capsLock, setCapsLock] = useState(false);
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [seedResults, setSeedResults] = useState<SeedResult[] | null>(null);
 
   const trimmedId = identifier.trim();
   const emailLooksValid = method !== 'email' || EMAIL_REGEX.test(trimmedId);
@@ -62,23 +65,6 @@ export default function Login() {
     setErrorMessage(null);
   }, [role]);
 
-  function devLogin() {
-    const nameMap: Record<LoginRole, string> = {
-      student: 'Arjun Sharma',
-      parent:  'Meena Sharma',
-      faculty: 'Dr. R. Iyer',
-      admin:   'Admin Desk',
-    };
-    const redirectTo = pathFor(role);
-    setAuthSession({
-      token: `dev-token-${role}`,
-      expiresAt: Date.now() + 86400_000,
-      user: { id: `dev-${role}`, name: nameMap[role], role, email: identifier, mobile: '', permissions: [] },
-      redirectTo,
-    });
-    navigate(redirectTo);
-  }
-
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -89,7 +75,7 @@ export default function Login() {
         if (!challengeId) {
           const challenge = await requestOtp({ identifier, role });
           setChallengeId(challenge.challengeId);
-          setStatusMessage(`${challenge.message}  Dev OTP: ${challenge.devCode}`);
+          setStatusMessage(challenge.message);
           return;
         }
         const session = await verifyOtp({ challengeId, code: otpCode });
@@ -98,34 +84,41 @@ export default function Login() {
       }
       const session = await authLogin({ identifier, password, role, method });
       navigate(session.redirectTo);
-    } catch {
-      // Backend unavailable — use dev session so the UI is explorable
-      devLogin();
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   }
 
   async function handleForgotPassword() {
-    const value = window.prompt('Enter your email or mobile number:');
+    const value = window.prompt('Enter your email address:');
     if (!value) return;
     setLoading(true);
     setErrorMessage(null);
     setStatusMessage(null);
     try {
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: value }),
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error?.message ?? 'Password reset failed.');
-      const data = payload.data as { resetToken: string; message: string };
-      setStatusMessage(`${data.message}  Dev token: ${data.resetToken}`);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to start reset flow.');
+      await forgotPassword(value);
+      setStatusMessage(`Password reset email sent to ${value}. Check your inbox.`);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Unable to send reset email.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSeedDemo() {
+    setSeedLoading(true);
+    setSeedResults(null);
+    setErrorMessage(null);
+    try {
+      const results = await seedDemoAccounts();
+      await markDemoSeeded();
+      setSeedResults(results);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Seeding failed.');
+    } finally {
+      setSeedLoading(false);
     }
   }
 
@@ -433,9 +426,61 @@ export default function Login() {
             Continue with Google
           </button>
 
-          <p className="text-xs text-center mt-6" style={{ color: isDark ? '#4B5563' : '#9CA3AF' }}>
-            Demo credentials are pre-filled for quick testing.
-            <br />
+          {/* First-time setup */}
+          <div className="mt-5 pt-5 border-t" style={{ borderColor: isDark ? '#2D2B42' : '#E5E7EB' }}>
+            <p className="text-xs text-center mb-3" style={{ color: isDark ? '#4B5563' : '#9CA3AF' }}>
+              First time? Create the 4 demo accounts in Firebase:
+            </p>
+            <button
+              type="button"
+              onClick={handleSeedDemo}
+              disabled={seedLoading}
+              className="w-full h-10 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all hover:-translate-y-px disabled:opacity-60 disabled:pointer-events-none"
+              style={{
+                backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6',
+                border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
+                color: isDark ? '#9CA3AF' : '#6B7280',
+              }}
+            >
+              {seedLoading
+                ? <><span className="material-symbols-outlined animate-spin" style={{ fontSize: '16px' }}>progress_activity</span> Setting up…</>
+                : <><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>database</span> Setup Demo Accounts</>
+              }
+            </button>
+
+            {/* Seed results */}
+            {seedResults && (
+              <div className="mt-3 space-y-1.5">
+                {seedResults.map(r => (
+                  <div
+                    key={r.email}
+                    className="flex items-center justify-between px-3 py-2 rounded-lg text-xs"
+                    style={{
+                      backgroundColor: r.status === 'error'
+                        ? 'rgba(239,68,68,0.08)'
+                        : r.status === 'created'
+                          ? 'rgba(16,185,129,0.08)'
+                          : isDark ? '#1E1D2E' : '#F9FAFB',
+                      border: `1px solid ${r.status === 'error' ? 'rgba(239,68,68,0.2)' : r.status === 'created' ? 'rgba(16,185,129,0.2)' : isDark ? '#2D2B42' : '#E5E7EB'}`,
+                    }}
+                  >
+                    <span style={{ color: isDark ? '#D1D5DB' : '#374151' }}>{r.email}</span>
+                    <span
+                      className="font-semibold"
+                      style={{ color: r.status === 'error' ? '#EF4444' : r.status === 'created' ? '#10B981' : '#6B7280' }}
+                    >
+                      {r.status === 'created' ? '✓ Created' : r.status === 'exists' ? '• Already exists' : `✗ ${r.error}`}
+                    </span>
+                  </div>
+                ))}
+                <p className="text-center text-xs pt-1" style={{ color: '#10B981' }}>
+                  All done! You can now sign in with the pre-filled credentials.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-center mt-4" style={{ color: isDark ? '#4B5563' : '#9CA3AF' }}>
             <Link to={pathFor('landing')} className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Learn more</Link>
             {' · '}
             <a href={`mailto:${SUPPORT_EMAIL}`} className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Contact admin</a>
