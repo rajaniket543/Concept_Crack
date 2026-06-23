@@ -56,7 +56,7 @@ export default function Settings() {
     setProfileSaving(true);
     try {
       if (emailChanged) {
-        const credential = EmailAuthProvider.credential(originalEmail, profilePwd);
+        const credential = EmailAuthProvider.credential(auth.currentUser.email!, profilePwd);
         await reauthenticateWithCredential(auth.currentUser, credential);
         await verifyBeforeUpdateEmail(auth.currentUser, profile.email.trim());
         // Revert email in local state — it only changes after the user clicks the verification link
@@ -136,7 +136,7 @@ export default function Settings() {
 
     setSecuritySaving(true);
     try {
-      const credential = EmailAuthProvider.credential(session.user.email, security.currentPassword);
+      const credential = EmailAuthProvider.credential(auth.currentUser.email!, security.currentPassword);
       await reauthenticateWithCredential(auth.currentUser, credential);
       await updatePassword(auth.currentUser, security.newPassword);
       setSecurity({ currentPassword: '', newPassword: '', confirmPassword: '' });
