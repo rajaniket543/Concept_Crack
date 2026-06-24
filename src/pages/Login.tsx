@@ -1,6 +1,6 @@
-import { FormEvent, KeyboardEvent, useEffect, useState, type InputHTMLAttributes } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState, type InputHTMLAttributes } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { login as authLogin, requestOtp, verifyOtp, forgotPassword } from '../lib/auth';
+import { login as authLogin, forgotPassword, loginWithGoogle, sendPhoneOtp, verifyPhoneOtp, type ConfirmationResult } from '../lib/auth';
 import { seedDemoAccounts, markDemoSeeded, type SeedResult } from '../lib/seed-demo';
 import { LoginRole, pathFor } from '../lib/pages';
 import { useTheme } from '../lib/theme';
@@ -42,14 +42,16 @@ export default function Login() {
   const [capsLock, setCapsLock] = useState(false);
   const [seedLoading, setSeedLoading] = useState(false);
   const [seedResults, setSeedResults] = useState<SeedResult[] | null>(null);
+  const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
+  const recaptchaRef = useRef<HTMLDivElement>(null);
 
   const trimmedId = identifier.trim();
   const emailLooksValid = method !== 'email' || EMAIL_REGEX.test(trimmedId);
+  const isPhoneMethod = method === 'mobile' || method === 'otp';
   const canSubmit =
     !loading &&
     trimmedId.length > 0 &&
-    emailLooksValid &&
-    (method === 'otp' ? (!challengeId || otpCode.trim().length > 0) : password.length > 0);
+    (isPhoneMethod ? (!phoneConfirmation || otpCode.trim().length > 0) : emailLooksValid && password.length > 0);
 
   function detectCapsLock(e: KeyboardEvent<HTMLInputElement>) {
     setCapsLock(e.getModifierState?.('CapsLock') ?? false);
@@ -57,10 +59,11 @@ export default function Login() {
 
   useEffect(() => {
     const preset = roleDefs.find(r => r.key === role) ?? roleDefs[0];
-    setIdentifier(preset.identifier);
+    setIdentifier(isPhoneMethod ? '' : preset.identifier);
     setPassword(preset.password);
     setOtpCode('');
     setChallengeId(null);
+    setPhoneConfirmation(null);
     setStatusMessage(null);
     setErrorMessage(null);
   }, [role]);
@@ -71,14 +74,14 @@ export default function Login() {
     setErrorMessage(null);
     setStatusMessage(null);
     try {
-      if (method === 'otp') {
-        if (!challengeId) {
-          const challenge = await requestOtp({ identifier, role });
-          setChallengeId(challenge.challengeId);
-          setStatusMessage(challenge.message);
+      if (isPhoneMethod) {
+        if (!phoneConfirmation) {
+          const confirmation = await sendPhoneOtp(identifier, recaptchaRef.current!);
+          setPhoneConfirmation(confirmation);
+          setStatusMessage(`OTP sent to ${identifier}. Enter the 6-digit code below.`);
           return;
         }
-        const session = await verifyOtp({ challengeId, code: otpCode });
+        const session = await verifyPhoneOtp(phoneConfirmation, otpCode, role);
         navigate(session.redirectTo);
         return;
       }
@@ -86,6 +89,7 @@ export default function Login() {
       navigate(session.redirectTo);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Login failed. Please try again.');
+      if (isPhoneMethod) setPhoneConfirmation(null);
     } finally {
       setLoading(false);
     }
@@ -122,9 +126,29 @@ export default function Login() {
     }
   }
 
-  const submitLabel = method === 'otp' ? (challengeId ? 'Verify OTP' : 'Send OTP') : 'Sign in';
+  async function handleGoogleSignIn() {
+    if (role !== 'student') {
+      toast('Google sign-in is available for the Student portal only.', 'info');
+      return;
+    }
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const session = await loginWithGoogle(role);
+      navigate(session.redirectTo);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Google sign-in failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const submitLabel = isPhoneMethod ? (phoneConfirmation ? 'Verify OTP' : 'Send OTP') : 'Sign in';
 
   return (
+    <>
+    {/* Invisible reCAPTCHA container — must be in DOM but outside the layout grid */}
+    <div ref={recaptchaRef} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} />
     <div
       className="min-h-screen grid lg:grid-cols-[40%_60%]"
       style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: isDark ? '#0F0E17' : '#FFFFFF', color: isDark ? '#F9FAFB' : '#111827' }}
@@ -250,7 +274,17 @@ export default function Login() {
                   type="button"
                   role="tab"
                   aria-selected={active}
-                  onClick={() => { setMethod(m.key); setChallengeId(null); setOtpCode(''); setStatusMessage(null); setErrorMessage(null); }}
+                  onClick={() => {
+                    setMethod(m.key);
+                    setChallengeId(null);
+                    setOtpCode('');
+                    setPhoneConfirmation(null);
+                    setStatusMessage(null);
+                    setErrorMessage(null);
+                    const isPhone = m.key === 'mobile' || m.key === 'otp';
+                    const preset = roleDefs.find(r => r.key === role) ?? roleDefs[0];
+                    setIdentifier(isPhone ? '' : preset.identifier);
+                  }}
                   className="h-10 px-4 text-sm font-semibold -mb-px border-b-2 transition-all duration-150"
                   style={active
                     ? { color: '#5B4FE8', borderBottomColor: '#5B4FE8' }
@@ -354,30 +388,18 @@ export default function Login() {
 
             {method === 'mobile' && (
               <>
-                <InputField label="Mobile number" type="tel" value={identifier} onChange={e => setIdentifier(e.target.value)} icon="smartphone" placeholder="+91 9876543210" isDark={isDark} autoComplete="tel" />
-                <div className="relative">
-                  <InputField
-                    label="Password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    icon="lock"
-                    placeholder="Enter your password"
-                    isDark={isDark}
-                    autoComplete="current-password"
-                  />
-                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 bottom-2.5 w-9 h-9 flex items-center justify-center rounded" style={{ color: isDark ? '#6B7280' : '#9CA3AF' }} tabIndex={-1}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{showPassword ? 'visibility_off' : 'visibility'}</span>
-                  </button>
-                </div>
+                <InputField label="Mobile number" type="tel" value={identifier} onChange={e => setIdentifier(e.target.value)} icon="smartphone" placeholder="+91 9876543210" isDark={isDark} autoComplete="tel" disabled={!!phoneConfirmation} />
+                {phoneConfirmation && (
+                  <InputField label="Enter OTP" type="text" inputMode="numeric" value={otpCode} onChange={e => setOtpCode(e.target.value)} icon="pin" placeholder="6-digit OTP" isDark={isDark} autoComplete="one-time-code" />
+                )}
               </>
             )}
 
             {method === 'otp' && (
               <>
-                <InputField label="Email or mobile" type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} icon="vpn_key" placeholder="Email or mobile number" isDark={isDark} />
-                {challengeId && (
-                  <InputField label="Enter OTP" type="text" value={otpCode} onChange={e => setOtpCode(e.target.value)} icon="pin" placeholder="6-digit OTP" isDark={isDark} autoComplete="one-time-code" />
+                <InputField label="Mobile number" type="tel" value={identifier} onChange={e => setIdentifier(e.target.value)} icon="smartphone" placeholder="+91 9876543210" isDark={isDark} autoComplete="tel" disabled={!!phoneConfirmation} />
+                {phoneConfirmation && (
+                  <InputField label="Enter OTP" type="text" inputMode="numeric" value={otpCode} onChange={e => setOtpCode(e.target.value)} icon="pin" placeholder="6-digit OTP" isDark={isDark} autoComplete="one-time-code" />
                 )}
               </>
             )}
@@ -408,8 +430,9 @@ export default function Login() {
 
           <button
             type="button"
-            onClick={() => toast('Google sign-in is coming soon.', 'info')}
-            className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 transition-all hover:-translate-y-px"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 transition-all hover:-translate-y-px disabled:opacity-60 disabled:pointer-events-none"
             style={{
               backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF',
               border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
@@ -488,6 +511,7 @@ export default function Login() {
         </div>
       </main>
     </div>
+    </>
   );
 }
 

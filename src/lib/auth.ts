@@ -5,6 +5,11 @@ import {
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithPhoneNumber,
+  RecaptchaVerifier,
+  type ConfirmationResult,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
@@ -168,6 +173,35 @@ export async function verifyOtp(payload: { challengeId: string; code: string }) 
   const credential = await signInWithEmailLink(auth, email, window.location.href);
   window.localStorage.removeItem('otp_email');
   window.localStorage.removeItem('otp_role');
+  return buildSession(credential.user.uid, role);
+}
+
+let _recaptchaVerifier: RecaptchaVerifier | null = null;
+
+export async function sendPhoneOtp(phone: string, container: HTMLElement): Promise<ConfirmationResult> {
+  if (_recaptchaVerifier) {
+    _recaptchaVerifier.clear();
+    _recaptchaVerifier = null;
+  }
+  container.innerHTML = '';
+  _recaptchaVerifier = new RecaptchaVerifier(auth, container, { size: 'invisible' });
+  return signInWithPhoneNumber(auth, phone.trim(), _recaptchaVerifier);
+}
+
+export async function verifyPhoneOtp(
+  confirmation: ConfirmationResult,
+  code: string,
+  role: AuthRole
+): Promise<AuthSession> {
+  const credential = await confirmation.confirm(code.trim());
+  return buildSession(credential.user.uid, role);
+}
+
+export type { ConfirmationResult };
+
+export async function loginWithGoogle(role: AuthRole): Promise<AuthSession> {
+  const provider = new GoogleAuthProvider();
+  const credential = await signInWithPopup(auth, provider);
   return buildSession(credential.user.uid, role);
 }
 
