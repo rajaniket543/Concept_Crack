@@ -196,9 +196,9 @@ export default function StudentDashboard() {
             <div className="space-y-5">
               {data.subjectPerformance
                 .filter((s: any) => {
-                  if (!stream) return true;
-                  if (stream === 'NEET') return s.subject !== 'Mathematics' && s.subject !== 'English';
-                  return s.subject !== 'Biology' && s.subject !== 'English';
+                  if (s.subject === 'English') return false;
+                  if (stream === 'JEE')  return s.subject !== 'Biology';
+                  return true; // NEET: keep Physics, Chemistry, Mathematics (renamed below)
                 })
                 .map((s: any) => {
                   const subjectName = (stream === 'NEET' && s.subject === 'Mathematics') ? 'Biology' : s.subject;
