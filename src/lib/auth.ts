@@ -12,6 +12,7 @@ import {
   type ConfirmationResult,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { clearStudentStream } from './stream';
 import { auth, db } from './firebase';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -211,5 +212,6 @@ export async function forgotPassword(email: string) {
 
 export async function logout() {
   clearAuthSession();
+  clearStudentStream();
   await signOut(auth);
 }

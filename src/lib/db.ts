@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import {
   currentStudent,
@@ -141,6 +141,146 @@ export async function getLatestAttempt(uid: string) {
   } catch {
     return null;
   }
+}
+
+// ── Stream ────────────────────────────────────────────────────────────────────
+
+export async function saveStudentStream(uid: string, stream: string) {
+  await setDoc(doc(db, Col.users, uid), { stream }, { merge: true });
+}
+
+export async function getStudentStreamDB(uid: string): Promise<string | null> {
+  try {
+    const snap = await getDoc(doc(db, Col.users, uid));
+    return snap.exists() ? (snap.data().stream ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ── Student Progress ──────────────────────────────────────────────────────────
+
+export interface LastActivity {
+  type: 'test' | 'practice';
+  title: string;
+  score?: number;
+  accuracy?: number;
+  completedAt: string;
+}
+
+export interface ProgressRecord {
+  lastActivity: LastActivity | null;
+  completedTests: number;
+  streakDays: number;
+  nextRecommendation?: string;
+}
+
+export async function getStudentProgressData(uid: string): Promise<ProgressRecord | null> {
+  try {
+    const snap = await getDoc(doc(db, 'studentProgress', uid));
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    // Convert Firestore Timestamp → ISO string if needed
+    const la = d.lastActivity;
+    if (la?.completedAt instanceof Timestamp) {
+      la.completedAt = la.completedAt.toDate().toISOString();
+    }
+    return d as ProgressRecord;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateStudentProgress(uid: string, data: Partial<ProgressRecord>) {
+  try {
+    await setDoc(doc(db, 'studentProgress', uid), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  } catch {
+    // silent
+  }
+}
+
+// ── Parent → Student link ─────────────────────────────────────────────────────
+
+export async function getLinkedStudentData(parentUid: string) {
+  try {
+    const parentSnap = await getDoc(doc(db, Col.users, parentUid));
+    if (!parentSnap.exists()) return null;
+    const linkedId: string | undefined = parentSnap.data().linkedStudentId;
+    if (!linkedId) return null;
+    const stuSnap = await getDoc(doc(db, Col.users, linkedId));
+    if (!stuSnap.exists()) return null;
+    const d = stuSnap.data();
+    const progress = await getStudentProgressData(linkedId);
+    return {
+      id: stuSnap.id,
+      name:        d.name        as string ?? 'Student',
+      email:       d.email       as string ?? '',
+      stream:      d.stream      as string ?? 'JEE',
+      examTarget:  d.examTarget  as string ?? 'JEE 2025',
+      score:       d.score       as number ?? 85,
+      rank:        d.rank        as number ?? 42,
+      attendance:  d.attendance  as number ?? 96,
+      progress,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ── Faculty → Students ────────────────────────────────────────────────────────
+
+export async function getAssignedStudentIds(facultyUid: string): Promise<string[]> {
+  try {
+    const snap = await getDoc(doc(db, Col.users, facultyUid));
+    return snap.exists() ? ((snap.data().assignedStudents as string[]) ?? []) : [];
+  } catch {
+    return [];
+  }
+}
+
+export interface MockStudentProfile {
+  id: string;
+  name: string;
+  email: string;
+  stream: string;
+  examTarget: string;
+  score: number;
+  accuracy: number;
+  rank: number;
+  attendance: number;
+  status: string;
+  progress: ProgressRecord | null;
+}
+
+export async function getMockStudentProfile(studentId: string): Promise<MockStudentProfile | null> {
+  try {
+    const snap = await getDoc(doc(db, Col.users, studentId));
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    const progress = await getStudentProgressData(studentId);
+    return {
+      id:         snap.id,
+      name:       d.name        as string ?? 'Student',
+      email:      d.email       as string ?? '',
+      stream:     d.stream      as string ?? 'JEE',
+      examTarget: d.examTarget  as string ?? 'JEE 2025',
+      score:      d.score       as number ?? 75,
+      accuracy:   d.accuracy    as number ?? 72,
+      rank:       d.rank        as number ?? 20,
+      attendance: d.attendance  as number ?? 90,
+      status:     d.status      as string ?? 'Active',
+      progress,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getAssignedStudentsData(facultyUid: string): Promise<MockStudentProfile[]> {
+  const ids = await getAssignedStudentIds(facultyUid);
+  if (!ids.length) return [];
+  const profiles = await Promise.all(ids.map(id => getMockStudentProfile(id)));
+  return profiles.filter((p): p is MockStudentProfile => p !== null);
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────────

@@ -5,8 +5,12 @@ import TopBar from '../../components/TopBar';
 import { apiRequest } from '../../lib/api';
 import { parentActivity, parentGrowth, parentMastery, parentMetrics, parentReports } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
+import { getAuthSession } from '../../lib/auth';
+import { getLinkedStudentData } from '../../lib/db';
 
 export default function ParentDashboard() {
+  const session = getAuthSession();
+
   const [data, setData] = useState<any>({
     metrics: parentMetrics,
     growth: parentGrowth,
@@ -15,12 +19,20 @@ export default function ParentDashboard() {
     activity: parentActivity,
     latestPrediction: 94.5,
   });
+  const [linkedStudent, setLinkedStudent] = useState<any>(null);
 
   useEffect(() => {
     let cancelled = false;
     apiRequest('/api/parent/dashboard')
       .then(payload => { if (!cancelled) setData(payload); })
       .catch(() => undefined);
+
+    // Load linked student's real data
+    if (session?.user?.id) {
+      getLinkedStudentData(session.user.id)
+        .then(stu => { if (!cancelled && stu) setLinkedStudent(stu); })
+        .catch(() => undefined);
+    }
     return () => { cancelled = true; };
   }, []);
 
@@ -56,27 +68,47 @@ export default function ParentDashboard() {
         </div>
 
         {/* Child info banner */}
-        <div
-          className="rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4"
-          style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.08), rgba(234,88,12,0.06))', border: '1px solid rgba(249,115,22,0.20)', borderLeft: '3px solid #F97316' }}
-        >
-          <div className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-white text-lg shrink-0" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}>
-            A
-          </div>
-          <div className="flex-1">
-            <div className="text-headline-sm font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>Arjun Sharma</div>
-            <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>JEE 2025 · Batch A · Rank: #247 nationally</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="badge badge-success">
-              <span className="material-symbols-outlined filled" style={{ fontSize: '12px' }}>trending_up</span>
-              On track
-            </span>
-            <span className="text-label-sm px-3 py-1 rounded-full" style={{ backgroundColor: 'rgba(249,115,22,0.10)', color: '#EA580C' }}>
-              47 days to exam
-            </span>
-          </div>
-        </div>
+        {(() => {
+          const childName    = linkedStudent?.name    ?? 'Arjun Sharma';
+          const childStream  = linkedStudent?.stream  ?? 'JEE';
+          const childTarget  = linkedStudent?.examTarget ?? 'JEE 2025';
+          const childRank    = linkedStudent?.rank    ?? 247;
+          const childScore   = linkedStudent?.score   ?? 92;
+          const initials     = childName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+          return (
+            <div
+              className="rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+              style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.08), rgba(234,88,12,0.06))', border: '1px solid rgba(249,115,22,0.20)', borderLeft: '3px solid #F97316' }}
+            >
+              <div className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-white text-lg shrink-0" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}>
+                {initials}
+              </div>
+              <div className="flex-1">
+                <div className="text-headline-sm font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+                  {childName}
+                </div>
+                <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>
+                  {childStream} · {childTarget} · Rank: #{childRank} · Score: {childScore}%
+                </div>
+                {linkedStudent?.progress?.lastActivity && (
+                  <div className="text-label-sm mt-0.5" style={{ color: '#F97316' }}>
+                    Last activity: {linkedStudent.progress.lastActivity.title}
+                    {linkedStudent.progress.lastActivity.score !== undefined && ` — ${linkedStudent.progress.lastActivity.score}%`}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="badge badge-success">
+                  <span className="material-symbols-outlined filled" style={{ fontSize: '12px' }}>trending_up</span>
+                  On track
+                </span>
+                <span className="text-label-sm px-3 py-1 rounded-full" style={{ backgroundColor: 'rgba(249,115,22,0.10)', color: '#EA580C' }}>
+                  47 days to exam
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">

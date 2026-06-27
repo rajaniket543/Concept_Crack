@@ -5,8 +5,12 @@ import TopBar from '../../components/TopBar';
 import { apiRequest } from '../../lib/api';
 import { facultyAlerts, facultyMetrics, facultyStudents, facultyTrend } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
+import { getAuthSession } from '../../lib/auth';
+import { getAssignedStudentsData, type MockStudentProfile } from '../../lib/db';
 
 export default function FacultyDashboard() {
+  const session = getAuthSession();
+
   const [data, setData] = useState<any>({
     metrics: facultyMetrics,
     trend: facultyTrend,
@@ -17,12 +21,28 @@ export default function FacultyDashboard() {
       focusAreas: ['Algebra', 'Complexity', 'Probability'],
     },
   });
+  const [assignedStudents, setAssignedStudents] = useState<MockStudentProfile[]>([]);
+  const [loadingStudents,  setLoadingStudents]  = useState(true);
+  const [batchStream,      setBatchStream]      = useState<string>('');
 
   useEffect(() => {
     let cancelled = false;
     apiRequest('/api/faculty/dashboard')
       .then(payload => { if (!cancelled) setData(payload); })
       .catch(() => undefined);
+
+    if (session?.user?.id) {
+      getAssignedStudentsData(session.user.id)
+        .then(students => {
+          if (cancelled) return;
+          setAssignedStudents(students);
+          setLoadingStudents(false);
+          if (students.length > 0) setBatchStream(students[0].stream);
+        })
+        .catch(() => { if (!cancelled) setLoadingStudents(false); });
+    } else {
+      setLoadingStudents(false);
+    }
     return () => { cancelled = true; };
   }, []);
 
@@ -54,12 +74,20 @@ export default function FacultyDashboard() {
           <h1 className="text-display-sm font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
             Academic Overview
           </h1>
-          <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>Advanced CS — 2024 · Section A · Batch performance and student insights</p>
+          <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
+            {batchStream ? `${batchStream} Batch` : 'My Batch'} · {assignedStudents.length > 0 ? `${assignedStudents.length} students assigned` : 'Loading students…'} · Batch performance and student insights
+          </p>
         </div>
 
         {/* Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-          {data.metrics.map((m: any, i: number) => {
+          {(assignedStudents.length > 0
+            ? [
+                { label: 'My Students',      value: String(assignedStudents.length), delta: `${batchStream} stream`, icon: 'group', tone: 'primary' },
+                ...data.metrics.slice(1),
+              ]
+            : data.metrics
+          ).map((m: any, i: number) => {
             const meta = metricMeta[i] ?? metricMeta[0];
             return (
               <div key={m.label} className="card">
@@ -137,53 +165,84 @@ export default function FacultyDashboard() {
             </div>
           </Card>
 
-          {/* Student performance table */}
-          <Card title="Student Performance" subtitle="Top 10 by latest test score" className="lg:col-span-2" noPad>
-            <div className="overflow-x-auto">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Student</th>
-                    <th>Score</th>
-                    <th>Accuracy</th>
-                    <th>Rank</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.students?.slice(0, 8).map((s: any, i: number) => (
-                    <tr key={s.name ?? i}>
-                      <td>
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>
-                            {s.initials ?? s.name?.slice(0, 2)}
-                          </div>
-                          <div>
-                            <div className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{s.name}</div>
-                            <div className="text-label-sm" style={{ color: 'var(--text-faint)' }}>Batch A</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <div className="progress-bar w-16">
-                            <div className="progress-bar-fill" style={{ width: `${s.score ?? 75}%`, backgroundColor: '#14B8A6' }} />
-                          </div>
-                          <span className="text-body-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{s.score ?? 75}%</span>
-                        </div>
-                      </td>
-                      <td><span className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{s.accuracy ?? s.accuracyPct ?? 72}%</span></td>
-                      <td><span className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>#{s.rank ?? (i + 1)}</span></td>
-                      <td>
-                        <span className={`badge ${s.trend === 'up' || i < 3 ? 'badge-success' : i < 6 ? 'badge-warning' : 'badge-danger'}`}>
-                          {s.trend === 'up' || i < 3 ? 'Good' : i < 6 ? 'Average' : 'At Risk'}
-                        </span>
-                      </td>
+          {/* Assigned student list */}
+          <Card
+            title={`My Students${batchStream ? ` — ${batchStream}` : ''}`}
+            subtitle={`${assignedStudents.length} students assigned to you`}
+            className="lg:col-span-2"
+            noPad
+          >
+            {loadingStudents ? (
+              <div className="flex items-center justify-center h-32">
+                <span className="material-symbols-outlined animate-spin" style={{ color: '#14B8A6', fontSize: '28px' }}>progress_activity</span>
+              </div>
+            ) : assignedStudents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 gap-2">
+                <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--text-faint)' }}>group_off</span>
+                <p className="text-body-sm" style={{ color: 'var(--text-muted)' }}>No students assigned yet. Run demo seed from login page.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Stream</th>
+                      <th>Score</th>
+                      <th>Accuracy</th>
+                      <th>Rank</th>
+                      <th>Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {assignedStudents.map((s, i) => {
+                      const initials = s.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+                      const statusColor = s.accuracy >= 80 ? '#10B981' : s.accuracy >= 65 ? '#F59E0B' : '#EF4444';
+                      return (
+                        <tr key={s.id}>
+                          <td>
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>
+                                {initials}
+                              </div>
+                              <div>
+                                <div className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{s.name}</div>
+                                <div className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{s.examTarget}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="text-label-sm font-bold px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: s.stream === 'JEE' ? 'rgba(91,79,232,0.10)' : 'rgba(20,184,166,0.10)', color: s.stream === 'JEE' ? '#5B4FE8' : '#14B8A6' }}>
+                              {s.stream}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-2">
+                              <div className="progress-bar w-14">
+                                <div className="progress-bar-fill" style={{ width: `${s.score}%`, backgroundColor: '#14B8A6' }} />
+                              </div>
+                              <span className="text-body-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{s.score}%</span>
+                            </div>
+                          </td>
+                          <td><span style={{ color: 'var(--text-secondary)' }}>{s.accuracy}%</span></td>
+                          <td><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>#{s.rank}</span></td>
+                          <td>
+                            <Link
+                              to={`/faculty/student/${s.id}`}
+                              className="text-label-sm font-semibold px-3 py-1 rounded-lg transition-all hover:-translate-y-px"
+                              style={{ backgroundColor: 'rgba(20,184,166,0.10)', color: '#14B8A6', border: '1px solid rgba(20,184,166,0.20)' }}
+                            >
+                              View →
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Card>
         </div>
       </div>

@@ -14,6 +14,9 @@ import LeaderboardRankings from './pages/Student/LeaderboardRankings';
 import ParentDashboard from './pages/Parent/ParentDashboard';
 import FacultyDashboard from './pages/Faculty/FacultyDashboard';
 import QuestionBankManagement from './pages/Faculty/QuestionBankManagement';
+import StudentDetail from './pages/Faculty/StudentDetail';
+import StreamSelect from './pages/StreamSelect';
+import TestChatBot from './pages/Student/TestChatBot';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import UserManagement from './pages/Admin/UserManagement';
 import InstituteManagement from './pages/Admin/InstituteManagement';
@@ -150,8 +153,12 @@ export default function App() {
     <>
       <RouteProgress />
       <Routes>
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/about" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+
+      <Route path="/student/select-stream" element={<RequireAuth roles={['student']}><StreamSelect /></RequireAuth>} />
+      <Route path="/student/chatbot" element={<RequireAuth roles={['student']}><TestChatBot /></RequireAuth>} />
 
       <Route path="/student" element={<StudentLayout />}>
         <Route index element={<RequireAuth><StudentDashboard /></RequireAuth>} />
@@ -172,6 +179,7 @@ export default function App() {
       <Route path="/faculty" element={<FacultyLayout />}>
         <Route index element={<RequireAuth roles={['faculty', 'admin']}><FacultyDashboard /></RequireAuth>} />
         <Route path="questions" element={<RequireAuth roles={['faculty', 'admin']}><QuestionBankManagement /></RequireAuth>} />
+        <Route path="student/:studentId" element={<RequireAuth roles={['faculty', 'admin']}><StudentDetail /></RequireAuth>} />
       </Route>
 
       <Route path="/admin" element={<AdminLayout />}>

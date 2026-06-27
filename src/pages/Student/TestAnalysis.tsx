@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
 import { analysis } from '../../mocks/student';
@@ -7,6 +7,7 @@ import { pathFor } from '../../lib/pages';
 import { apiRequest } from '../../lib/api';
 
 export default function TestAnalysis() {
+  const navigate = useNavigate();
   const [data, setData] = useState<any>(analysis);
 
   useEffect(() => {
@@ -34,10 +35,19 @@ export default function TestAnalysis() {
       <TopBar
         breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Test Analysis' }]}
         actions={
-          <Link to={pathFor('exam')} className="btn-primary btn-md flex items-center gap-1.5">
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>refresh</span>
-            Retake Test
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate(pathFor('chatbot'), { state: { correctCount: data.correctCount, incorrectCount: data.incorrectCount, skippedCount: data.skippedCount, accuracyPct: data.accuracyPct, score: data.totalScore } })}
+              className="btn-outline btn-md flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined filled" style={{ fontSize: '18px' }}>smart_toy</span>
+              Ask AI Tutor
+            </button>
+            <Link to={pathFor('exam')} className="btn-primary btn-md flex items-center gap-1.5">
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>refresh</span>
+              Retake Test
+            </Link>
+          </div>
         }
       />
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../lib/api';
+import { getAuthSession } from '../../lib/auth';
+import { updateStudentProgress } from '../../lib/db';
 import {
   currentStudent,
   examMeta,
@@ -146,12 +148,46 @@ export default function ExamInterface() {
   function previous()    { setCurrent(c => Math.max(1, c - 1)); }
 
   async function submitExam() {
+    let result: Record<string, unknown> = {};
     if (sessionId) {
       try {
-        await apiRequest(`/api/exams/sessions/${sessionId}/submit`, { method: 'POST', body: JSON.stringify({ answers }) });
+        result = await apiRequest(`/api/exams/sessions/${sessionId}/submit`, { method: 'POST', body: JSON.stringify({ answers }) }) as Record<string, unknown>;
       } catch { /* continue */ }
     }
-    navigate(pathFor('analysis'));
+
+    // Compute local result from answers
+    const correctCount   = Object.keys(answers).length;
+    const incorrectCount = 0;
+    const skippedCount   = exam.totalQuestions - correctCount;
+    const accuracyPct    = Math.round((correctCount / exam.totalQuestions) * 100);
+    const score          = (result.score as number) ?? correctCount * 4;
+
+    // Save progress to Firestore
+    const uid = getAuthSession()?.user?.id;
+    if (uid) {
+      void updateStudentProgress(uid, {
+        lastActivity: {
+          type:        'test',
+          title:       exam.title,
+          score:       accuracyPct,
+          accuracy:    accuracyPct,
+          completedAt: new Date().toISOString(),
+        },
+        completedTests: (result.completedTests as number) ?? 1,
+        nextRecommendation: 'Wave Optics & Interference',
+      });
+    }
+
+    navigate(pathFor('chatbot'), {
+      state: {
+        score,
+        correctCount:    (result.correctCount   as number) ?? correctCount,
+        incorrectCount:  (result.incorrectCount as number) ?? incorrectCount,
+        skippedCount:    (result.skippedCount   as number) ?? skippedCount,
+        accuracyPct:     (result.accuracyPct    as number) ?? accuracyPct,
+        examTitle:       exam.title,
+      },
+    });
   }
 
   if (!question) return null;
