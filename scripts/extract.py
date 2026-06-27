@@ -1,68 +1,30 @@
 #!/usr/bin/env python3
 """
-PrepMind / Concept Crack — Question Extraction Script
-======================================================
-Extracts MCQ questions from PDF and DOC files using Claude Vision API.
-Saves progress after each file so you can stop and resume anytime.
+PrepMind — MCQ Extraction Script  (Free, No API)
+=================================================
+Extracts questions from PDFs and DOCXs using text parsing + regex.
+No API key needed. Completely free.
 
-Setup:
-  pip install -r requirements.txt
-  Copy .env.example → .env and fill in your ANTHROPIC_API_KEY
-
-Folder structure expected:
-  pdfs/
-  ├── Physics/
-  │   ├── 1_Introduction.pdf
-  │   ├── 2_Measurement-1.pdf
-  │   └── ...
-  ├── Mathematics/
-  │   └── 1_Complex_Number.pdf
-  ├── Biology/
-  │   ├── Mineral_Nutrition.pdf
-  │   └── Reproduction_in_Organisms.pdf
-  └── Chemistry/
-      └── Basic_Concepts.pdf
-
-Run:
-  python extract.py
+Run:  python extract.py
 """
 
-import os
-import json
-import base64
 import re
+import json
 import sys
 from pathlib import Path
 from datetime import datetime
 
-# ── Dependency check ──────────────────────────────────────────────────────────
-
 try:
     import fitz  # PyMuPDF
 except ImportError:
-    print("❌  PyMuPDF not installed. Run:  pip install -r requirements.txt")
+    print("❌  Run:  pip install PyMuPDF")
     sys.exit(1)
-
-try:
-    import anthropic
-except ImportError:
-    print("❌  anthropic not installed. Run:  pip install -r requirements.txt")
-    sys.exit(1)
-
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass  # .env loading optional — can set env var directly
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-PDF_ROOT          = Path("pdfs")
-OUTPUT_FILE       = Path("output/all_questions.json")
-PROGRESS_DIR      = Path("progress")
-MODEL             = "claude-opus-4-8"  # best vision accuracy
-PAGE_ZOOM         = 2.0               # higher = clearer image, slower
+PDF_ROOT     = Path("pdfs")
+OUTPUT_FILE  = Path("output/all_questions.json")
+PROGRESS_DIR = Path("progress")
 
 SUBJECT_STREAM = {
     "Physics":     "JEE",
@@ -71,113 +33,181 @@ SUBJECT_STREAM = {
     "Biology":     "NEET",
 }
 
-# ── Extraction prompt ─────────────────────────────────────────────────────────
+SKIP_FILENAMES = {"answers_physics.pdf", "answers_mathematics.pdf"}
 
-PROMPT_IMAGE = """You are extracting MCQ questions from a JEE/NEET exam question paper image.
+# ── Text normalisation ────────────────────────────────────────────────────────
 
-Extract ALL complete MCQ questions visible on this page.
+def normalize(text: str) -> str:
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'[ \t]{2,}', ' ', text)
+    return text.strip()
 
-Return ONLY a valid JSON array — no explanation, no markdown fences, just raw JSON.
+# ── Answer-key table parser ───────────────────────────────────────────────────
 
-Format:
-[
-  {
-    "question": "complete question text here",
-    "options": {
-      "A": "option A text",
-      "B": "option B text",
-      "C": "option C text",
-      "D": "option D text"
-    },
-    "answer": "A",
-    "topic": "sub-topic name"
-  }
-]
+def extract_answer_key(text: str) -> dict:
+    """
+    Handles Biology-style separate answer tables:
+      Answer key
+      Question  1  2  3  4 ...
+      Answer    2  2  3  3 ...
+    """
+    answers: dict[int, str] = {}
 
-Rules:
-- Extract EVERY complete question on this page
-- If answer key is visible (e.g. [A], Ans: B, \\[C\\]), extract the answer letter
-- If no answer is visible, set answer to null
-- If a question is cut off at the page edge, skip it
-- Write math expressions in plain text: x^2 + 3x + 2, not LaTeX
-- topic should be 2-4 words (e.g. "Newton's Laws", "Mole Concept", "Mineral Nutrition")
-- Return [] if there are no complete questions on this page
-"""
+    m = re.search(
+        r'(?:answer\s+key|ans(?:wer)?\.?\s*key|answers?)\s*\n+'
+        r'(?:question\s+)?([\d\s]+)\n+'
+        r'(?:answer\s+)?([\w\s]+)',
+        text, re.IGNORECASE
+    )
+    if m:
+        nums = m.group(1).split()
+        vals = m.group(2).split()
+        for n, v in zip(nums, vals):
+            try:
+                num = int(n)
+                v   = v.upper()
+                if v in '1234':
+                    v = 'ABCD'[int(v) - 1]
+                if v in 'ABCD':
+                    answers[num] = v
+            except (ValueError, IndexError):
+                pass
 
-PROMPT_TEXT = """You are extracting MCQ questions from a JEE/NEET exam question paper.
+    return answers
 
-Below is the raw text content of a question paper. Extract ALL MCQ questions.
+# ── Question-block splitter ───────────────────────────────────────────────────
 
-Return ONLY a valid JSON array — no explanation, no markdown fences, just raw JSON.
+def find_question_blocks(text: str) -> list:
+    """
+    Splits text into (question_number, block_text) tuples.
+    Recognises: Q.1  Q. 1  1.  1)  Q1.
+    """
+    pat = re.compile(
+        r'(?:^|\n)[ \t]*(?:Q\.?\s*)?(\d{1,3})[ \t]*[.)]\s+(?=[A-Za-z\d(])',
+        re.MULTILINE
+    )
+    matches = list(pat.finditer(text))
+    if not matches:
+        return []
 
-Format:
-[
-  {
-    "question": "complete question text here",
-    "options": {
-      "A": "option A text",
-      "B": "option B text",
-      "C": "option C text",
-      "D": "option D text"
-    },
-    "answer": "A",
-    "topic": "sub-topic name"
-  }
-]
+    blocks = []
+    for i, m in enumerate(matches):
+        end   = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        num   = int(m.group(1))
+        block = text[m.start():end].strip()
+        blocks.append((num, block))
 
-Rules:
-- Extract every MCQ that has 4 options (A/B/C/D or 1/2/3/4)
-- If answer key is present (e.g. [A], Ans: B, correct answer: C), extract it
-- Convert numbered options (1/2/3/4) to (A/B/C/D)
-- If no answer visible, set answer to null
-- Skip subjective questions (no options)
-- topic should be 2-4 words describing the sub-topic
+    return blocks
 
-Text content:
-"""
+# ── Option extractor ──────────────────────────────────────────────────────────
 
-# ── PDF helpers ───────────────────────────────────────────────────────────────
+def parse_options(block: str) -> dict | None:
+    """
+    Extracts 4 options handling:
+      (A) / (B) / (C) / (D)
+      (a) / (b) / (c) / (d)
+      (1) / (2) / (3) / (4)
+    Returns dict with keys A B C D, or None if not found.
+    """
+    patterns = [
+        # letter options
+        (r'\(A\)', r'\(B\)', r'\(C\)', r'\(D\)'),
+        (r'\(a\)', r'\(b\)', r'\(c\)', r'\(d\)'),
+        # numeric options
+        (r'\(1\)', r'\(2\)', r'\(3\)', r'\(4\)'),
+    ]
 
-def page_to_base64(page) -> str:
-    mat = fitz.Matrix(PAGE_ZOOM, PAGE_ZOOM)
-    pix = page.get_pixmap(matrix=mat)
-    return base64.standard_b64encode(pix.tobytes("png")).decode("utf-8")
+    for A, B, C, D in patterns:
+        opts = {}
+        delimiters = [A, B, C, D]
+        labels     = ['A', 'B', 'C', 'D']
 
+        for i, (label, start_pat) in enumerate(zip(labels, delimiters)):
+            if i + 1 < len(delimiters):
+                stop = delimiters[i + 1]
+            else:
+                stop = r'(?:\[|\n\n|Sol\.|$)'
 
-def extract_json(text: str) -> list:
-    """Parse a JSON array from Claude's response robustly."""
-    text = text.strip()
-    # Strip markdown code fences if present
-    text = re.sub(r'^```(?:json)?\s*', '', text)
-    text = re.sub(r'\s*```$', '', text)
-    # Direct parse
-    try:
-        result = json.loads(text)
-        return result if isinstance(result, list) else []
-    except json.JSONDecodeError:
-        pass
-    # Find JSON array within surrounding text
-    match = re.search(r'\[[\s\S]*\]', text)
-    if match:
-        try:
-            result = json.loads(match.group())
-            return result if isinstance(result, list) else []
-        except json.JSONDecodeError:
-            pass
-    return []
+            m = re.search(
+                rf'{start_pat}[ \t]*(.*?)(?={stop})',
+                block, re.DOTALL | re.IGNORECASE
+            )
+            if m:
+                # Take first non-empty line of the option text
+                val = m.group(1).strip()
+                val = re.split(r'\n', val)[0].strip()
+                if val:
+                    opts[label] = val
 
+        if len(opts) == 4:
+            return opts
+
+    return None
+
+# ── Inline answer extractor ───────────────────────────────────────────────────
+
+def parse_answer(block: str) -> str | None:
+    patterns = [
+        r'\[([ABCDabcd])\]',
+        r'\[([1-4])\]',
+        r'(?:Ans|Answer)\.?\s*:?\s*\[?([ABCDabcd1-4])\]?',
+        r'(?:correct\s+(?:answer|option))\s*:?\s*([ABCDabcd])',
+    ]
+    for p in patterns:
+        m = re.search(p, block, re.IGNORECASE)
+        if m:
+            a = m.group(1).upper()
+            if a in '1234':
+                a = 'ABCD'[int(a) - 1]
+            return a
+    return None
+
+# ── Single-block parser ───────────────────────────────────────────────────────
+
+def parse_block(num: int, block: str) -> dict | None:
+    # Strip the leading "Q.N " or "N. "
+    block = re.sub(r'^[ \t]*(?:Q\.?\s*)?\d{1,3}[ \t]*[.)]\s*', '', block).strip()
+
+    options = parse_options(block)
+    if not options:
+        return None
+
+    answer = parse_answer(block)
+
+    # Question text = everything before first option marker
+    first = re.search(r'\((?:A|a|1)\)', block)
+    q_text = block[:first.start()].strip() if first else block.split('\n')[0].strip()
+    q_text = re.sub(r'\s+', ' ', q_text).strip()
+
+    if len(q_text) < 8:
+        return None
+
+    return {
+        "questionNumber": num,
+        "question":       q_text,
+        "options":        options,
+        "answer":         answer,
+    }
+
+# ── Metadata helpers ──────────────────────────────────────────────────────────
 
 def infer_subject(path: Path) -> str:
-    for part in path.parts:
-        if part in SUBJECT_STREAM:
-            return part
+    full = str(path).lower()
+    if "physics"     in full: return "Physics"
+    if "chemistry"   in full: return "Chemistry"
+    if "mathematics" in full: return "Mathematics"
+    if "biology"     in full: return "Biology"
     return "General"
 
 
 def infer_chapter(path: Path) -> str:
-    name = path.stem
-    name = re.sub(r'^\d+[_\-\s]', '', name)  # remove leading "1_" or "12-"
+    name = re.sub(r'^\d+[_\-\s]', '', path.stem)
     return name.replace("-", " ").replace("_", " ").strip()
+
+
+def should_skip(path: Path) -> bool:
+    return path.name.lower() in SKIP_FILENAMES
 
 
 def progress_file(path: Path) -> Path:
@@ -200,183 +230,224 @@ def save_progress(path: Path, questions: list):
 
 
 def tag_questions(questions: list, path: Path) -> list:
-    """Attach subject/chapter/stream metadata to extracted questions."""
     subject = infer_subject(path)
     chapter = infer_chapter(path)
     stream  = SUBJECT_STREAM.get(subject, "BOTH")
     now     = datetime.utcnow().isoformat()
     for q in questions:
-        q.setdefault("subject",   subject)
-        q.setdefault("chapter",   chapter)
-        q.setdefault("stream",    stream)
-        q.setdefault("source",    "ALLEN")
-        q.setdefault("isPYQ",     False)
-        q.setdefault("difficulty","Medium")
-        q.setdefault("createdAt", now)
+        q.setdefault("subject",    subject)
+        q.setdefault("chapter",    chapter)
+        q.setdefault("stream",     stream)
+        q.setdefault("source",     "ALLEN")
+        q.setdefault("isPYQ",      False)
+        q.setdefault("difficulty", "Medium")
+        q.setdefault("topic",      chapter)
+        q.setdefault("createdAt",  now)
+        q.pop("questionNumber", None)
     return questions
 
-# ── Extraction: PDF via vision ────────────────────────────────────────────────
+# ── PDF extractor ─────────────────────────────────────────────────────────────
 
-def extract_pdf(path: Path, client: anthropic.Anthropic) -> list:
+def extract_pdf(path: Path) -> list:
     print(f"\n  📄  {path.name}")
 
     cached = load_progress(path)
     if cached is not None:
-        print(f"      ✅  Already extracted ({len(cached)} questions) — skipping")
+        print(f"      ✅  Already done ({len(cached)} questions) — skipping")
         return cached
 
-    all_q = []
     try:
-        doc = fitz.open(str(path))
+        doc  = fitz.open(str(path))
+        text = "\n".join(page.get_text() for page in doc)
+        doc.close()
     except Exception as e:
         print(f"      ❌  Cannot open: {e}")
         return []
 
-    for i, page in enumerate(doc):
-        print(f"      Page {i+1}/{len(doc)} ...", end=" ", flush=True)
-        try:
-            img_b64 = page_to_base64(page)
-            resp = client.messages.create(
-                model=MODEL,
-                max_tokens=4096,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": img_b64}},
-                        {"type": "text",  "text": PROMPT_IMAGE}
-                    ]
-                }]
-            )
-            questions = extract_json(resp.content[0].text)
-            print(f"{len(questions)} found")
-            all_q.extend(questions)
-        except Exception as e:
-            print(f"ERROR — {e}")
+    text       = normalize(text)
+    answer_key = extract_answer_key(text)
+    blocks     = find_question_blocks(text)
 
-    doc.close()
-    all_q = tag_questions(all_q, path)
-    save_progress(path, all_q)
-    print(f"      ✅  Done — {len(all_q)} questions total")
-    return all_q
+    print(f"      {len(blocks)} blocks found ...", end=" ", flush=True)
+
+    questions = []
+    for num, block in blocks:
+        q = parse_block(num, block)
+        if q:
+            if q["answer"] is None and num in answer_key:
+                q["answer"] = answer_key[num]
+            questions.append(q)
+
+    questions = tag_questions(questions, path)
+    save_progress(path, questions)
+    print(f"{len(questions)} questions extracted")
+    return questions
+
+# ── DOCX extractor (Biology table format) ─────────────────────────────────────
+
+def parse_biology_answer_key(doc) -> dict:
+    """Parse tab-separated answer key: 1)\td\t2)\tb\t..."""
+    answers: dict[int, str] = {}
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                text = cell.text
+                if re.search(r'\d+\)\t[a-d]', text, re.IGNORECASE):
+                    for m in re.finditer(r'(\d+)\)\t([a-dA-D])', text):
+                        num = int(m.group(1))
+                        ans = m.group(2).upper()
+                        answers[num] = ans
+    return answers
 
 
-# ── Extraction: DOC via text ──────────────────────────────────────────────────
+def extract_doc_biology(path: Path) -> list:
+    """
+    Handles Biology DOCX table format:
+      Row 1: ['N.', 'question text', ...]
+      Row 2: ['a)', 'Option A', 'b)', 'Option B']
+      Row 3: ['c)', 'Option C', 'd)', 'Option D']
+    """
+    import docx
+    doc = docx.Document(str(path))
 
-def extract_doc(path: Path, client: anthropic.Anthropic) -> list:
+    answer_key = parse_biology_answer_key(doc)
+    questions  = []
+
+    for table in doc.tables:
+        rows = table.rows
+        i    = 0
+        while i < len(rows):
+            cells = [c.text.strip() for c in rows[i].cells]
+
+            # Detect question row: first cell looks like "1." or "12."
+            num_match = re.match(r'^(\d+)\.$', cells[0]) if cells else None
+            if num_match and len(cells) >= 2:
+                num      = int(num_match.group(1))
+                q_text   = cells[1].strip()  # question text (repeated, just take index 1)
+
+                # Next two rows should have options
+                opts: dict[str, str] = {}
+                for offset in [1, 2]:
+                    if i + offset < len(rows):
+                        opt_cells = [c.text.strip() for c in rows[i + offset].cells]
+                        # Pattern: ['a)', 'text', 'b)', 'text']
+                        j = 0
+                        while j < len(opt_cells) - 1:
+                            label_m = re.match(r'^([a-dA-D])\)$', opt_cells[j])
+                            if label_m and j + 1 < len(opt_cells):
+                                label = label_m.group(1).upper()
+                                opts[label] = opt_cells[j + 1]
+                                j += 2
+                            else:
+                                j += 1
+
+                if len(opts) == 4 and len(q_text) >= 8:
+                    questions.append({
+                        "questionNumber": num,
+                        "question":       q_text,
+                        "options":        opts,
+                        "answer":         answer_key.get(num),
+                    })
+                i += 3  # skip question + 2 option rows
+            else:
+                i += 1
+
+    return questions
+
+
+# ── DOCX extractor ────────────────────────────────────────────────────────────
+
+def extract_doc(path: Path) -> list:
     print(f"\n  📝  {path.name}")
 
     cached = load_progress(path)
     if cached is not None:
-        print(f"      ✅  Already extracted ({len(cached)} questions) — skipping")
+        print(f"      ✅  Already done ({len(cached)} questions) — skipping")
         return cached
 
     try:
         import docx
-        doc  = docx.Document(str(path))
-        text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        doc = docx.Document(str(path))
     except ImportError:
-        print("      ❌  python-docx not installed. Run:  pip install python-docx")
+        print("      ❌  python-docx not installed. Run: pip install python-docx")
         return []
     except Exception as e:
-        print(f"      ❌  Cannot open DOC: {e}")
+        print(f"      ❌  Cannot open: {e}")
         return []
 
-    if not text.strip():
-        print("      ⚠️   No readable text in DOC file")
-        return []
+    # Biology files use table format — detect by checking if tables exist with
+    # cells matching "N." pattern
+    is_table_format = any(
+        re.match(r'^\d+\.$', row.cells[0].text.strip())
+        for table in doc.tables
+        for row in table.rows
+        if row.cells
+    )
 
-    print(f"      Sending {len(text)} characters to Claude ...", end=" ", flush=True)
+    if is_table_format:
+        print(f"      Table format detected ...", end=" ", flush=True)
+        questions = extract_doc_biology(path)
+    else:
+        text       = normalize("\n".join(p.text for p in doc.paragraphs if p.text.strip()))
+        answer_key = extract_answer_key(text)
+        blocks     = find_question_blocks(text)
+        print(f"      {len(blocks)} blocks found ...", end=" ", flush=True)
+        questions = []
+        for num, block in blocks:
+            q = parse_block(num, block)
+            if q:
+                if q["answer"] is None and num in answer_key:
+                    q["answer"] = answer_key[num]
+                questions.append(q)
 
-    # Send in chunks of 15,000 chars to stay within token limits
-    CHUNK = 15_000
-    all_q = []
-    chunks = [text[i:i+CHUNK] for i in range(0, len(text), CHUNK)]
-
-    for idx, chunk in enumerate(chunks):
-        if len(chunks) > 1:
-            print(f"\n      Chunk {idx+1}/{len(chunks)} ...", end=" ", flush=True)
-        try:
-            resp = client.messages.create(
-                model=MODEL,
-                max_tokens=4096,
-                messages=[{
-                    "role": "user",
-                    "content": PROMPT_TEXT + chunk
-                }]
-            )
-            questions = extract_json(resp.content[0].text)
-            print(f"{len(questions)} found")
-            all_q.extend(questions)
-        except Exception as e:
-            print(f"ERROR — {e}")
-
-    all_q = tag_questions(all_q, path)
-    save_progress(path, all_q)
-    print(f"      ✅  Done — {len(all_q)} questions total")
-    return all_q
-
+    questions = tag_questions(questions, path)
+    save_progress(path, questions)
+    print(f"{len(questions)} questions extracted")
+    return questions
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    print("\n🚀  PrepMind Question Extractor\n")
+    print("\n🚀  PrepMind Question Extractor  (Free — No API)\n")
 
-    if not ANTHROPIC_API_KEY:
-        print("❌  ANTHROPIC_API_KEY not set.")
-        print("    1. Copy .env.example → .env")
-        print("    2. Add your key:  ANTHROPIC_API_KEY=sk-ant-...")
-        sys.exit(1)
-
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     OUTPUT_FILE.parent.mkdir(exist_ok=True)
 
-    # Collect all PDF and DOC files
-    pdfs = sorted(PDF_ROOT.rglob("*.pdf"))
-    docs = sorted(PDF_ROOT.rglob("*.doc")) + sorted(PDF_ROOT.rglob("*.docx"))
+    pdfs  = sorted(PDF_ROOT.rglob("*.pdf"))
+    docs  = sorted(PDF_ROOT.rglob("*.doc")) + sorted(PDF_ROOT.rglob("*.docx"))
     files = pdfs + docs
 
     if not files:
         print(f"❌  No files found in {PDF_ROOT}/")
-        print("\n   Expected structure:")
-        print("   pdfs/Physics/1_Introduction.pdf")
-        print("   pdfs/Biology/Mineral_Nutrition.pdf")
-        print("   pdfs/Chemistry/Basic_Concepts.pdf")
-        print("   pdfs/Mathematics/1_Complex_Number.pdf")
         sys.exit(1)
 
-    print(f"   Found {len(pdfs)} PDF(s) and {len(docs)} DOC(s)\n")
+    print(f"   Found {len(pdfs)} PDF(s) and {len(docs)} DOC(s)")
 
-    # Check progress folder for already-done files
     done = len([f for f in files if load_progress(f) is not None])
     if done:
-        print(f"   ⏭️   {done} file(s) already extracted — will skip those\n")
+        print(f"   ⏭️   {done} already done — will skip\n")
 
-    all_questions = []
+    all_questions: list = []
     stats: dict[str, int] = {}
 
     for f in files:
-        if f.suffix.lower() == ".pdf":
-            questions = extract_pdf(f, client)
-        else:
-            questions = extract_doc(f, client)
-
+        if should_skip(f):
+            print(f"\n  ⏭️   Skipping {f.name}")
+            continue
+        questions = extract_pdf(f) if f.suffix.lower() == ".pdf" else extract_doc(f)
         all_questions.extend(questions)
         subj = infer_subject(f)
         stats[subj] = stats.get(subj, 0) + len(questions)
 
-    # Write final output
     with open(OUTPUT_FILE, "w", encoding="utf-8") as out:
         json.dump(all_questions, out, indent=2, ensure_ascii=False)
 
-    # Print summary
     print(f"\n{'─' * 50}")
-    print(f"✅  Extraction complete!")
+    print(f"✅  Done!")
     print(f"    Total questions : {len(all_questions)}")
     for subj, count in sorted(stats.items()):
         print(f"    {subj:<15}: {count}")
     print(f"\n    Output → {OUTPUT_FILE}")
-    print(f"\n    Next step:  python import_firestore.py")
-    print()
+    print(f"    Next step: python import_firestore.py\n")
 
 
 if __name__ == "__main__":
