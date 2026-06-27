@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest } from '../../lib/api';
 import { getAuthSession } from '../../lib/auth';
 import { updateStudentProgress } from '../../lib/db';
@@ -10,6 +10,7 @@ import {
   type ExamOption as ExamOptionType,
   type ExamMeta,
 } from '../../mocks/student';
+import { getQuestionsForChapter, type ExamQuestion as FirestoreQuestion } from '../../lib/questions';
 import { pathFor } from '../../lib/pages';
 import { useToast } from '../../components/Toast';
 
@@ -31,19 +32,24 @@ const PALETTE_STYLES: Record<PaletteState, { bg: string; color: string; border: 
 };
 
 export default function ExamInterface() {
-  const navigate = useNavigate();
-  const toast = useToast();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const toast     = useToast();
+
+  // Subject + chapter come from PracticeModule via Link state
+  const { subject = 'Physics', chapter = '' } =
+    (location.state ?? {}) as { subject?: string; chapter?: string };
+
   const [exam, setExam]             = useState<ExamMeta>(fallbackMeta);
-  const [questions, setQuestions]   = useState(() => genExamQuestions(fallbackMeta.totalQuestions));
+  const [questions, setQuestions]   = useState<FirestoreQuestion[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [seconds, setSeconds]       = useState(fallbackMeta.durationSeconds);
-  const [current, setCurrent]       = useState(fallbackMeta.currentIndex);
+  const [current, setCurrent]       = useState(1);
   const [answers, setAnswers]       = useState<Record<number, ExamOptionType['key']>>({});
   const [marked, setMarked]         = useState<Set<number>>(new Set());
   const [sessionId, setSessionId]   = useState<string | null>(null);
   const [monitorOpacity, setMonitorOpacity] = useState(0.5);
-  const [paletteState, setPaletteState] = useState<Record<number, PaletteState>>(() =>
-    Object.fromEntries(Array.from({ length: fallbackMeta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState]))
-  );
+  const [paletteState, setPaletteState] = useState<Record<number, PaletteState>>({});
 
   // Timer countdown
   useEffect(() => {
@@ -82,23 +88,60 @@ export default function ExamInterface() {
     return () => { document.removeEventListener('mousemove', onMove); if (timeout) window.clearTimeout(timeout); };
   }, []);
 
-  // Load exam from API
+  // Load real questions from Firestore for the selected chapter
   useEffect(() => {
     let cancelled = false;
-    apiRequest<ExamMeta>('/api/student/exam/meta')
-      .then(meta => {
-        if (cancelled) return;
+    setLoading(true);
+
+    const load = async () => {
+      let qs: FirestoreQuestion[] = [];
+
+      if (chapter) {
+        try {
+          qs = await getQuestionsForChapter(subject, chapter, 30);
+        } catch {
+          // fall through to mock fallback
+        }
+      }
+
+      if (cancelled) return;
+
+      if (qs.length > 0) {
+        const durationSeconds = qs.length * 90; // 1.5 min per question
+        const meta: ExamMeta = {
+          id:              `${subject}-${chapter}`.slice(0, 30),
+          title:           `${subject}: ${chapter}`,
+          totalQuestions:  qs.length,
+          currentIndex:    1,
+          durationSeconds,
+          candidateId:     currentStudent.id,
+        };
         setExam(meta);
-        setSeconds(meta.durationSeconds);
-        setCurrent(meta.currentIndex);
-        setQuestions(genExamQuestions(meta.totalQuestions));
-        setPaletteState(Object.fromEntries(Array.from({ length: meta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState])));
-        return apiRequest<{ sessionId: string }>(`/api/exams/${meta.id}/start`, { method: 'POST' });
-      })
-      .then(data => { if (!cancelled && data) setSessionId(data.sessionId); })
-      .catch(() => { if (!cancelled) setSessionId(null); });
+        setSeconds(durationSeconds);
+        setCurrent(1);
+        setQuestions(qs);
+        setPaletteState(
+          Object.fromEntries(qs.map((_, i) => [i + 1, 'not-visited' as PaletteState]))
+        );
+      } else {
+        // Fallback: mock questions (no chapter selected or Firestore unavailable)
+        const mockQs = genExamQuestions(fallbackMeta.totalQuestions);
+        setExam(fallbackMeta);
+        setSeconds(fallbackMeta.durationSeconds);
+        setCurrent(1);
+        setQuestions(mockQs as unknown as FirestoreQuestion[]);
+        setPaletteState(
+          Object.fromEntries(Array.from({ length: fallbackMeta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState]))
+        );
+      }
+
+      setLoading(false);
+    };
+
+    void load();
     return () => { cancelled = true; };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject, chapter]);
 
   const question   = questions[current - 1];
   const selectedKey = answers[current] ?? null;
@@ -155,12 +198,21 @@ export default function ExamInterface() {
       } catch { /* continue */ }
     }
 
-    // Compute local result from answers
-    const correctCount   = Object.keys(answers).length;
-    const incorrectCount = 0;
-    const skippedCount   = exam.totalQuestions - correctCount;
-    const accuracyPct    = Math.round((correctCount / exam.totalQuestions) * 100);
-    const score          = (result.score as number) ?? correctCount * 4;
+    // Compute local result by comparing answers against Firestore answer keys
+    let correctCount = 0;
+    let incorrectCount = 0;
+    questions.forEach((q, i) => {
+      const qNum = i + 1;
+      if (answers[qNum] !== undefined) {
+        if (q.answer && answers[qNum] === q.answer) correctCount++;
+        else incorrectCount++;
+      }
+    });
+    const skippedCount = exam.totalQuestions - correctCount - incorrectCount;
+    const accuracyPct  = exam.totalQuestions > 0
+      ? Math.round((correctCount / exam.totalQuestions) * 100)
+      : 0;
+    const score = (result.score as number) ?? correctCount * 4 - incorrectCount;
 
     // Save progress to Firestore
     const uid = getAuthSession()?.user?.id;
@@ -188,6 +240,17 @@ export default function ExamInterface() {
         examTitle:       exam.title,
       },
     });
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mx-auto" style={{ borderColor: '#5B4FE8', borderTopColor: 'transparent' }} />
+          <p className="text-body-md" style={{ color: 'var(--text-muted)' }}>Loading questions…</p>
+        </div>
+      </div>
+    );
   }
 
   if (!question) return null;
