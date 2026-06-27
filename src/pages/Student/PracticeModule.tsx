@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import TopBar from '../../components/TopBar';
-import { practiceModules, type PracticeModuleItem } from '../../mocks/student';
+import { practiceModules, type PracticeModuleItem, type Subject } from '../../mocks/student';
 import { apiRequest } from '../../lib/api';
 import { getStudentStream } from '../../lib/stream';
 
@@ -46,7 +46,7 @@ export default function PracticeModule() {
 
   // For NEET, treat mock 'Mathematics' data as 'Biology'
   const normalizedModules = modules.map(m =>
-    stream === 'NEET' && m.subject === 'Mathematics' ? { ...m, subject: 'Biology' } : m
+    stream === 'NEET' && m.subject === 'Mathematics' ? { ...m, subject: 'Biology' as Subject } : m
   );
 
   const filtered = normalizedModules.filter(m => {
