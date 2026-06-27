@@ -168,11 +168,30 @@ export interface LastActivity {
   completedAt: string;
 }
 
+export interface TestResult {
+  testTitle: string;
+  testDate: string;
+  subject: string;
+  chapter: string;
+  totalQuestions: number;
+  correctCount: number;
+  incorrectCount: number;
+  skippedCount: number;
+  accuracyPct: number;
+  score: number;
+  timeMinutes: number;
+  easyPct: number;
+  mediumPct: number;
+  hardPct: number;
+  topicAccuracy: Array<{ topic: string; pct: number; correct: number; total: number }>;
+}
+
 export interface ProgressRecord {
   lastActivity: LastActivity | null;
   completedTests: number;
   streakDays: number;
   nextRecommendation?: string;
+  latestTestResult?: TestResult;
 }
 
 export async function getStudentProgressData(uid: string): Promise<ProgressRecord | null> {

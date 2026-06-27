@@ -201,10 +201,14 @@ export default function ExamInterface() {
     // Compute local result by comparing answers against Firestore answer keys
     let correctCount = 0;
     let incorrectCount = 0;
+    const diffStats: Record<string, { correct: number; total: number }> = {};
     questions.forEach((q, i) => {
       const qNum = i + 1;
+      const diff = q.difficulty || 'Medium';
+      if (!diffStats[diff]) diffStats[diff] = { correct: 0, total: 0 };
+      diffStats[diff].total++;
       if (answers[qNum] !== undefined) {
-        if (q.answer && answers[qNum] === q.answer) correctCount++;
+        if (q.answer && answers[qNum] === q.answer) { correctCount++; diffStats[diff].correct++; }
         else incorrectCount++;
       }
     });
@@ -212,9 +216,12 @@ export default function ExamInterface() {
     const accuracyPct  = exam.totalQuestions > 0
       ? Math.round((correctCount / exam.totalQuestions) * 100)
       : 0;
-    const score = (result.score as number) ?? correctCount * 4 - incorrectCount;
+    const score = (result.score as number) ?? Math.max(0, correctCount * 4 - incorrectCount);
+    const safePct = (c: number, t: number) => t > 0 ? Math.round(c / t * 100) : 0;
+    const timeUsedSeconds = exam.durationSeconds - seconds;
+    const timeMinutes = Math.max(1, Math.round(timeUsedSeconds / 60));
 
-    // Save progress to Firestore
+    // Save full test result to Firestore for Test Analysis page
     const uid = getAuthSession()?.user?.id;
     if (uid) {
       void updateStudentProgress(uid, {
@@ -225,8 +232,24 @@ export default function ExamInterface() {
           accuracy:    accuracyPct,
           completedAt: new Date().toISOString(),
         },
-        completedTests: (result.completedTests as number) ?? 1,
-        nextRecommendation: 'Wave Optics & Interference',
+        completedTests: 1,
+        latestTestResult: {
+          testTitle:      exam.title,
+          testDate:       new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          subject,
+          chapter,
+          totalQuestions: exam.totalQuestions,
+          correctCount,
+          incorrectCount,
+          skippedCount,
+          accuracyPct,
+          score,
+          timeMinutes,
+          easyPct:   safePct(diffStats['Easy']?.correct   ?? 0, diffStats['Easy']?.total   ?? 0),
+          mediumPct: safePct(diffStats['Medium']?.correct ?? 0, diffStats['Medium']?.total ?? 0),
+          hardPct:   safePct(diffStats['Hard']?.correct   ?? 0, diffStats['Hard']?.total   ?? 0),
+          topicAccuracy: [{ topic: chapter || subject, pct: accuracyPct, correct: correctCount, total: exam.totalQuestions }],
+        },
       });
     }
 
