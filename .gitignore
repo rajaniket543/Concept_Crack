@@ -7,6 +7,10 @@ dist-ssr
 *.tsbuildinfo
 .claude/
 
+# Env files with secrets
+.env
+.env.local
+
 # Question extraction scripts
 scripts/.env
 scripts/progress/

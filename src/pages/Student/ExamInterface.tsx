@@ -256,11 +256,14 @@ export default function ExamInterface() {
     navigate(pathFor('chatbot'), {
       state: {
         score,
-        correctCount:    (result.correctCount   as number) ?? correctCount,
-        incorrectCount:  (result.incorrectCount as number) ?? incorrectCount,
-        skippedCount:    (result.skippedCount   as number) ?? skippedCount,
-        accuracyPct:     (result.accuracyPct    as number) ?? accuracyPct,
+        correctCount:    correctCount,
+        incorrectCount:  incorrectCount,
+        skippedCount:    skippedCount,
+        accuracyPct:     accuracyPct,
         examTitle:       exam.title,
+        subject,
+        chapter,
+        totalQuestions:  exam.totalQuestions,
       },
     });
   }
