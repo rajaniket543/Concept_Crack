@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import TopBar from '../../components/TopBar';
 import { practiceModules, type PracticeModuleItem } from '../../mocks/student';
 import { apiRequest } from '../../lib/api';
+import { getStudentStream } from '../../lib/stream';
 
 type Filter = 'all' | 'ai' | 'pyq';
 
@@ -10,6 +11,14 @@ const SUBJECT_META: Record<string, { color: string; bg: string; icon: string; gr
   Physics:     { color: '#5B4FE8', bg: 'rgba(91,79,232,0.10)',   icon: 'electric_bolt', gradient: 'linear-gradient(135deg, #5B4FE8, #818CF8)' },
   Chemistry:   { color: '#8B5CF6', bg: 'rgba(139,92,246,0.10)',  icon: 'science',       gradient: 'linear-gradient(135deg, #7C3AED, #8B5CF6)' },
   Mathematics: { color: '#10B981', bg: 'rgba(16,185,129,0.10)',  icon: 'calculate',     gradient: 'linear-gradient(135deg, #059669, #10B981)' },
+  Biology:     { color: '#14B8A6', bg: 'rgba(20,184,166,0.10)',  icon: 'biotech',       gradient: 'linear-gradient(135deg, #0D9488, #14B8A6)' },
+};
+
+const SUBJECT_DESC: Record<string, string> = {
+  Physics:     'Mechanics, Electromagnetism, Optics',
+  Chemistry:   'Organic, Inorganic, Physical Chem',
+  Mathematics: 'Calculus, Algebra, Trigonometry',
+  Biology:     'Botany, Zoology, Human Physiology',
 };
 
 const DIFF_BADGE: Record<string, { bg: string; color: string }> = {
@@ -20,9 +29,11 @@ const DIFF_BADGE: Record<string, { bg: string; color: string }> = {
   'AI Pick':{ bg: 'rgba(91,79,232,0.10)',   color: '#5B4FE8' },
 };
 
-const subjects = ['Physics', 'Chemistry', 'Mathematics'];
-
 export default function PracticeModule() {
+  const stream = getStudentStream();
+  const thirdSubject = stream === 'NEET' ? 'Biology' : 'Mathematics';
+  const subjects = ['Physics', 'Chemistry', thirdSubject];
+
   const [filter, setFilter] = useState<Filter>('all');
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
   const [modules, setModules] = useState<PracticeModuleItem[]>(practiceModules);
@@ -33,7 +44,12 @@ export default function PracticeModule() {
       .catch(() => setModules(practiceModules));
   }, []);
 
-  const filtered = modules.filter(m => {
+  // For NEET, treat mock 'Mathematics' data as 'Biology'
+  const normalizedModules = modules.map(m =>
+    stream === 'NEET' && m.subject === 'Mathematics' ? { ...m, subject: 'Biology' } : m
+  );
+
+  const filtered = normalizedModules.filter(m => {
     if (activeSubject && m.subject !== activeSubject) return false;
     if (filter === 'ai')  return m.badges?.includes('AI Pick');
     if (filter === 'pyq') return m.badges?.includes('PYQ');
@@ -105,9 +121,7 @@ export default function PracticeModule() {
                 </div>
                 <div className="font-semibold text-base mb-0.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isActive ? '#fff' : 'var(--text-primary)' }}>{s}</div>
                 <div className="text-xs" style={{ color: isActive ? 'rgba(255,255,255,0.70)' : 'var(--text-muted)' }}>
-                  {s === 'Physics' && 'Mechanics, Electromagnetism, Optics'}
-                  {s === 'Chemistry' && 'Organic, Inorganic, Physical Chem'}
-                  {s === 'Mathematics' && 'Calculus, Algebra, Trigonometry'}
+                  {SUBJECT_DESC[s]}
                 </div>
               </button>
             );
