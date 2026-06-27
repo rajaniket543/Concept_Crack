@@ -6,3 +6,9 @@ dist-ssr
 .vite
 *.tsbuildinfo
 .claude/
+
+# Question extraction scripts
+scripts/.env
+scripts/progress/
+scripts/pdfs/
+
