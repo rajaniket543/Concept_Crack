@@ -42,7 +42,7 @@ export default function StudentDashboard() {
     let cancelled = false;
     setLoading(true);
     getStudentDashboard(session?.user?.id ?? '')
-      .then(payload => { if (!cancelled) setData(payload as DashData); })
+      .then(payload => { if (!cancelled) setData(payload as unknown as DashData); })
       .catch(() => undefined)
       .finally(() => { if (!cancelled) setLoading(false); });
     if (session?.user?.id) {

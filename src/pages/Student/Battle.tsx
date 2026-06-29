@@ -4,10 +4,11 @@ import { getAuthSession } from '../../lib/auth';
 import { getStudentStream } from '../../lib/stream';
 import {
   createBattle, joinBattle, startBattle, submitBattleResult,
-  subscribeToBattle, type Battle, type BattleParticipant,
+  subscribeToBattle, configureBattle, inviteStudentToBattle,
+  declineBattleInvite, getPendingBattleInvites, searchStudents,
+  type Battle, type BattleParticipant, type StudentSearchResult,
 } from '../../lib/battles';
-import { getChaptersForSubject, getQuestionsForCustomTest, type ExamQuestion } from '../../lib/questions';
-import { configureBattle } from '../../lib/battles';
+import { getQuestionsForCustomTest, type ExamQuestion } from '../../lib/questions';
 import { useToast } from '../../components/Toast';
 
 type Screen = 'home' | 'lobby' | 'exam' | 'results';
@@ -43,6 +44,18 @@ export default function Battle() {
   const [busyCreate, setBusyCreate]   = useState(false);
   const [busyJoin, setBusyJoin]       = useState(false);
 
+  // Pending invites on home screen
+  const [pendingInvites, setPendingInvites]   = useState<Battle[]>([]);
+  const [decliningId,    setDecliningId]      = useState<string | null>(null);
+  const [acceptingId,    setAcceptingId]      = useState<string | null>(null);
+
+  // Search/invite state in lobby
+  const [searchTerm,     setSearchTerm]       = useState('');
+  const [searchResults,  setSearchResults]    = useState<StudentSearchResult[]>([]);
+  const [searchLoading,  setSearchLoading]    = useState(false);
+  const [invitingUid,    setInvitingUid]      = useState<string | null>(null);
+  const searchDebounce                        = useRef<number | undefined>(undefined);
+
   // Host config state
   const [cfgSubject, setCfgSubject]   = useState(subjects[0]);
   const [cfgChapters, setCfgChapters] = useState<string[]>([]);
@@ -66,6 +79,25 @@ export default function Battle() {
     if (unsubRef.current) unsubRef.current();
     window.clearInterval(timerRef.current);
   }, []);
+
+  // Load pending battle invites when on home screen
+  useEffect(() => {
+    if (screen !== 'home' || !uid) return;
+    getPendingBattleInvites(uid).then(setPendingInvites).catch(() => undefined);
+  }, [screen, uid]);
+
+  // Debounced student search
+  useEffect(() => {
+    window.clearTimeout(searchDebounce.current);
+    if (!searchTerm.trim()) { setSearchResults([]); return; }
+    searchDebounce.current = window.setTimeout(async () => {
+      setSearchLoading(true);
+      const res = await searchStudents(searchTerm);
+      setSearchResults(res.filter(r => r.uid !== uid));
+      setSearchLoading(false);
+    }, 400);
+    return () => window.clearTimeout(searchDebounce.current);
+  }, [searchTerm, uid]);
 
   // Live battle subscription
   function subscribeTo(id: string) {
@@ -104,6 +136,43 @@ export default function Battle() {
     return () => window.clearInterval(timerRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, submitted]);
+
+  async function handleAcceptInvite(battleId: string) {
+    setAcceptingId(battleId);
+    try {
+      const b = await joinBattle(battleId, uid, name);
+      if (!b) { toast('Battle no longer available', 'error'); return; }
+      subscribeTo(battleId);
+      setBattle(b);
+      setScreen('lobby');
+    } catch {
+      toast('Failed to join battle', 'error');
+    } finally {
+      setAcceptingId(null);
+    }
+  }
+
+  async function handleDeclineInvite(battleId: string) {
+    setDecliningId(battleId);
+    await declineBattleInvite(battleId, uid).catch(() => undefined);
+    setPendingInvites(p => p.filter(b => b.id !== battleId));
+    setDecliningId(null);
+  }
+
+  async function handleInviteStudent(inviteUid: string) {
+    if (!battle) return;
+    setInvitingUid(inviteUid);
+    try {
+      await inviteStudentToBattle(battle.id, inviteUid);
+      toast('Invite sent! They will see it on their Battle page.', 'success');
+      setSearchTerm('');
+      setSearchResults([]);
+    } catch {
+      toast('Failed to send invite', 'error');
+    } finally {
+      setInvitingUid(null);
+    }
+  }
 
   async function handleCreate() {
     setBusyCreate(true);
@@ -229,6 +298,42 @@ export default function Battle() {
         </p>
       </div>
 
+      {/* Pending invites */}
+      {pendingInvites.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-label-sm font-bold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>
+            Pending Invites ({pendingInvites.length})
+          </h2>
+          {pendingInvites.map(b => (
+            <div key={b.id} className="rounded-2xl p-4 flex items-center gap-4"
+              style={{ backgroundColor: 'rgba(91,79,232,0.06)', border: '1.5px solid rgba(91,79,232,0.20)' }}>
+              <span className="material-symbols-outlined" style={{ color: '#5B4FE8', fontSize: 24 }}>sports_esports</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Battle invite
+                </p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Room: {b.id.slice(0, 8)}… · {Object.keys(b.participants).length} player{Object.keys(b.participants).length !== 1 ? 's' : ''} waiting
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => handleDeclineInvite(b.id)} disabled={decliningId === b.id}
+                  className="btn-ghost btn-sm" style={{ color: '#EF4444' }}>
+                  Decline
+                </button>
+                <button type="button" onClick={() => handleAcceptInvite(b.id)} disabled={acceptingId === b.id}
+                  className="btn-sm"
+                  style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', color: '#fff', border: 'none', borderRadius: 10 }}>
+                  {acceptingId === b.id
+                    ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                    : 'Accept'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <button
         type="button"
         onClick={handleCreate}
@@ -323,6 +428,57 @@ export default function Battle() {
           ))}
         </div>
       </div>
+
+      {/* Invite players — host only */}
+      {isHost && (
+        <div className="rounded-2xl p-4 space-y-3" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <h2 className="text-label-lg font-bold" style={{ color: 'var(--text-secondary)' }}>Invite Students</h2>
+          <div className="relative">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base" style={{ color: 'var(--text-faint)', fontSize: 18 }}>search</span>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Search by name or email…"
+              className="w-full rounded-xl pl-9 pr-4 py-2.5 text-sm"
+              style={{ backgroundColor: 'var(--surface-muted)', border: '1.5px solid var(--border)', color: 'var(--text-primary)', outline: 'none' }}
+            />
+            {searchLoading && (
+              <span className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin absolute right-3 top-1/2 -translate-y-1/2" style={{ borderColor: '#5B4FE8', borderTopColor: 'transparent' }} />
+            )}
+          </div>
+          {searchResults.length > 0 && (
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+              {searchResults.map((r, i) => (
+                <div key={r.uid} className={`flex items-center gap-3 px-3 py-2.5 ${i < searchResults.length - 1 ? 'border-b' : ''}`}
+                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}>
+                  <div className="avatar avatar-sm" style={{ flexShrink: 0 }}>
+                    {(r.name || 'S').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{r.name || 'Student'}</p>
+                    <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{r.email}</p>
+                  </div>
+                  {participants.some(p => p.uid === r.uid) ? (
+                    <span className="text-xs font-medium" style={{ color: '#10B981' }}>In lobby</span>
+                  ) : (
+                    <button type="button" onClick={() => handleInviteStudent(r.uid)} disabled={invitingUid === r.uid}
+                      className="btn-sm"
+                      style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', color: '#fff', border: 'none', borderRadius: 8, padding: '4px 12px', fontSize: 12 }}>
+                      {invitingUid === r.uid
+                        ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                        : 'Invite'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {searchTerm.trim() && !searchLoading && searchResults.length === 0 && (
+            <p className="text-sm text-center py-2" style={{ color: 'var(--text-muted)' }}>No students found for "{searchTerm}"</p>
+          )}
+        </div>
+      )}
 
       {/* Host configuration */}
       {isHost && (

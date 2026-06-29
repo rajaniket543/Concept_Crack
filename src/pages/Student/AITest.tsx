@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthSession } from '../../lib/auth';
+import { getStudentStream } from '../../lib/stream';
 import { getWeakTopics, rankWeakTopics, type TopicStat } from '../../lib/weakTopics';
 import { getQuestionsForCustomTest } from '../../lib/questions';
 import { createTest } from '../../lib/tests';
@@ -83,6 +84,7 @@ export default function AITest() {
         negativeMarking: false,
         assignedTo:      [uid],
         questionIds:     finalIds,
+        stream:          getStudentStream() ?? 'JEE',
       });
 
       navigate(pathFor('exam'), { state: { testId, examTitle: 'AI Weak-Topic Test' } });

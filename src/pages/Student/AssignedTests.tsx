@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthSession } from '../../lib/auth';
+import { getStudentStream } from '../../lib/stream';
 import { getAssignedTests, getCoachingTests, hasAttempted, type Test } from '../../lib/tests';
 import { pathFor } from '../../lib/pages';
 
@@ -11,7 +12,8 @@ interface TestCard {
 
 export default function AssignedTests() {
   const navigate = useNavigate();
-  const uid = getAuthSession()?.user?.id ?? '';
+  const uid    = getAuthSession()?.user?.id ?? '';
+  const stream = getStudentStream() ?? undefined;
 
   const [loading, setLoading]   = useState(true);
   const [cards, setCards]       = useState<TestCard[]>([]);
@@ -21,8 +23,8 @@ export default function AssignedTests() {
     if (!uid) return;
     setLoading(true);
     Promise.all([
-      getAssignedTests(uid),
-      getCoachingTests(),
+      getAssignedTests(uid, stream),
+      getCoachingTests(stream),
     ]).then(async ([batch, coach]) => {
       const withAttempt = async (tests: Test[]) =>
         Promise.all(tests.map(async t => ({ test: t, attempted: await hasAttempted(t.id, uid) })));

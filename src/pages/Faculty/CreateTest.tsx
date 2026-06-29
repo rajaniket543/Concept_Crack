@@ -13,17 +13,20 @@ const STREAM_SUBJECTS: Record<string, string[]> = {
   NEET: ['Physics', 'Chemistry', 'Biology'],
 };
 
+const STREAMS = ['JEE', 'NEET'] as const;
+
 export default function CreateTest() {
   const navigate = useNavigate();
   const toast    = useToast();
   const session  = getAuthSession();
   const uid      = session?.user?.id ?? '';
-  const stream   = getStudentStream() ?? 'JEE';
+
+  const [stream, setStream]           = useState<string>(getStudentStream() ?? 'JEE');
   const subjects = STREAM_SUBJECTS[stream] ?? STREAM_SUBJECTS.JEE;
 
   const [type, setType]               = useState<TestType>('faculty_batch');
   const [title, setTitle]             = useState('');
-  const [subject, setSubject]         = useState(subjects[0]);
+  const [subject, setSubject]         = useState(STREAM_SUBJECTS[getStudentStream() ?? 'JEE'][0]);
   const [chapters, setChapters]       = useState<string[]>([]);
   const [allChapters, setAllChapters] = useState<string[]>([]);
   const [difficulty, setDifficulty]   = useState<Difficulty>('Mixed');
@@ -78,6 +81,7 @@ export default function CreateTest() {
         negativeMarking,
         assignedTo: 'all',
         questionIds,
+        stream,
       });
       const msg = type === 'faculty_coaching'
         ? 'Test submitted for admin approval!'
@@ -101,6 +105,24 @@ export default function CreateTest() {
         <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
           Build and assign a test to your students
         </p>
+      </div>
+
+      {/* Stream */}
+      <div className="space-y-2">
+        <label className="text-label-sm font-bold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Stream</label>
+        <div className="flex gap-3">
+          {STREAMS.map(s => (
+            <button key={s} type="button" onClick={() => { setStream(s); setSubject(STREAM_SUBJECTS[s][0]); setChapters([]); }}
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
+              style={{
+                backgroundColor: stream === s ? '#5B4FE8' : 'var(--surface)',
+                color:           stream === s ? '#fff'    : 'var(--text-muted)',
+                border:          `1.5px solid ${stream === s ? '#5B4FE8' : 'var(--border)'}`,
+              }}>
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Test type */}

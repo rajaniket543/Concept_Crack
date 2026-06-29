@@ -26,44 +26,128 @@ export const Col = {
 // ── Student Dashboard ─────────────────────────────────────────────────────────
 
 export async function getStudentDashboard(uid: string) {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  // Try to build real data from studentProgress + studentWeakTopics
   try {
-    if (uid && !uid.startsWith('dev-')) {
-      const snap = await getDoc(doc(db, Col.studentStats, uid));
-      if (snap.exists()) return snap.data();
+    if (uid) {
+      const [progressSnap, weakSnap] = await Promise.all([
+        getDoc(doc(db, 'studentProgress', uid)),
+        getDoc(doc(db, 'studentWeakTopics', uid)),
+      ]);
+
+      const progress = progressSnap.exists() ? progressSnap.data() : null;
+      const weak     = weakSnap.exists()     ? weakSnap.data()     : null;
+
+      const completedTests = (progress?.completedTests as number) ?? 0;
+      const streakDays     = (progress?.streakDays     as number) ?? 0;
+      const lastResult     = progress?.latestTestResult as Record<string, unknown> | null ?? null;
+      const overallAccuracy = lastResult ? (lastResult.accuracyPct as number) ?? 0 : 0;
+
+      // Build subject performance from weak topics
+      const subjectAcc: Record<string, { total: number; correct: number }> = {};
+      if (weak?.topics) {
+        Object.values(weak.topics as Record<string, unknown>).forEach((t: unknown) => {
+          const topic = t as { subject: string; attempts: number; correct: number; accuracyPct: number };
+          if (!subjectAcc[topic.subject]) subjectAcc[topic.subject] = { total: 0, correct: 0 };
+          subjectAcc[topic.subject].total   += topic.attempts;
+          subjectAcc[topic.subject].correct += topic.correct;
+        });
+      }
+
+      const subjectPerf = Object.entries(subjectAcc).map(([subject, { total, correct }]) => ({
+        subject,
+        pct:     total > 0 ? Math.round(correct / total * 100) : 0,
+        correct,
+      }));
+
+      // Weak areas: worst topics first
+      const topicList = weak?.topics
+        ? Object.values(weak.topics as Record<string, unknown>).map((t: unknown) => {
+            const topic = t as { subject: string; chapter: string; accuracyPct: number };
+            return { name: topic.chapter, note: topic.subject, percent: topic.accuracyPct };
+          }).sort((a, b) => a.percent - b.percent)
+        : [];
+
+      // Weekly chart: seed from real subject accuracies (deterministic variation)
+      const subMap: Record<string, number> = {};
+      subjectPerf.forEach(s => { subMap[s.subject] = s.pct; });
+      const baseP = subMap['Physics']     ?? overallAccuracy ?? 55;
+      const baseC = subMap['Chemistry']   ?? overallAccuracy ?? 50;
+      const baseM = subMap['Mathematics'] ?? subMap['Biology'] ?? overallAccuracy ?? 58;
+      const weekly = days.map((day, i) => ({
+        day,
+        physics:   Math.max(10, Math.min(100, baseP + (i % 3 - 1) * 3)),
+        chemistry: Math.max(10, Math.min(100, baseC + (i % 3 - 1) * 2)),
+        math:      Math.max(10, Math.min(100, baseM + (i % 2)     * 4 - 2)),
+      }));
+
+      // AI recommendations from weak topics
+      const weakTopics = weak?.topics
+        ? Object.values(weak.topics as Record<string, unknown>)
+            .map((t: unknown) => t as { subject: string; chapter: string; accuracyPct: number })
+            .sort((a, b) => a.accuracyPct - b.accuracyPct)
+            .slice(0, 4)
+        : [];
+
+      const aiRec = weakTopics.length > 0
+        ? weakTopics.map(t => ({
+            title:       t.chapter,
+            subject:     t.subject,
+            rationale:   `${t.accuracyPct}% accuracy — focused practice recommended`,
+            durationMins: 30,
+          }))
+        : aiRecommendations.map(r => ({
+            ...r,
+            subject: r.title.toLowerCase().includes('newton')    ? 'Physics'
+                   : r.title.toLowerCase().includes('quadratic') ? 'Math'
+                   : 'Chemistry',
+          }));
+
+      // Heatmap from topic list
+      const heatmap = topicList.length > 0
+        ? topicList.slice(0, 48).map(t => ({ percent: t.percent, tooltip: `${t.name}: ${t.percent}%` }))
+        : heatmapCells;
+
+      return {
+        currentStudent: { ...currentStudent, examTarget: 'JEE 2025', daysToExam: 47 },
+        metrics: [
+          { label: 'Overall Score',   value: completedTests > 0 ? `${overallAccuracy}%` : '—',  trend: 0, icon: 'insights',   tone: 'primary'   as const },
+          { label: 'Current Rank',    value: completedTests > 0 ? `#${Math.max(1, 50 - completedTests)}` : '—', trend: 0, icon: 'leaderboard', tone: 'secondary' as const },
+          { label: 'Practice Streak', value: streakDays > 0 ? `${streakDays}d` : '0d', trend: 0, icon: 'local_fire_department', tone: 'warning' as const },
+          { label: 'Tests Completed', value: String(completedTests), trend: 0, icon: 'quiz', tone: 'tertiary' as const },
+        ],
+        weeklyProgress: weekly,
+        subjectPerformance: subjectPerf.length > 0 ? subjectPerf : subjectPerformance.map(s => ({ subject: s.subject, pct: s.percent, correct: 0 })),
+        heatmapCells:       heatmap,
+        weakAreas:          topicList.length > 0 ? topicList : weakAreas,
+        aiRecommendations:  aiRec,
+      };
     }
   } catch {
-    // Firestore unavailable — fall through to mocks
+    // Fall through to mock data
   }
 
-  // Convert mocks to the shape the dashboard renders
+  // Mock fallback for new users or Firestore unavailable
   return {
-    currentStudent: {
-      ...currentStudent,
-      examTarget:  'JEE 2025',
-      daysToExam:  47,
-    },
+    currentStudent: { ...currentStudent, examTarget: 'JEE 2025', daysToExam: 47 },
     metrics: [
-      { label: 'Overall Score',   value: '85%',  trend:  3 },
-      { label: 'Current Rank',    value: '#42',  trend: -2 },
-      { label: 'Practice Streak', value: '14d',  trend:  7 },
-      { label: 'Tests Completed', value: '28',   trend:  5 },
+      { label: 'Overall Score',   value: '—',  trend: 0, icon: 'insights',            tone: 'primary'   as const },
+      { label: 'Current Rank',    value: '—',  trend: 0, icon: 'leaderboard',          tone: 'secondary' as const },
+      { label: 'Practice Streak', value: '0d', trend: 0, icon: 'local_fire_department', tone: 'warning'   as const },
+      { label: 'Tests Completed', value: '0',  trend: 0, icon: 'quiz',                 tone: 'tertiary'  as const },
     ],
     weeklyProgress: weeklyProgress.map((d, i) => ({
-      day:       d.day,
-      physics:   d.percent,
+      day: d.day, physics: d.percent,
       chemistry: Math.max(10, d.percent - 8 + i),
       math:      Math.min(100, d.percent + 4 - i),
     })),
-    subjectPerformance: subjectPerformance.map(s => ({
-      subject: s.subject,
-      pct:     s.percent,
-      correct: Math.round(s.percent * 0.5),
-    })),
+    subjectPerformance: subjectPerformance.map(s => ({ subject: s.subject, pct: s.percent, correct: 0 })),
     heatmapCells,
-    weakAreas,
+    weakAreas: [],
     aiRecommendations: aiRecommendations.map(r => ({
       ...r,
-      subject: r.title.toLowerCase().includes('newton') ? 'Physics'
+      subject: r.title.toLowerCase().includes('newton')    ? 'Physics'
              : r.title.toLowerCase().includes('quadratic') ? 'Math'
              : 'Chemistry',
     })),
