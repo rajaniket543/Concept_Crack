@@ -7,6 +7,8 @@ import { STREAM_COLORS, STREAM_BG } from '../../lib/stream';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
+interface TopicAcc { topic: string; subject?: string; pct: number; correct: number; total: number; }
+
 interface TestResult {
   score?: number;
   correctCount?: number;
@@ -16,6 +18,9 @@ interface TestResult {
   examTitle?: string;
   subject?: string;
   chapter?: string;
+  subjects?: string[];
+  chapters?: string[];
+  topicAccuracy?: TopicAcc[];
   totalQuestions?: number;
 }
 
@@ -28,25 +33,29 @@ const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 async function callGemini(userMessage: string, result: TestResult): Promise<string> {
   if (!GEMINI_KEY) throw new Error('No API key');
 
-  const subject  = result.subject  ?? 'the tested subject';
-  const chapter  = result.chapter  ?? 'this chapter';
+  const subjects = result.subjects?.length ? result.subjects : (result.subject ? [result.subject] : ['the tested subject']);
   const acc      = result.accuracyPct ?? 0;
   const correct  = result.correctCount ?? 0;
   const wrong    = result.incorrectCount ?? 0;
   const skipped  = result.skippedCount ?? 0;
   const total    = result.totalQuestions ?? correct + wrong + skipped;
+  const isMulti  = subjects.length > 1;
+
+  const topicLines = result.topicAccuracy?.length
+    ? result.topicAccuracy.map(t => `  - ${t.topic} (${t.subject ?? subjects[0]}): ${t.pct}% accuracy, ${t.correct}/${t.total} correct`).join('\n')
+    : `  - ${(result.chapters ?? result.chapter ? [result.chapter ?? ''] : subjects).join(', ')}: ${acc}% accuracy`;
 
   const systemPrompt = `You are a friendly, expert AI tutor for Indian competitive exam preparation (JEE/NEET).
-A student just completed a practice test. Here are their real results:
-- Subject: ${subject}
-- Chapter: ${chapter}
+A student just completed a ${isMulti ? 'multi-subject ' : ''}practice test. Here are their real results:
+- Subjects: ${subjects.join(', ')}
 - Total questions: ${total}
-- Correct: ${correct}
-- Incorrect: ${wrong}
-- Skipped: ${skipped}
-- Accuracy: ${acc}%
+- Correct: ${correct}, Incorrect: ${wrong}, Skipped: ${skipped}
+- Overall accuracy: ${acc}%
 
-Answer the student's question in 2-4 short sentences. Be specific to their actual results — mention the real subject "${subject}" and chapter "${chapter}". Be encouraging but honest. Do NOT mention topics from other subjects or chapters they didn't study.
+Per-topic breakdown:
+${topicLines}
+
+Answer the student's question in 2-4 short sentences. Reference their ACTUAL results across ALL subjects tested. Be specific, encouraging, and honest. Provide concrete, actionable advice relevant to the subjects/topics they studied.
 
 Student's question: ${userMessage}`;
 
@@ -72,53 +81,67 @@ Student's question: ${userMessage}`;
 /* ── Smart context-aware fallback ────────────────────────────────────────────── */
 
 function contextFallback(input: string, result: TestResult): string {
-  const q       = input.toLowerCase();
-  const subject = result.subject  ?? 'this subject';
-  const chapter = result.chapter  ?? 'this chapter';
-  const acc     = result.accuracyPct ?? 0;
-  const wrong   = result.incorrectCount ?? 0;
-  const skipped = result.skippedCount ?? 0;
+  const q        = input.toLowerCase();
+  const subjects = result.subjects?.length ? result.subjects : (result.subject ? [result.subject] : ['this subject']);
+  const subLabel = subjects.join(' + ');
+  const acc      = result.accuracyPct ?? 0;
+  const wrong    = result.incorrectCount ?? 0;
+  const skipped  = result.skippedCount ?? 0;
+
+  // Find weakest topic if multi-subject
+  const weakest = result.topicAccuracy?.sort((a, b) => a.pct - b.pct)[0];
+  const weakTopic = weakest ? `${weakest.topic} (${weakest.subject ?? subjects[0]}: ${weakest.pct}%)` : subLabel;
 
   if (q.includes('mistake') || q.includes('wrong') || q.includes('incorrect'))
-    return `You got ${wrong} question${wrong !== 1 ? 's' : ''} wrong in ${subject} — ${chapter}. Review each incorrect answer carefully and note the concept behind it. Solving 5–10 similar questions daily will reinforce the gaps.`;
+    return `You got ${wrong} question${wrong !== 1 ? 's' : ''} wrong across ${subLabel}. Review each incorrect answer carefully — note the concept behind it. Focus especially on ${weakTopic}, which had the lowest accuracy.`;
 
   if (q.includes('skip') || q.includes('unattempt') || q.includes('blank'))
-    return `You skipped ${skipped} question${skipped !== 1 ? 's' : ''} in ${chapter}. In competitive exams with negative marking, only skip when below 40% confident. For ${chapter}, try to attempt questions you partially know — educated guesses in this chapter often pay off.`;
+    return `You skipped ${skipped} question${skipped !== 1 ? 's' : ''} across your ${subLabel} test. In competitive exams, only skip when below 40% confident. Educated guesses on partially-known questions often pay off.`;
 
   if (q.includes('next') || q.includes('study') || q.includes('recommend') || q.includes('focus') || q.includes('improve')) {
     if (acc >= 80)
-      return `You're performing strongly in ${chapter}! To push further, solve timed past year questions from ${subject} and focus on Hard-level problems. Your speed and accuracy in this chapter are already above average.`;
-    return `Based on your ${acc}% in ${chapter}, I'd suggest: (1) Revisit the ${wrong} questions you got wrong and understand the concept. (2) Practice 15 ${chapter} questions daily. (3) Attempt the next chapter only after reaching 75%+ here.`;
+      return `You're performing strongly across ${subLabel}! To push further, solve timed past year questions and focus on Hard-level problems. Your overall accuracy is already above average.`;
+    return `Based on your ${acc}% across ${subLabel}, I'd suggest: (1) Revisit the ${wrong} incorrect answers. (2) Focus on ${weakTopic} first. (3) Practice 15 questions daily per subject until you reach 75%+.`;
   }
 
+  if (q.includes('which') || q.includes('subject') || q.includes('topic') || q.includes('focus'))
+    return weakest
+      ? `Your weakest area is ${weakest.topic} (${weakest.subject}) at ${weakest.pct}% — start there. ${subjects.length > 1 ? `Compare it with your stronger subjects and prioritise daily practice in the lowest-accuracy topics.` : ''}`
+      : `Focus on the topics where you got the most wrong answers first. Revisit those concepts before moving on.`;
+
   if (q.includes('rank') || q.includes('percentile') || q.includes('position'))
-    return `Based on ${acc}% accuracy in ${chapter}, you're in the ${acc >= 80 ? 'top 15%' : acc >= 60 ? 'top 35%' : 'top 50%'} for this topic. Improving to 80%+ in ${subject} chapters will significantly move your rank.`;
+    return `Based on ${acc}% overall accuracy across ${subLabel}, you're in the ${acc >= 80 ? 'top 15%' : acc >= 60 ? 'top 35%' : 'top 50%'} for these topics. Improving to 80%+ in all subjects will significantly move your rank.`;
 
   if (q.includes('time') || q.includes('speed') || q.includes('fast') || q.includes('slow'))
-    return `For ${chapter} questions, aim for under 2 minutes each. If a question takes more than 3 minutes, mark and move on. Timed practice — solving 20 ${subject} questions in 40 minutes — builds the speed you need.`;
+    return `For multi-subject tests, aim for under 2 minutes per question. Mark and skip if a question takes more than 3 minutes. Timed practice across ${subLabel} will build the speed and subject-switching skills you need.`;
+
+  if (q.includes('plan') || q.includes('schedule') || q.includes('week'))
+    return `Here's a suggested plan: Day 1–2 — revisit incorrect answers in ${subjects[0]}. Day 3–4 — ${subjects[1] ?? subjects[0]} revision and practice. Day 5–6 — mixed subject timed test. Day 7 — full-length revision. Repeat with increasing difficulty.`;
 
   if (q.includes('motivat') || q.includes('frustrat') || q.includes('feel') || q.includes('sad') || q.includes('discourag'))
-    return `Getting ${acc}% in ${chapter} takes real effort — that's something to build on, not feel down about. Every attempt reveals exactly what to improve. You've identified the gap; now closing it is just consistent practice.`;
+    return `Getting ${acc}% across ${subLabel} takes real effort — that's something to build on, not feel down about. Every attempt reveals exactly what to improve. You've identified the gaps; closing them is just consistent practice.`;
 
-  return `Your ${acc}% accuracy in ${chapter} (${subject}) shows ${acc >= 70 ? 'solid understanding with room to sharpen' : 'a clear area to improve'}. Ask me about specific questions you found hard, what to study next, or how to manage time better in ${subject}.`;
+  return `Your ${acc}% overall accuracy across ${subLabel} shows ${acc >= 70 ? 'solid understanding with room to sharpen' : 'clear areas to improve'}. Ask me which subject to focus on, what to study next, or how to build a study plan.`;
 }
 
 /* ── Welcome message ────────────────────────────────────────────────────────── */
 
 function buildWelcome(result: TestResult, name: string): string {
-  const acc     = result.accuracyPct ?? 0;
-  const score   = result.score ?? result.correctCount ?? 0;
-  const chapter = result.chapter ?? '';
-  const subject = result.subject ?? '';
-  const context = chapter ? `${subject} — ${chapter}` : subject;
+  const acc      = result.accuracyPct ?? 0;
+  const score    = result.score ?? result.correctCount ?? 0;
+  const subjects = result.subjects?.length ? result.subjects : (result.subject ? [result.subject] : []);
+  const isMulti  = subjects.length > 1;
+  const context  = isMulti
+    ? subjects.join(' + ')
+    : (result.chapter ? `${result.subject} — ${result.chapter}` : (result.subject ?? 'your test'));
 
   if (acc >= 85)
-    return `Outstanding work, ${name}! You scored ${score} with ${acc}% accuracy in ${context}. That's top-tier performance — keep the momentum. Ask me what to tackle next or how to push even higher.`;
+    return `Outstanding work, ${name}! You scored ${score} with ${acc}% accuracy across ${context}. That's top-tier performance — keep the momentum. Ask me what to tackle next or how to push even higher.`;
   if (acc >= 70)
-    return `Great job, ${name}! You scored ${score} with ${acc}% accuracy in ${context}. A few targeted tweaks will move you into the top tier. Ask me what to focus on next.`;
+    return `Great job, ${name}! You scored ${score} with ${acc}% accuracy across ${context}. A few targeted tweaks will move you into the top tier. Ask me what to focus on next.`;
   if (acc >= 55)
-    return `Good effort, ${name}! You scored ${score} with ${acc}% in ${context}. You're on the right track. Ask me where to focus and I'll build you a step-by-step plan.`;
-  return `Hey ${name}, you scored ${score} with ${acc}% accuracy in ${context}. Every test is a learning opportunity — I can pinpoint exactly what to revise. Ask me anything and we'll build a comeback plan together.`;
+    return `Good effort, ${name}! You scored ${score} with ${acc}% across ${context}. You're on the right track. Ask me where to focus and I'll build you a step-by-step plan.`;
+  return `Hey ${name}, you scored ${score} with ${acc}% accuracy across ${context}. Every test is a learning opportunity — I can pinpoint exactly what to revise. Ask me anything and we'll build a comeback plan together.`;
 }
 
 /* ── Animated counter ───────────────────────────────────────────────────────── */
@@ -240,11 +263,14 @@ export default function TestResultAndChat() {
   const inputRef   = useRef<HTMLInputElement>(null);
   const nextId     = useRef(1);
 
+  const allSubjects   = result.subjects?.length ? result.subjects : (subject ? [subject] : []);
+  const isMultiSubject = allSubjects.length > 1;
+  const subjectContext = isMultiSubject ? 'all subjects' : (chapter || subject);
   const suggestedQuestions = [
     'What did I get wrong?',
     'What should I study next?',
-    `How can I improve in ${chapter || subject}?`,
-    'Any time management tips?',
+    `How can I improve in ${subjectContext}?`,
+    isMultiSubject ? 'Which subject needs more attention?' : 'Any time management tips?',
     'Give me a study plan',
   ];
 
@@ -391,8 +417,42 @@ export default function TestResultAndChat() {
                 ))}
               </div>
 
-              {/* Single subject performance — only the real subject tested */}
-              {subject && (
+              {/* Per-topic performance — shows all chapters for multi-subject tests */}
+              {(result.topicAccuracy?.length ?? 0) > 0 ? (
+                <div style={{ animation: 'fadeSlideUp 0.45s 0.3s ease both' }}>
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-faint)' }}>
+                    Chapter Performance
+                  </p>
+                  {result.topicAccuracy!.map((t, i) => {
+                    const tColor = STREAM_COLORS[t.subject ?? subject] ?? '#5B4FE8';
+                    const tBg    = STREAM_BG[t.subject ?? subject]    ?? 'rgba(91,79,232,0.10)';
+                    return (
+                      <div key={i} className={i < result.topicAccuracy!.length - 1 ? 'mb-3' : ''}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tColor }} />
+                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{t.topic}</span>
+                            {t.subject && (
+                              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: tBg, color: tColor }}>
+                                {t.subject}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-sm font-bold" style={{ color: t.pct >= 70 ? '#10B981' : t.pct >= 50 ? '#F59E0B' : '#EF4444' }}>
+                            {t.pct}%
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: tBg }}>
+                          <SubjectBar pct={t.pct} color={tColor} delay={0.4 + i * 0.1} />
+                        </div>
+                        <p className="text-xs mt-1.5" style={{ color: 'var(--text-faint)' }}>
+                          {t.correct} correct · {t.total - t.correct} not correct · {t.total} total
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : subject && (
                 <div style={{ animation: 'fadeSlideUp 0.45s 0.3s ease both' }}>
                   <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-faint)' }}>
                     Chapter Performance
@@ -401,9 +461,7 @@ export default function TestResultAndChat() {
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: subjectColor }} />
-                        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                          {chapter || subject}
-                        </span>
+                        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{chapter || subject}</span>
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: subjectBg, color: subjectColor }}>
                           {subject}
                         </span>
@@ -575,7 +633,7 @@ export default function TestResultAndChat() {
             <input
               ref={inputRef}
               type="text"
-              placeholder={`Ask about your ${chapter || subject} performance, what to study next…`}
+              placeholder={`Ask about your ${isMultiSubject ? allSubjects.join(' + ') : (chapter || subject)} performance, what to study next…`}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
@@ -593,7 +651,7 @@ export default function TestResultAndChat() {
             </button>
           </div>
           <p className="text-center text-xs mt-1.5" style={{ color: 'var(--text-faint)' }}>
-            AI responses are personalised based on your {chapter || subject} test performance.
+            AI responses are personalised based on your {isMultiSubject ? allSubjects.join(' + ') : (chapter || subject)} test performance.
           </p>
         </div>
       </section>

@@ -16,6 +16,8 @@ export interface ExamQuestion {
   difficulty: string;
   section: string;
   answer: string | null;
+  subject?: string;
+  chapter?: string;
 }
 
 export async function getChaptersForSubject(subject: string): Promise<ChapterInfo[]> {
@@ -49,6 +51,8 @@ export async function getQuestionsByIds(ids: string[]): Promise<ExamQuestion[]> 
         difficulty: (d.difficulty as string) ?? 'Medium',
         section: (d.chapter as string) ?? '',
         answer: (d.answer as string | null) ?? null,
+        subject: (d.subject as string) || undefined,
+        chapter: (d.chapter as string) || undefined,
       });
     });
   }
@@ -84,8 +88,10 @@ export async function getQuestionsForCustomTest(config: {
         prompt: (d.question as string) ?? '',
         options: (['A', 'B', 'C', 'D'] as const).map(k => ({ key: k, text: opts[k] ?? '' })),
         difficulty: (d.difficulty as string) ?? 'Medium',
-        section: (d.chapter as string) ?? chapter,
+        section: chapter,
         answer: (d.answer as string | null) ?? null,
+        subject,
+        chapter,
       });
     });
   }));
@@ -122,8 +128,10 @@ export async function getQuestionsForChapter(
         text: opts[k] ?? '',
       })),
       difficulty: (d.difficulty as string) ?? 'Medium',
-      section: (d.chapter as string) ?? subject,
+      section: chapter,
       answer: (d.answer as string | null) ?? null,
+      subject,
+      chapter,
     };
   });
 }

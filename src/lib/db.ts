@@ -257,6 +257,8 @@ export interface TestResult {
   testDate: string;
   subject: string;
   chapter: string;
+  subjects?: string[];
+  chapters?: string[];
   totalQuestions: number;
   correctCount: number;
   incorrectCount: number;
@@ -267,7 +269,7 @@ export interface TestResult {
   easyPct: number;
   mediumPct: number;
   hardPct: number;
-  topicAccuracy: Array<{ topic: string; pct: number; correct: number; total: number }>;
+  topicAccuracy: Array<{ topic: string; subject?: string; pct: number; correct: number; total: number }>;
 }
 
 export interface ProgressRecord {

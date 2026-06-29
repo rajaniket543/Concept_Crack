@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
-import { apiRequest } from '../../lib/api';
 import { parentActivity, parentGrowth, parentMastery, parentMetrics, parentReports } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
 import { getAuthSession } from '../../lib/auth';
-import { getLinkedStudentData } from '../../lib/db';
+import { getLinkedStudentData, getStudentDashboard } from '../../lib/db';
 
 export default function ParentDashboard() {
   const session = getAuthSession();
@@ -23,16 +22,61 @@ export default function ParentDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    apiRequest('/api/parent/dashboard')
-      .then(payload => { if (!cancelled) setData(payload); })
-      .catch(() => undefined);
+    if (!session?.user?.id) return;
 
-    // Load linked student's real data
-    if (session?.user?.id) {
-      getLinkedStudentData(session.user.id)
-        .then(stu => { if (!cancelled && stu) setLinkedStudent(stu); })
-        .catch(() => undefined);
-    }
+    getLinkedStudentData(session.user.id).then(async stu => {
+      if (cancelled) return;
+      if (!stu) return;
+      setLinkedStudent(stu);
+
+      // Fetch the exact same dashboard data the student sees
+      const dash = await getStudentDashboard(stu.id).catch(() => null);
+      if (cancelled || !dash) return;
+
+      // Map student metrics → parent format (same values, parent-friendly labels)
+      const realMetrics = [
+        { label: 'Current Rank',      value: dash.metrics[1]?.value ?? '—', trend: 0 },
+        { label: 'Performance Score', value: dash.metrics[0]?.value ?? '—', trend: 0 },
+        { label: 'Practice Streak',   value: dash.metrics[2]?.value ?? '—', trend: 0 },
+        { label: 'Tests Completed',   value: dash.metrics[3]?.value ?? '0',  trend: 0 },
+      ];
+
+      const realMastery = (dash.subjectPerformance as Array<{ subject: string; pct: number }>).map(s => ({
+        subject: s.subject,
+        pct:     s.pct,
+        mastery: s.pct,
+      }));
+
+      // Convert weekly data → growth chart (average across subjects per day)
+      const realGrowth = (dash.weeklyProgress as Array<{ day: string; physics: number; chemistry: number; math: number }>).map(d => ({
+        label: d.day,
+        score: Math.round(((d.physics ?? 0) + (d.chemistry ?? 0) + (d.math ?? 0)) / 3),
+      }));
+
+      // Recent activity from student progress
+      const lastAct = stu.progress?.lastActivity;
+      const realActivity = lastAct ? [{
+        type:  lastAct.type ?? 'test',
+        title: lastAct.title,
+        score: lastAct.accuracy ?? (lastAct as any).score,
+        time:  lastAct.completedAt
+          ? new Date(lastAct.completedAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
+          : 'Recently',
+      }] : [];
+
+      const scoreStr = dash.metrics[0]?.value ?? '0%';
+      const latestPrediction = parseFloat(scoreStr) || 0;
+
+      setData({
+        metrics:           realMetrics,
+        mastery:           realMastery.length > 0 ? realMastery : parentMastery,
+        growth:            realGrowth,
+        activity:          realActivity.length > 0 ? realActivity : parentActivity,
+        reports:           parentReports,
+        latestPrediction,
+      });
+    }).catch(() => undefined);
+
     return () => { cancelled = true; };
   }, []);
 

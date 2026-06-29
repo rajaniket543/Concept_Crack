@@ -41,8 +41,10 @@ export default function ExamInterface() {
   // State from PracticeModule (subject/chapter) or test-based (testId)
   const { subject: stateSubject = 'Physics', chapter: stateChapter = '', testId = null, examTitle: stateTitle = '' } =
     (location.state ?? {}) as { subject?: string; chapter?: string; testId?: string | null; examTitle?: string };
-  const [subject, setSubject] = useState(stateSubject);
-  const [chapter, setChapter] = useState(stateChapter);
+  const [subject, setSubject]             = useState(stateSubject);
+  const [chapter, setChapter]             = useState(stateChapter);
+  const [testSubjects, setTestSubjects]   = useState<string[]>([]);
+  const [testChapters, setTestChapters]   = useState<string[]>([]);
 
   const [exam, setExam]             = useState<ExamMeta>(fallbackMeta);
   const [questions, setQuestions]   = useState<FirestoreQuestion[]>([]);
@@ -107,8 +109,8 @@ export default function ExamInterface() {
           if (test && test.questionIds.length > 0) {
             qs = await getQuestionsByIds(test.questionIds);
             if (!titleOverride) titleOverride = test.title;
-            if (test.subjects[0]) setSubject(test.subjects[0]);
-            if (test.chapters[0]) setChapter(test.chapters[0]);
+            if (test.subjects.length > 0) { setTestSubjects(test.subjects); setSubject(test.subjects[0]); }
+            if (test.chapters.length > 0) { setTestChapters(test.chapters); setChapter(test.chapters[0]); }
             if (!cancelled && qs.length > 0) {
               const meta: ExamMeta = {
                 id: test.id.slice(0, 30),
@@ -218,54 +220,77 @@ export default function ExamInterface() {
   function previous()    { setCurrent(c => Math.max(1, c - 1)); }
 
   async function submitExam() {
-    let result: Record<string, unknown> = {};
+    let apiResult: Record<string, unknown> = {};
     if (sessionId) {
       try {
-        result = await apiRequest(`/api/exams/sessions/${sessionId}/submit`, { method: 'POST', body: JSON.stringify({ answers }) }) as Record<string, unknown>;
+        apiResult = await apiRequest(`/api/exams/sessions/${sessionId}/submit`, { method: 'POST', body: JSON.stringify({ answers }) }) as Record<string, unknown>;
       } catch { /* continue */ }
     }
 
-    // Compute local result by comparing answers against Firestore answer keys
+    // Per-chapter AND overall stats — uses question.subject/chapter from Firestore
     let correctCount = 0;
     let incorrectCount = 0;
     const diffStats: Record<string, { correct: number; total: number }> = {};
+    const chapterStats: Record<string, { subject: string; chapter: string; correct: number; incorrect: number; total: number }> = {};
+
     questions.forEach((q, i) => {
-      const qNum = i + 1;
-      const diff = q.difficulty || 'Medium';
+      const qNum     = i + 1;
+      const diff     = q.difficulty || 'Medium';
+      const qSubject = q.subject || subject;
+      const qChapter = q.chapter || q.section || chapter || 'Unknown';
+      const key      = `${qSubject}::${qChapter}`;
+
       if (!diffStats[diff]) diffStats[diff] = { correct: 0, total: 0 };
       diffStats[diff].total++;
+      if (!chapterStats[key]) chapterStats[key] = { subject: qSubject, chapter: qChapter, correct: 0, incorrect: 0, total: 0 };
+      chapterStats[key].total++;
+
       if (answers[qNum] !== undefined) {
-        if (q.answer && answers[qNum] === q.answer) { correctCount++; diffStats[diff].correct++; }
-        else incorrectCount++;
+        if (q.answer && answers[qNum] === q.answer) {
+          correctCount++;
+          diffStats[diff].correct++;
+          chapterStats[key].correct++;
+        } else {
+          incorrectCount++;
+          chapterStats[key].incorrect++;
+        }
       }
     });
+
     const skippedCount = exam.totalQuestions - correctCount - incorrectCount;
-    const accuracyPct  = exam.totalQuestions > 0
-      ? Math.round((correctCount / exam.totalQuestions) * 100)
-      : 0;
-    const score = (result.score as number) ?? Math.max(0, correctCount * 4 - incorrectCount);
-    const safePct = (c: number, t: number) => t > 0 ? Math.round(c / t * 100) : 0;
-    const timeUsedSeconds = exam.durationSeconds - seconds;
-    const timeMinutes = Math.max(1, Math.round(timeUsedSeconds / 60));
+    const accuracyPct  = exam.totalQuestions > 0 ? Math.round((correctCount / exam.totalQuestions) * 100) : 0;
+    const score        = (apiResult.score as number) ?? Math.max(0, correctCount * 4 - incorrectCount);
+    const safePct      = (c: number, t: number) => t > 0 ? Math.round(c / t * 100) : 0;
+    const timeMinutes  = Math.max(1, Math.round((exam.durationSeconds - seconds) / 60));
+
+    // Build per-topic accuracy array (one entry per chapter)
+    const topicAccuracy = Object.values(chapterStats).map(s => ({
+      topic:   s.chapter,
+      subject: s.subject,
+      pct:     s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+      correct: s.correct,
+      total:   s.total,
+    }));
+
+    // All subjects/chapters from the test
+    const allSubjects = testSubjects.length > 0 ? testSubjects : [subject];
+    const allChapters = testChapters.length > 0 ? testChapters : topicAccuracy.map(t => t.topic);
 
     const uid = getAuthSession()?.user?.id;
 
-    // Update weak topics with this attempt
-    if (uid && chapter) {
-      void updateWeakTopics(uid, [{ subject, chapter, correct: correctCount, incorrect: incorrectCount }]);
+    // Update weak topics for every chapter attempted
+    if (uid) {
+      void updateWeakTopics(uid, Object.values(chapterStats).map(s => ({
+        subject: s.subject, chapter: s.chapter, correct: s.correct, incorrect: s.incorrect,
+      })));
     }
 
-    // Save attempt record if this is a test-based exam
     if (uid && testId) {
       void saveTestAttempt({
         testId,
         studentId:     uid,
         answers:       Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
-        score,
-        correctCount,
-        incorrectCount,
-        skippedCount,
-        accuracyPct,
+        score, correctCount, incorrectCount, skippedCount, accuracyPct,
         timeSeconds:   exam.durationSeconds - seconds,
         status:        'submitted',
         startedAt:     new Date().toISOString(),
@@ -273,7 +298,6 @@ export default function ExamInterface() {
       });
     }
 
-    // Save full test result to Firestore for Test Analysis page
     if (uid) {
       void updateStudentProgress(uid, {
         lastActivity: {
@@ -289,6 +313,8 @@ export default function ExamInterface() {
           testDate:       new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
           subject,
           chapter,
+          subjects:       allSubjects,
+          chapters:       allChapters,
           totalQuestions: exam.totalQuestions,
           correctCount,
           incorrectCount,
@@ -299,22 +325,21 @@ export default function ExamInterface() {
           easyPct:   safePct(diffStats['Easy']?.correct   ?? 0, diffStats['Easy']?.total   ?? 0),
           mediumPct: safePct(diffStats['Medium']?.correct ?? 0, diffStats['Medium']?.total ?? 0),
           hardPct:   safePct(diffStats['Hard']?.correct   ?? 0, diffStats['Hard']?.total   ?? 0),
-          topicAccuracy: [{ topic: chapter || subject, pct: accuracyPct, correct: correctCount, total: exam.totalQuestions }],
+          topicAccuracy,
         },
       });
     }
 
     navigate(pathFor('chatbot'), {
       state: {
-        score,
-        correctCount:    correctCount,
-        incorrectCount:  incorrectCount,
-        skippedCount:    skippedCount,
-        accuracyPct:     accuracyPct,
-        examTitle:       exam.title,
+        score, correctCount, incorrectCount, skippedCount, accuracyPct,
+        examTitle:      exam.title,
         subject,
         chapter,
-        totalQuestions:  exam.totalQuestions,
+        subjects:       allSubjects,
+        chapters:       allChapters,
+        topicAccuracy,
+        totalQuestions: exam.totalQuestions,
       },
     });
   }
