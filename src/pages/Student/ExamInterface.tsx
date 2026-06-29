@@ -10,7 +10,9 @@ import {
   type ExamOption as ExamOptionType,
   type ExamMeta,
 } from '../../mocks/student';
-import { getQuestionsForChapter, type ExamQuestion as FirestoreQuestion } from '../../lib/questions';
+import { getQuestionsForChapter, getQuestionsByIds, type ExamQuestion as FirestoreQuestion } from '../../lib/questions';
+import { getTest, saveTestAttempt } from '../../lib/tests';
+import { updateWeakTopics } from '../../lib/weakTopics';
 import { pathFor } from '../../lib/pages';
 import { useToast } from '../../components/Toast';
 
@@ -36,9 +38,11 @@ export default function ExamInterface() {
   const location  = useLocation();
   const toast     = useToast();
 
-  // Subject + chapter come from PracticeModule via Link state
-  const { subject = 'Physics', chapter = '' } =
-    (location.state ?? {}) as { subject?: string; chapter?: string };
+  // State from PracticeModule (subject/chapter) or test-based (testId)
+  const { subject: stateSubject = 'Physics', chapter: stateChapter = '', testId = null, examTitle: stateTitle = '' } =
+    (location.state ?? {}) as { subject?: string; chapter?: string; testId?: string | null; examTitle?: string };
+  const [subject, setSubject] = useState(stateSubject);
+  const [chapter, setChapter] = useState(stateChapter);
 
   const [exam, setExam]             = useState<ExamMeta>(fallbackMeta);
   const [questions, setQuestions]   = useState<FirestoreQuestion[]>([]);
@@ -88,29 +92,57 @@ export default function ExamInterface() {
     return () => { document.removeEventListener('mousemove', onMove); if (timeout) window.clearTimeout(timeout); };
   }, []);
 
-  // Load real questions from Firestore for the selected chapter
+  // Load questions from Firestore — by testId or by subject/chapter
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
     const load = async () => {
       let qs: FirestoreQuestion[] = [];
+      let titleOverride = stateTitle;
 
-      if (chapter) {
+      if (testId) {
+        try {
+          const test = await getTest(testId);
+          if (test && test.questionIds.length > 0) {
+            qs = await getQuestionsByIds(test.questionIds);
+            if (!titleOverride) titleOverride = test.title;
+            if (test.subjects[0]) setSubject(test.subjects[0]);
+            if (test.chapters[0]) setChapter(test.chapters[0]);
+            if (!cancelled && qs.length > 0) {
+              const meta: ExamMeta = {
+                id: test.id.slice(0, 30),
+                title: test.title,
+                totalQuestions: qs.length,
+                currentIndex: 1,
+                durationSeconds: test.durationSeconds,
+                candidateId: currentStudent.id,
+              };
+              setExam(meta);
+              setSeconds(test.durationSeconds);
+              setCurrent(1);
+              setQuestions(qs);
+              setPaletteState(Object.fromEntries(qs.map((_, i) => [i + 1, 'not-visited' as PaletteState])));
+              setLoading(false);
+              return;
+            }
+          }
+        } catch { /* fall through */ }
+      }
+
+      if (qs.length === 0 && chapter) {
         try {
           qs = await getQuestionsForChapter(subject, chapter, 30);
-        } catch {
-          // fall through to mock fallback
-        }
+        } catch { /* fall through */ }
       }
 
       if (cancelled) return;
 
       if (qs.length > 0) {
-        const durationSeconds = qs.length * 90; // 1.5 min per question
+        const durationSeconds = qs.length * 90;
         const meta: ExamMeta = {
           id:              `${subject}-${chapter}`.slice(0, 30),
-          title:           `${subject}: ${chapter}`,
+          title:           titleOverride || `${subject}: ${chapter}`,
           totalQuestions:  qs.length,
           currentIndex:    1,
           durationSeconds,
@@ -120,19 +152,14 @@ export default function ExamInterface() {
         setSeconds(durationSeconds);
         setCurrent(1);
         setQuestions(qs);
-        setPaletteState(
-          Object.fromEntries(qs.map((_, i) => [i + 1, 'not-visited' as PaletteState]))
-        );
+        setPaletteState(Object.fromEntries(qs.map((_, i) => [i + 1, 'not-visited' as PaletteState])));
       } else {
-        // Fallback: mock questions (no chapter selected or Firestore unavailable)
         const mockQs = genExamQuestions(fallbackMeta.totalQuestions);
         setExam(fallbackMeta);
         setSeconds(fallbackMeta.durationSeconds);
         setCurrent(1);
         setQuestions(mockQs as unknown as FirestoreQuestion[]);
-        setPaletteState(
-          Object.fromEntries(Array.from({ length: fallbackMeta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState]))
-        );
+        setPaletteState(Object.fromEntries(Array.from({ length: fallbackMeta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState])));
       }
 
       setLoading(false);
@@ -141,7 +168,7 @@ export default function ExamInterface() {
     void load();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subject, chapter]);
+  }, [testId, subject, chapter]);
 
   const question   = questions[current - 1];
   const selectedKey = answers[current] ?? null;
@@ -221,8 +248,32 @@ export default function ExamInterface() {
     const timeUsedSeconds = exam.durationSeconds - seconds;
     const timeMinutes = Math.max(1, Math.round(timeUsedSeconds / 60));
 
-    // Save full test result to Firestore for Test Analysis page
     const uid = getAuthSession()?.user?.id;
+
+    // Update weak topics with this attempt
+    if (uid && chapter) {
+      void updateWeakTopics(uid, [{ subject, chapter, correct: correctCount, incorrect: incorrectCount }]);
+    }
+
+    // Save attempt record if this is a test-based exam
+    if (uid && testId) {
+      void saveTestAttempt({
+        testId,
+        studentId:     uid,
+        answers:       Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
+        score,
+        correctCount,
+        incorrectCount,
+        skippedCount,
+        accuracyPct,
+        timeSeconds:   exam.durationSeconds - seconds,
+        status:        'submitted',
+        startedAt:     new Date().toISOString(),
+        submittedAt:   new Date().toISOString(),
+      });
+    }
+
+    // Save full test result to Firestore for Test Analysis page
     if (uid) {
       void updateStudentProgress(uid, {
         lastActivity: {
