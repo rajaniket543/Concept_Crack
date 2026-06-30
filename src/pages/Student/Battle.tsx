@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthSession } from '../../lib/auth';
 import { getStudentStream } from '../../lib/stream';
+import { updateStudentProgress } from '../../lib/db';
 import {
   createBattle, joinBattle, startBattle, submitBattleResult,
   subscribeToBattle, configureBattle, inviteStudentToBattle,
@@ -10,8 +11,9 @@ import {
 } from '../../lib/battles';
 import { getQuestionsForCustomTest, type ExamQuestion } from '../../lib/questions';
 import { useToast } from '../../components/Toast';
+import { pathFor } from '../../lib/pages';
 
-type Screen = 'home' | 'lobby' | 'exam' | 'results';
+type Screen = 'home' | 'lobby' | 'exam';
 type PaletteState = 'not-visited' | 'answered' | 'not-answered';
 
 const PALETTE_STYLES: Record<PaletteState, { bg: string; color: string }> = {
@@ -79,6 +81,16 @@ export default function Battle() {
     if (unsubRef.current) unsubRef.current();
     window.clearInterval(timerRef.current);
   }, []);
+
+  // Safety net: if battle completes (all submitted) and this player hasn't submitted yet
+  // (e.g. timer race), force-submit them so they reach the results/chatbot page.
+  useEffect(() => {
+    if (!battle || submitted || screen !== 'exam') return;
+    const parts   = Object.values(battle.participants);
+    const allDone = parts.length > 0 && parts.every(p => p.status === 'completed');
+    if (battle.status === 'completed' || allDone) void handleSubmit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [battle]);
 
   // Load pending battle invites when on home screen
   useEffect(() => {
@@ -254,30 +266,87 @@ export default function Battle() {
     if (submitted || !battle) return;
     setSubmitted(true);
     window.clearInterval(timerRef.current);
+
     let correct = 0, incorrect = 0;
-    const q = questions;
-    q.forEach((qs, i) => {
-      const ans = answers[i + 1];
+    const chapterStats: Record<string, { subject: string; chapter: string; correct: number; total: number }> = {};
+    questions.forEach((qs, i) => {
+      const ans     = answers[i + 1];
+      const subj    = qs.subject  || battle.subjects[0] || 'Unknown';
+      const chap    = qs.chapter  || qs.section         || 'Unknown';
+      const key     = `${subj}::${chap}`;
+      if (!chapterStats[key]) chapterStats[key] = { subject: subj, chapter: chap, correct: 0, total: 0 };
+      chapterStats[key].total++;
       if (ans !== undefined) {
-        if (qs.answer && ans === qs.answer) correct++;
+        if (qs.answer && ans === qs.answer) { correct++; chapterStats[key].correct++; }
         else incorrect++;
       }
     });
-    const skipped = q.length - correct - incorrect;
-    const accuracy = q.length > 0 ? Math.round((correct / q.length) * 100) : 0;
-    const score = Math.max(0, correct * 4 - incorrect);
-    const timeUsed = battle.durationSeconds - seconds;
+
+    const skipped    = questions.length - correct - incorrect;
+    const accuracy   = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
+    const score      = Math.max(0, correct * 4 - incorrect);
+    const timeUsed   = battle.durationSeconds - seconds;
+    const topicAccuracy = Object.values(chapterStats).map(s => ({
+      topic: s.chapter, subject: s.subject,
+      pct:   s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+      correct: s.correct, total: s.total,
+    }));
+
     await submitBattleResult(battle.id, uid, {
-      answers: Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v])),
+      answers:  Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v])),
       score, correctCount: correct, incorrectCount: incorrect,
       skippedCount: skipped, accuracyPct: accuracy, timeTaken: timeUsed,
     });
-    setPalette(p => {
-      const next = { ...p };
-      q.forEach((_, i) => {
-        if (next[i + 1] === 'not-visited') next[i + 1] = 'not-answered';
-      });
-      return next;
+
+    // Build leaderboard with my updated score merged in
+    const myEntry = {
+      uid, name,
+      initials: name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2),
+      status: 'completed' as const,
+      score, correctCount: correct, incorrectCount: incorrect,
+      skippedCount: skipped, accuracyPct: accuracy, timeTaken: timeUsed, answers: {},
+    };
+    const allParticipants = Object.values(battle.participants).map(p =>
+      p.uid === uid ? myEntry : p
+    );
+    const leaderboard = [...allParticipants].sort((a, b) => b.score - a.score);
+    const myRank = leaderboard.findIndex(p => p.uid === uid) + 1;
+    const examTitle = `Battle — ${battle.subjects.join(' / ') || 'Mixed'}`;
+
+    // Save to Firestore so Test Analysis has data
+    void updateStudentProgress(uid, {
+      lastActivity: { type: 'test', title: examTitle, score: accuracy, accuracy, completedAt: new Date().toISOString() },
+      completedTests: 1,
+      latestTestResult: {
+        testTitle: examTitle,
+        testDate:  new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        subject:   battle.subjects[0] ?? 'Mixed',
+        chapter:   battle.chapters[0] ?? '',
+        subjects:  battle.subjects.length ? battle.subjects : ['Mixed'],
+        chapters:  battle.chapters,
+        totalQuestions: questions.length,
+        correctCount: correct, incorrectCount: incorrect, skippedCount: skipped,
+        accuracyPct: accuracy, score,
+        timeMinutes: Math.max(1, Math.round(timeUsed / 60)),
+        easyPct:   0, mediumPct: 0, hardPct: 0,
+        topicAccuracy,
+      },
+    });
+
+    // Navigate to the same animated result + AI tutor page as regular tests
+    navigate(pathFor('chatbot'), {
+      state: {
+        score, correctCount: correct, incorrectCount: incorrect,
+        skippedCount: skipped, accuracyPct: accuracy,
+        examTitle,
+        subjects:       battle.subjects.length ? battle.subjects : ['Mixed'],
+        chapters:       battle.chapters,
+        topicAccuracy,
+        totalQuestions: questions.length,
+        isBattle:       true,
+        battleRank:     myRank,
+        battleParticipants: leaderboard,
+      },
     });
   }
 
@@ -687,69 +756,6 @@ export default function Battle() {
             </div>
           </aside>
         </div>
-      </div>
-    );
-  }
-
-  // ── Screen: Results ───────────────────────────────────────────────────────────
-  if (screen === 'results' && battle) {
-    const me = battle.participants[uid];
-    const rank = sorted.findIndex(p => p.uid === uid) + 1;
-    return (
-      <div className="p-6 max-w-xl mx-auto space-y-6">
-        <div className="text-center">
-          <span className="text-5xl">{rank === 1 ? '🏆' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '🎖️'}</span>
-          <h1 className="text-display-sm font-bold mt-3" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-            Battle Over!
-          </h1>
-          <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
-            You finished #{rank} of {participants.length}
-          </p>
-        </div>
-
-        {me && (
-          <div className="rounded-2xl p-5 grid grid-cols-3 gap-4 text-center"
-            style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
-            {[
-              { label: 'Score', val: me.score },
-              { label: 'Accuracy', val: `${me.accuracyPct}%` },
-              { label: 'Correct', val: me.correctCount },
-            ].map(({ label, val }) => (
-              <div key={label}>
-                <div className="text-2xl font-bold" style={{ color: '#5B4FE8', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{val}</div>
-                <div className="text-xs uppercase tracking-wide mt-0.5" style={{ color: 'var(--text-faint)' }}>{label}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-          <div className="px-4 py-3" style={{ backgroundColor: 'var(--surface-muted)' }}>
-            <h2 className="text-label-lg font-bold" style={{ color: 'var(--text-secondary)' }}>Final Leaderboard</h2>
-          </div>
-          {sorted.map((p, i) => (
-            <div key={p.uid} className={`flex items-center gap-3 px-4 py-3 ${i < sorted.length - 1 ? 'border-b' : ''}`}
-              style={{ borderColor: 'var(--border)', backgroundColor: p.uid === uid ? 'rgba(91,79,232,0.04)' : 'var(--surface)' }}>
-              <span className="text-sm font-bold w-6 text-center" style={{ color: i === 0 ? '#F59E0B' : i === 1 ? '#9CA3AF' : i === 2 ? '#B45309' : 'var(--text-faint)' }}>
-                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
-              </span>
-              <div className="avatar" style={{ width: 32, height: 32, fontSize: 12 }}>{p.initials}</div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{p.correctCount}✓ {p.incorrectCount}✗ {p.skippedCount}—</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-bold" style={{ color: i === 0 ? '#F59E0B' : 'var(--text-primary)' }}>{p.score}</p>
-                <p className="text-xs" style={{ color: 'var(--text-faint)' }}>{p.accuracyPct}%</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <button type="button" onClick={() => setScreen('home')} className="btn-outline btn-md w-full justify-center">
-          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>home</span>
-          Back to Battle Home
-        </button>
       </div>
     );
   }

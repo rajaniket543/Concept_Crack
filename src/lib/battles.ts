@@ -127,13 +127,15 @@ export async function declineBattleInvite(battleId: string, uid: string): Promis
 
 export async function getPendingBattleInvites(uid: string): Promise<Battle[]> {
   try {
+    // Single where clause only — composite index not needed; filter status client-side
     const q = query(
       collection(db, 'battles'),
       where('invitedStudents', 'array-contains', uid),
-      where('status', '==', 'lobby')
     );
     const snap = await getDocs(q);
-    return snap.docs.map(d => snapToBattle(d.id, d.data() as Record<string, unknown>));
+    return snap.docs
+      .map(d => snapToBattle(d.id, d.data() as Record<string, unknown>))
+      .filter(b => b.status === 'lobby');
   } catch {
     return [];
   }

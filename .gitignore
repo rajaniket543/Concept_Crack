@@ -13,6 +13,10 @@ dist-ssr
 
 # Question extraction scripts
 scripts/.env
+
+# Firebase service account key — never commit
+scripts/service-account.json
+service-account.json
 scripts/progress/
 scripts/pdfs/
 

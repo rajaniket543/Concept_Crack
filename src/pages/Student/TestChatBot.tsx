@@ -9,6 +9,12 @@ import { STREAM_COLORS, STREAM_BG } from '../../lib/stream';
 
 interface TopicAcc { topic: string; subject?: string; pct: number; correct: number; total: number; }
 
+interface BattlePlayer {
+  uid: string; name: string; initials: string;
+  score: number; correctCount: number; incorrectCount: number;
+  skippedCount: number; accuracyPct: number; status: string;
+}
+
 interface TestResult {
   score?: number;
   correctCount?: number;
@@ -22,6 +28,9 @@ interface TestResult {
   chapters?: string[];
   topicAccuracy?: TopicAcc[];
   totalQuestions?: number;
+  isBattle?: boolean;
+  battleRank?: number;
+  battleParticipants?: BattlePlayer[];
 }
 
 interface Message { id: number; role: 'ai' | 'user'; text: string; typing?: boolean; }
@@ -550,6 +559,54 @@ export default function TestResultAndChat() {
             )}
           </div>
         </div>
+
+        {/* ── Battle leaderboard ── */}
+        {result.isBattle && result.battleParticipants && result.battleParticipants.length > 0 && (
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', animation: 'fadeSlideUp 0.5s 0.6s ease both' }}>
+            <div className="px-5 py-4 flex items-center gap-3"
+              style={{ background: 'linear-gradient(135deg, rgba(91,79,232,0.12), rgba(124,58,237,0.08))', borderBottom: '1px solid var(--border)' }}>
+              <span className="material-symbols-outlined filled" style={{ fontSize: 20, color: '#F59E0B' }}>military_tech</span>
+              <div>
+                <div className="text-sm font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+                  Battle Leaderboard
+                  {result.battleRank === 1 && <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(245,158,11,0.15)', color: '#F59E0B' }}>You won!</span>}
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  You finished #{result.battleRank} of {result.battleParticipants.length}
+                </div>
+              </div>
+            </div>
+            {result.battleParticipants.map((p, i) => {
+              const isMe = i + 1 === result.battleRank ||
+                (result.battleParticipants!.length === 2 && p.score === (result.score ?? 0) && p.correctCount === (result.correctCount ?? 0));
+              const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+              return (
+                <div key={p.uid ?? i}
+                  className={`flex items-center gap-4 px-5 py-4 ${i < result.battleParticipants!.length - 1 ? 'border-b' : ''}`}
+                  style={{ borderColor: 'var(--border)', backgroundColor: isMe ? 'rgba(91,79,232,0.05)' : 'var(--surface)' }}>
+                  <span className="text-base w-8 text-center shrink-0">{medal}</span>
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 text-white"
+                    style={{ background: isMe ? 'linear-gradient(135deg, #5B4FE8, #7C3AED)' : 'linear-gradient(135deg, #6B7280, #9CA3AF)' }}>
+                    {p.initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {p.name} {isMe && <span className="text-xs font-normal" style={{ color: '#5B4FE8' }}>(you)</span>}
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      {p.correctCount}✓ &nbsp;{p.incorrectCount}✗ &nbsp;{p.skippedCount}—
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-base font-bold" style={{ color: i === 0 ? '#F59E0B' : 'var(--text-primary)' }}>{p.score}</p>
+                    <p className="text-xs" style={{ color: 'var(--text-faint)' }}>{p.accuracyPct}%</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
       </section>
 
       {/* ── Chat divider ── */}
