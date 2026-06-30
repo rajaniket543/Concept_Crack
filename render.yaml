@@ -1,9 +1,12 @@
 services:
   - type: web
-    name: prepmind-ai
-    env: node
-    plan: starter
+    name: concept-crack
+    runtime: static
     buildCommand: npm install && npm run build
-    startCommand: npm start
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: false
     autoDeploy: true
-    branch: main
+    branch: dev
+    envVars:
+      - key: VITE_GEMINI_API_KEY
+        sync: false
