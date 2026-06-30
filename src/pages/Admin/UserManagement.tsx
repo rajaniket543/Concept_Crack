@@ -59,6 +59,7 @@ export default function UserManagement() {
       setUsers(
         snap.docs
           .map(d => ({ id: d.id, ...d.data() } as UserRow))
+          .filter(u => (u.email ?? '').endsWith('@conceptcrack.in'))
           .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')),
       );
     } catch {
