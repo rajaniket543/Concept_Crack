@@ -28,6 +28,7 @@ import UserManagement from './pages/Admin/UserManagement';
 import InstituteManagement from './pages/Admin/InstituteManagement';
 import TestApprovals from './pages/Admin/TestApprovals';
 import Settings from './pages/Settings';
+import ChangePassword from './pages/ChangePassword';
 import { getAuthSession } from './lib/auth';
 import { PageKey } from './lib/pages';
 
@@ -219,6 +220,7 @@ export default function App() {
         <Route path="test-approvals" element={<RequireAuth roles={['admin']}><TestApprovals /></RequireAuth>} />
       </Route>
 
+      <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
 
       <Route path="*" element={<NotFound />} />

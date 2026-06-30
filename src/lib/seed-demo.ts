@@ -3,6 +3,50 @@ import { doc, setDoc, getDoc, getDocs, collection, query, where, limit, serverTi
 import { auth, db } from './firebase';
 import type { AuthRole } from './auth';
 
+// ── Concept Crack full account roster ────────────────────────────────────────
+
+interface CCStudent { firstName: string; lastName: string; }
+
+const CC_JEE_STUDENTS: CCStudent[] = [
+  { firstName: 'Arjun',     lastName: 'Sharma'   },
+  { firstName: 'Rohan',     lastName: 'Mehta'    },
+  { firstName: 'Vikram',    lastName: 'Singh'    },
+  { firstName: 'Aditya',    lastName: 'Kumar'    },
+  { firstName: 'Rahul',     lastName: 'Verma'    },
+  { firstName: 'Karan',     lastName: 'Patel'    },
+  { firstName: 'Siddharth', lastName: 'Joshi'    },
+  { firstName: 'Nikhil',    lastName: 'Gupta'    },
+  { firstName: 'Prateek',   lastName: 'Nair'     },
+  { firstName: 'Akash',     lastName: 'Yadav'    },
+  { firstName: 'Manish',    lastName: 'Tiwari'   },
+  { firstName: 'Deepak',    lastName: 'Rajput'   },
+  { firstName: 'Sumit',     lastName: 'Chauhan'  },
+];
+
+const CC_NEET_STUDENTS: CCStudent[] = [
+  { firstName: 'Priya',   lastName: 'Patel'    },
+  { firstName: 'Sneha',   lastName: 'Iyer'     },
+  { firstName: 'Anjali',  lastName: 'Mishra'   },
+  { firstName: 'Kavya',   lastName: 'Reddy'    },
+  { firstName: 'Pooja',   lastName: 'Sharma'   },
+  { firstName: 'Nisha',   lastName: 'Gupta'    },
+  { firstName: 'Riya',    lastName: 'Jain'     },
+  { firstName: 'Divya',   lastName: 'Nair'     },
+  { firstName: 'Ananya',  lastName: 'Singh'    },
+  { firstName: 'Shreya',  lastName: 'Kulkarni' },
+  { firstName: 'Neha',    lastName: 'Bose'     },
+  { firstName: 'Tanvi',   lastName: 'Desai'    },
+];
+
+export type CCAccountResult = {
+  email:  string;
+  role:   AuthRole;
+  name:   string;
+  status: 'created' | 'exists' | 'error';
+  error?: string;
+  uid?:   string;
+};
+
 // ── Mock student names ────────────────────────────────────────────────────────
 
 const JEE_NAMES = [
@@ -221,6 +265,165 @@ export async function seedDemoAccounts(): Promise<SeedResult[]> {
 
   return results;
 }
+
+// ── Full Concept Crack seed (53 accounts) ─────────────────────────────────────
+
+export async function seedConceptCrackAccounts(
+  onProgress?: (done: number, total: number, current: string) => void,
+): Promise<CCAccountResult[]> {
+  const results: CCAccountResult[] = [];
+  const jeeStudentUids: string[] = [];
+  const neetStudentUids: string[] = [];
+  const TOTAL = 1 + CC_JEE_STUDENTS.length * 2 + CC_NEET_STUDENTS.length * 2 + 2;
+  let done = 0;
+
+  async function createOne(
+    email: string,
+    firestoreData: Record<string, unknown>,
+    role: AuthRole,
+    name: string,
+  ): Promise<string | null> {
+    let uid: string | null = null;
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, 'Temp@1234');
+      uid = cred.user.uid;
+      results.push({ email, role, name, status: 'created', uid });
+    } catch (err) {
+      const code = (err as { code?: string }).code ?? '';
+      if (code === 'auth/email-already-in-use') {
+        uid = await findUidByEmail(email);
+        results.push({ email, role, name, status: 'exists', uid: uid ?? undefined });
+      } else {
+        results.push({ email, role, name, status: 'error', error: (err as Error).message });
+        done++;
+        onProgress?.(done, TOTAL, name);
+        return null;
+      }
+    }
+    if (uid) await setDoc(doc(db, 'users', uid), firestoreData, { merge: true });
+    done++;
+    onProgress?.(done, TOTAL, name);
+    return uid;
+  }
+
+  // Admin
+  await createOne('admin@conceptcrack.in', {
+    name: 'Admin Desk', email: 'admin@conceptcrack.in', role: 'admin',
+    status: 'Active', permissions: ['all'], mustChangePassword: true,
+    createdAt: serverTimestamp(), lastActive: serverTimestamp(),
+  }, 'admin', 'Admin Desk');
+
+  // JEE students
+  for (const s of CC_JEE_STUDENTS) {
+    const fn    = s.firstName.toLowerCase();
+    const email = `student.${fn}@conceptcrack.in`;
+    const uid   = await createOne(email, {
+      name: `${s.firstName} ${s.lastName}`, email, role: 'student',
+      stream: 'JEE', examTarget: 'JEE 2025', status: 'Active',
+      permissions: [], mustChangePassword: true,
+      createdAt: serverTimestamp(), lastActive: serverTimestamp(),
+    }, 'student', `${s.firstName} ${s.lastName}`);
+    if (uid) jeeStudentUids.push(uid);
+  }
+
+  // NEET students
+  for (const s of CC_NEET_STUDENTS) {
+    const fn    = s.firstName.toLowerCase();
+    const email = `student.${fn}@conceptcrack.in`;
+    const uid   = await createOne(email, {
+      name: `${s.firstName} ${s.lastName}`, email, role: 'student',
+      stream: 'NEET', examTarget: 'NEET 2025', status: 'Active',
+      permissions: [], mustChangePassword: true,
+      createdAt: serverTimestamp(), lastActive: serverTimestamp(),
+    }, 'student', `${s.firstName} ${s.lastName}`);
+    if (uid) neetStudentUids.push(uid);
+  }
+
+  // JEE parents (linked to their child)
+  for (let i = 0; i < CC_JEE_STUDENTS.length; i++) {
+    const s    = CC_JEE_STUDENTS[i];
+    const sUid = jeeStudentUids[i];
+    const fn   = s.firstName.toLowerCase();
+    const email = `parent.${fn}@conceptcrack.in`;
+    const pUid  = await createOne(email, {
+      name: `Parent of ${s.firstName} ${s.lastName}`, email, role: 'parent',
+      linkedStudentId: sUid ?? null, status: 'Active',
+      permissions: [], mustChangePassword: true,
+      createdAt: serverTimestamp(), lastActive: serverTimestamp(),
+    }, 'parent', `Parent of ${s.firstName} ${s.lastName}`);
+    if (pUid && sUid) {
+      await setDoc(doc(db, 'users', sUid), { parentId: pUid }, { merge: true });
+    }
+  }
+
+  // NEET parents
+  for (let i = 0; i < CC_NEET_STUDENTS.length; i++) {
+    const s    = CC_NEET_STUDENTS[i];
+    const sUid = neetStudentUids[i];
+    const fn   = s.firstName.toLowerCase();
+    const email = `parent.${fn}@conceptcrack.in`;
+    const pUid  = await createOne(email, {
+      name: `Parent of ${s.firstName} ${s.lastName}`, email, role: 'parent',
+      linkedStudentId: sUid ?? null, status: 'Active',
+      permissions: [], mustChangePassword: true,
+      createdAt: serverTimestamp(), lastActive: serverTimestamp(),
+    }, 'parent', `Parent of ${s.firstName} ${s.lastName}`);
+    if (pUid && sUid) {
+      await setDoc(doc(db, 'users', sUid), { parentId: pUid }, { merge: true });
+    }
+  }
+
+  // JEE faculty
+  const jeeEmail = 'faculty.rajesh@conceptcrack.in';
+  const jeeUid   = await createOne(jeeEmail, {
+    name: 'Dr. Rajesh Kumar', email: jeeEmail, role: 'faculty',
+    facultyStream: 'JEE', assignedStudents: jeeStudentUids,
+    batchSize: jeeStudentUids.length, status: 'Active',
+    permissions: ['manage_questions', 'view_batch'], mustChangePassword: true,
+    createdAt: serverTimestamp(), lastActive: serverTimestamp(),
+  }, 'faculty', 'Dr. Rajesh Kumar');
+
+  // NEET faculty
+  const neetEmail = 'faculty.meera@conceptcrack.in';
+  const neetUid   = await createOne(neetEmail, {
+    name: 'Dr. Meera Iyer', email: neetEmail, role: 'faculty',
+    facultyStream: 'NEET', assignedStudents: neetStudentUids,
+    batchSize: neetStudentUids.length, status: 'Active',
+    permissions: ['manage_questions', 'view_batch'], mustChangePassword: true,
+    createdAt: serverTimestamp(), lastActive: serverTimestamp(),
+  }, 'faculty', 'Dr. Meera Iyer');
+
+  // Stamp facultyId on every student
+  if (jeeUid) {
+    await Promise.all(jeeStudentUids.map(uid =>
+      setDoc(doc(db, 'users', uid), { facultyId: jeeUid }, { merge: true }),
+    ));
+  }
+  if (neetUid) {
+    await Promise.all(neetStudentUids.map(uid =>
+      setDoc(doc(db, 'users', uid), { facultyId: neetUid }, { merge: true }),
+    ));
+  }
+
+  await setDoc(doc(db, '_meta', 'seed'), {
+    conceptCrackSeeded: true,
+    conceptCrackSeededAt: serverTimestamp(),
+    version: 3,
+  }, { merge: true });
+
+  return results;
+}
+
+export async function isConceptCrackSeeded(): Promise<boolean> {
+  try {
+    const snap = await getDoc(doc(db, '_meta', 'seed'));
+    return snap.exists() && snap.data()?.conceptCrackSeeded === true;
+  } catch {
+    return false;
+  }
+}
+
+// ── Original 4-account demo seed ─────────────────────────────────────────────
 
 export async function isDemoSeeded(): Promise<boolean> {
   try {

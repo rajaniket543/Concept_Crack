@@ -93,6 +93,14 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
       );
     }
 
+    // Block inactive / suspended accounts
+    if (data.status === 'Inactive' || data.status === 'Suspended') {
+      await signOut(auth);
+      throw new Error(
+        `Your account has been ${(data.status as string).toLowerCase()}. Please contact admin.`,
+      );
+    }
+
     userData = {
       id:          uid,
       name:        data.name        ?? firebaseUser.displayName ?? 'User',
@@ -122,11 +130,14 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
     });
   }
 
+  // Redirect to password-change page on first login
+  const mustChange = userSnap.exists() && userSnap.data().mustChangePassword === true;
+
   const session: AuthSession = {
     token,
-    expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour
-    user:      userData,
-    redirectTo: ROLE_PATH[selectedRole],
+    expiresAt:  Date.now() + 60 * 60 * 1000, // 1 hour
+    user:       userData,
+    redirectTo: mustChange ? '/change-password' : ROLE_PATH[selectedRole],
   };
 
   setAuthSession(session);
