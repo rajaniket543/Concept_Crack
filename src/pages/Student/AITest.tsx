@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthSession } from '../../lib/auth';
-import { getStudentStream } from '../../lib/stream';
+import { getStudentStream, STREAM_SUBJECTS } from '../../lib/stream';
 import { getWeakTopics, rankWeakTopics, type TopicStat } from '../../lib/weakTopics';
 import { getQuestionsForCustomTest } from '../../lib/questions';
 import { createTest } from '../../lib/tests';
@@ -13,7 +13,9 @@ const AI_TEST_COUNT = 30;
 export default function AITest() {
   const navigate = useNavigate();
   const toast    = useToast();
-  const uid      = getAuthSession()?.user?.id ?? '';
+  const uid            = getAuthSession()?.user?.id ?? '';
+  const stream         = getStudentStream() ?? 'JEE';
+  const validSubjects  = STREAM_SUBJECTS[stream as keyof typeof STREAM_SUBJECTS] ?? ['Physics', 'Chemistry', 'Mathematics'];
 
   const [loading, setLoading]     = useState(true);
   const [weakTopics, setWeakTopics] = useState<TopicStat[]>([]);
@@ -24,7 +26,8 @@ export default function AITest() {
     if (!uid) return;
     getWeakTopics(uid).then(record => {
       if (record) {
-        const ranked = rankWeakTopics(record);
+        // Filter to only subjects that belong to this student's stream (JEE or NEET)
+        const ranked = rankWeakTopics(record).filter(t => validSubjects.includes(t.subject));
         setWeakTopics(ranked);
         setPreview(ranked.slice(0, 5));
       }
@@ -115,11 +118,16 @@ export default function AITest() {
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-display-sm font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-          AI-Powered Test
-        </h1>
-        <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
-          Auto-generated from your weakest topics to maximize improvement
+        <div className="flex items-center gap-3 mb-1">
+          <h1 className="text-display-sm font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+            AI-Powered Test
+          </h1>
+          <span className="text-label-sm font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8' }}>
+            {stream}
+          </span>
+        </div>
+        <p className="text-body-md" style={{ color: 'var(--text-muted)' }}>
+          Auto-generated from your weakest {validSubjects.join(', ')} topics
         </p>
       </div>
 
