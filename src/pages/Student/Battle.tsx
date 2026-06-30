@@ -129,8 +129,8 @@ export default function Battle() {
           });
         }
       }
-      if (updated.status === 'completed') {
-        setScreen('results');
+      if (updated.status === 'completed' && !submitted) {
+        void handleSubmit();
       }
     });
   }
