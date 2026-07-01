@@ -6,3 +6,17 @@ dist-ssr
 .vite
 *.tsbuildinfo
 .claude/
+
+# Env files with secrets
+.env
+.env.local
+
+# Question extraction scripts
+scripts/.env
+
+# Firebase service account key — never commit
+scripts/service-account.json
+service-account.json
+scripts/progress/
+scripts/pdfs/
+

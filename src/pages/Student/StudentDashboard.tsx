@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
-import { apiRequest } from '../../lib/api';
+import { getStudentDashboard, getStudentProgressData, type ProgressRecord } from '../../lib/db';
 import { getAuthSession } from '../../lib/auth';
+import { getStudentStream, STREAM_COLORS, STREAM_BG, STREAM_EXAM } from '../../lib/stream';
 import {
   currentStudent,
   dashboardMetrics,
@@ -15,16 +16,6 @@ import {
 } from '../../mocks/student';
 
 const CHART_COLORS = ['#5B4FE8', '#8B5CF6', '#06B6D4'];
-const SUBJECT_COLORS: Record<string, string> = {
-  Physics:     '#5B4FE8',
-  Chemistry:   '#8B5CF6',
-  Mathematics: '#10B981',
-};
-const SUBJECT_BG: Record<string, string> = {
-  Physics:     'rgba(91,79,232,0.10)',
-  Chemistry:   'rgba(139,92,246,0.10)',
-  Mathematics: 'rgba(16,185,129,0.10)',
-};
 
 interface DashData {
   currentStudent: typeof currentStudent;
@@ -37,21 +28,28 @@ interface DashData {
 }
 
 export default function StudentDashboard() {
-  const session = getAuthSession();
+  const session   = getAuthSession();
+  const stream    = getStudentStream();
   const firstName = session?.user?.name?.split(' ')[0] ?? currentStudent.name.split(' ')[0];
   const [data, setData] = useState<DashData>({
     currentStudent, metrics: dashboardMetrics, weeklyProgress,
     subjectPerformance, heatmapCells, weakAreas, aiRecommendations,
   });
-  const [loading, setLoading] = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [progress, setProgress] = useState<ProgressRecord | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    apiRequest('/api/student/dashboard')
-      .then(payload => { if (!cancelled) setData(payload as DashData); })
+    getStudentDashboard(session?.user?.id ?? '')
+      .then(payload => { if (!cancelled) setData(payload as unknown as DashData); })
       .catch(() => undefined)
       .finally(() => { if (!cancelled) setLoading(false); });
+    if (session?.user?.id) {
+      getStudentProgressData(session.user.id)
+        .then(p => { if (!cancelled) setProgress(p); })
+        .catch(() => undefined);
+    }
     return () => { cancelled = true; };
   }, []);
 
@@ -82,6 +80,37 @@ export default function StudentDashboard() {
       />
 
       <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">
+        {/* ── Resume Progress Banner ── */}
+        {progress?.lastActivity && (
+          <div
+            className="rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+            style={{ background: 'linear-gradient(135deg, rgba(91,79,232,0.08), rgba(124,58,237,0.05))', border: '1px solid rgba(91,79,232,0.20)' }}
+          >
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+              <span className="material-symbols-outlined filled text-white" style={{ fontSize: '18px' }}>history</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-label-sm font-semibold uppercase tracking-widest mb-0.5" style={{ color: '#5B4FE8' }}>Resume where you left off</p>
+              <p className="text-body-md font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                Last activity: <span className="font-semibold">{progress.lastActivity.title}</span>
+                {progress.lastActivity.score !== undefined && ` — scored ${progress.lastActivity.score}%`}
+              </p>
+              <p className="text-label-sm" style={{ color: 'var(--text-muted)' }}>
+                {new Date(progress.lastActivity.completedAt).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                {progress.nextRecommendation && ` · Next: ${progress.nextRecommendation}`}
+              </p>
+            </div>
+            <Link
+              to="/student/practice"
+              className="btn-primary btn-sm flex items-center gap-1.5 shrink-0"
+              style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+            >
+              Continue
+              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>arrow_forward</span>
+            </Link>
+          </div>
+        )}
+
         {/* Page header */}
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -89,7 +118,8 @@ export default function StudentDashboard() {
               {greeting}, {firstName} 👋
             </h1>
             <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
-              {(data.currentStudent as any).examTarget ?? 'JEE 2025'} · {(data.currentStudent as any).daysToExam ?? 47} days remaining
+              {stream ? STREAM_EXAM[stream] : ((data.currentStudent as any).examTarget ?? 'JEE 2025')} · {(data.currentStudent as any).daysToExam ?? 47} days remaining
+              {stream && <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: stream === 'JEE' ? 'rgba(91,79,232,0.12)' : 'rgba(20,184,166,0.12)', color: stream === 'JEE' ? '#5B4FE8' : '#14B8A6' }}>{stream}</span>}
             </p>
           </div>
           <Link
@@ -148,7 +178,7 @@ export default function StudentDashboard() {
             subtitle="Last 7 days across subjects"
             action={
               <div className="flex items-center gap-3">
-                {['Physics', 'Chemistry', 'Math'].map((s, i) => (
+                {['Physics', 'Chemistry', stream === 'NEET' ? 'Biology' : 'Math'].map((s, i) => (
                   <div key={s} className="hidden md:flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i] }} />
                     <span className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{s}</span>
@@ -164,21 +194,31 @@ export default function StudentDashboard() {
           {/* Subject mastery */}
           <Card title="Subject Mastery" subtitle="Accuracy by subject">
             <div className="space-y-5">
-              {data.subjectPerformance.map((s: any) => (
+              {data.subjectPerformance
+                .filter((s: any) => {
+                  if (s.subject === 'English') return false;
+                  if (stream === 'JEE')  return s.subject !== 'Biology';
+                  return true; // NEET: keep Physics, Chemistry, Mathematics (renamed below)
+                })
+                .map((s: any) => {
+                  const subjectName = (stream === 'NEET' && s.subject === 'Mathematics') ? 'Biology' : s.subject;
+                  const color = STREAM_COLORS[subjectName] ?? '#5B4FE8';
+                  const bg    = STREAM_BG[subjectName]    ?? 'rgba(91,79,232,0.10)';
+                  return (
                 <div key={s.subject}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: SUBJECT_BG[s.subject] ?? 'rgba(91,79,232,0.10)' }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '14px', color: SUBJECT_COLORS[s.subject] ?? '#5B4FE8' }}>science</span>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: bg }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '14px', color }}>science</span>
                       </div>
-                      <span className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{s.subject}</span>
+                      <span className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{subjectName}</span>
                     </div>
-                    <span className="text-label-lg font-bold" style={{ color: SUBJECT_COLORS[s.subject] ?? '#5B4FE8' }}>{s.pct}%</span>
+                    <span className="text-label-lg font-bold" style={{ color }}>{s.pct}%</span>
                   </div>
                   <div className="progress-bar">
                     <div
                       className="progress-bar-fill transition-all duration-700"
-                      style={{ width: `${s.pct}%`, backgroundColor: SUBJECT_COLORS[s.subject] ?? '#5B4FE8' }}
+                      style={{ width: `${s.pct}%`, backgroundColor: color }}
                     />
                   </div>
                   <div className="flex items-center justify-between mt-1">
@@ -186,7 +226,8 @@ export default function StudentDashboard() {
                     <Link to="/student/analysis" className="text-label-sm hover:underline" style={{ color: '#5B4FE8' }}>Details →</Link>
                   </div>
                 </div>
-              ))}
+                  );
+                })}
             </div>
           </Card>
         </div>

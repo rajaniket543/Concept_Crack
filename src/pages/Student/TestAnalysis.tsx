@@ -1,43 +1,123 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
-import { analysis } from '../../mocks/student';
 import { pathFor } from '../../lib/pages';
-import { apiRequest } from '../../lib/api';
+import { getStudentProgressData, type TestResult } from '../../lib/db';
+import { getAuthSession } from '../../lib/auth';
 
 export default function TestAnalysis() {
-  const [data, setData] = useState<any>(analysis);
+  const navigate = useNavigate();
+  const [result, setResult] = useState<TestResult | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void apiRequest<any>('/api/student/analysis/latest')
-      .then(setData)
-      .catch(() => setData(analysis));
+    const uid = getAuthSession()?.user?.id;
+    if (!uid) { setLoading(false); return; }
+
+    void getStudentProgressData(uid).then(progress => {
+      setResult(progress?.latestTestResult ?? null);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Test Analysis' }]} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-3">
+            <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mx-auto" style={{ borderColor: '#5B4FE8', borderTopColor: 'transparent' }} />
+            <p className="text-body-md" style={{ color: 'var(--text-muted)' }}>Loading your results…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!result) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+        <TopBar breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Test Analysis' }]} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <span className="material-symbols-outlined">assignment</span>
+            </div>
+            <h3 className="empty-state-title">No tests completed yet</h3>
+            <p className="empty-state-body">Complete a practice session from the Practice page to see your analysis here.</p>
+            <Link to="/student/practice" className="btn-primary btn-md mt-4">Go to Practice</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const donutData = [
+    { label: 'Correct',   count: result.correctCount,   color: '#10B981' },
+    { label: 'Incorrect', count: result.incorrectCount, color: '#EF4444' },
+    { label: 'Skipped',   count: result.skippedCount,   color: '#9CA3AF' },
+  ];
+  const donutTotal = result.correctCount + result.incorrectCount + result.skippedCount;
+
   const metrics = [
-    { label: 'Global Rank', value: `#${data.rank}`, sub: `Top ${data.rankPercentile}% of ${(data.totalStudents / 1000).toFixed(1)}k`, icon: 'military_tech', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-    { label: 'Accuracy',    value: `${data.accuracyPct}%`, sub: `${data.correctCount}/50 correct`,           icon: 'my_location',    color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
-    { label: 'Score',       value: `${data.score ?? data.correctCount * 4}`, sub: `Out of ${(data.totalStudents > 0 ? 200 : 200)}`,       icon: 'stars',          color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
-    { label: 'Time Taken',  value: `${data.timeMinutes}m`, sub: `${data.timeVsAvgMinutes}m faster than avg`, icon: 'timer',          color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
+    {
+      label: 'Accuracy',
+      value: `${result.accuracyPct}%`,
+      sub:   `${result.correctCount}/${result.totalQuestions} correct`,
+      icon:  'my_location', color: '#10B981', bg: 'rgba(16,185,129,0.12)',
+    },
+    {
+      label: 'Score',
+      value: String(result.score),
+      sub:   `Out of ${result.totalQuestions * 4}`,
+      icon:  'stars', color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)',
+    },
+    {
+      label: 'Time Taken',
+      value: `${result.timeMinutes}m`,
+      sub:   `${result.totalQuestions} questions`,
+      icon:  'timer', color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)',
+    },
+    {
+      label: 'Questions',
+      value: String(result.totalQuestions),
+      sub:   `${result.skippedCount} skipped`,
+      icon:  'quiz', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)',
+    },
   ];
 
-  const donutTotal = (data.correctCount ?? 0) + (data.incorrectCount ?? 0) + (data.skippedCount ?? 0);
-  const donutData = [
-    { label: 'Correct',   count: data.correctCount   ?? 0, color: '#10B981' },
-    { label: 'Incorrect', count: data.incorrectCount ?? 0, color: '#EF4444' },
-    { label: 'Skipped',   count: data.skippedCount   ?? 0, color: '#9CA3AF' },
-  ];
+  const weakTopics = result.topicAccuracy
+    .filter(t => t.pct < 70)
+    .sort((a, b) => a.pct - b.pct)
+    .slice(0, 4);
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
       <TopBar
         breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Test Analysis' }]}
         actions={
-          <Link to={pathFor('exam')} className="btn-primary btn-md flex items-center gap-1.5">
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>refresh</span>
-            Retake Test
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate(pathFor('chatbot'), {
+                state: {
+                  correctCount:   result.correctCount,
+                  incorrectCount: result.incorrectCount,
+                  skippedCount:   result.skippedCount,
+                  accuracyPct:    result.accuracyPct,
+                  score:          result.score,
+                },
+              })}
+              className="btn-outline btn-md flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined filled" style={{ fontSize: '18px' }}>smart_toy</span>
+              Ask AI Tutor
+            </button>
+            <Link to={pathFor('practice')} className="btn-primary btn-md flex items-center gap-1.5">
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>refresh</span>
+              Practice Again
+            </Link>
+          </div>
         }
       />
 
@@ -49,15 +129,13 @@ export default function TestAnalysis() {
               Test Analysis
             </h1>
             <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
-              {data.testTitle ?? 'JEE Full Syllabus Mock #3'} · {data.testDate ?? 'Dec 14, 2025'}
+              {result.testTitle} · {result.testDate}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="badge badge-success">
-              <span className="material-symbols-outlined filled" style={{ fontSize: '12px' }}>check_circle</span>
-              Submitted
-            </span>
-          </div>
+          <span className="badge badge-success self-start sm:self-auto">
+            <span className="material-symbols-outlined filled" style={{ fontSize: '12px' }}>check_circle</span>
+            Submitted
+          </span>
         </div>
 
         {/* Metric cards */}
@@ -91,52 +169,61 @@ export default function TestAnalysis() {
 
           {/* Topic accuracy */}
           <Card title="Topic-wise Accuracy" subtitle="Breakdown by chapter" className="lg:col-span-2">
-            <div className="space-y-3.5">
-              {(data.topicAccuracy ?? []).map((t: any) => (
-                <div key={t.topic}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-body-md" style={{ color: 'var(--text-primary)' }}>{t.topic}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-label-lg font-semibold" style={{ color: t.pct >= 70 ? '#10B981' : t.pct >= 40 ? '#F59E0B' : '#EF4444' }}>{t.pct}%</span>
-                      <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{t.correct}/{t.total}</span>
+            {result.topicAccuracy.length > 0 ? (
+              <div className="space-y-3.5">
+                {result.topicAccuracy.map(t => (
+                  <div key={t.topic}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-body-md" style={{ color: 'var(--text-primary)' }}>{t.topic}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-label-lg font-semibold" style={{ color: t.pct >= 70 ? '#10B981' : t.pct >= 40 ? '#F59E0B' : '#EF4444' }}>{t.pct}%</span>
+                        <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{t.correct}/{t.total}</span>
+                      </div>
+                    </div>
+                    <div className="progress-bar">
+                      <div
+                        className="progress-bar-fill"
+                        style={{ width: `${t.pct}%`, backgroundColor: t.pct >= 70 ? '#10B981' : t.pct >= 40 ? '#F59E0B' : '#EF4444', transition: 'width 0.7s ease' }}
+                      />
                     </div>
                   </div>
-                  <div className="progress-bar">
-                    <div
-                      className="progress-bar-fill"
-                      style={{ width: `${t.pct}%`, backgroundColor: t.pct >= 70 ? '#10B981' : t.pct >= 40 ? '#F59E0B' : '#EF4444', transition: 'width 0.7s ease' }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-body-sm" style={{ color: 'var(--text-faint)' }}>No topic data available.</p>
+            )}
           </Card>
         </div>
 
-        {/* Difficulty distribution + AI recommendations */}
+        {/* Difficulty + AI suggestions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Difficulty breakdown */}
           <Card title="Difficulty Distribution" subtitle="Performance by question difficulty">
             <div className="space-y-4">
               {[
-                { label: 'Easy',   pct: data.easyPct   ?? 82, color: '#10B981', bg: 'rgba(16,185,129,0.10)' },
-                { label: 'Medium', pct: data.mediumPct ?? 65, color: '#F59E0B', bg: 'rgba(245,158,11,0.10)' },
-                { label: 'Hard',   pct: data.hardPct   ?? 41, color: '#EF4444', bg: 'rgba(239,68,68,0.10)'  },
+                { label: 'Easy',   pct: result.easyPct,   color: '#10B981', bg: 'rgba(16,185,129,0.10)' },
+                { label: 'Medium', pct: result.mediumPct, color: '#F59E0B', bg: 'rgba(245,158,11,0.10)' },
+                { label: 'Hard',   pct: result.hardPct,   color: '#EF4444', bg: 'rgba(239,68,68,0.10)'  },
               ].map(d => (
                 <div key={d.label} className="p-4 rounded-xl" style={{ backgroundColor: d.bg }}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-body-md font-semibold" style={{ color: d.color }}>{d.label}</span>
-                    <span className="text-headline-sm font-bold font-headline" style={{ color: d.color, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{d.pct}%</span>
+                    <span className="text-headline-sm font-bold font-headline" style={{ color: d.color, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                      {d.pct > 0 ? `${d.pct}%` : '—'}
+                    </span>
                   </div>
-                  <div className="progress-bar" style={{ backgroundColor: 'rgba(255,255,255,0.40)' }}>
-                    <div className="progress-bar-fill" style={{ width: `${d.pct}%`, backgroundColor: d.color }} />
-                  </div>
+                  {d.pct > 0 && (
+                    <div className="progress-bar" style={{ backgroundColor: 'rgba(255,255,255,0.40)' }}>
+                      <div className="progress-bar-fill" style={{ width: `${d.pct}%`, backgroundColor: d.color }} />
+                    </div>
+                  )}
+                  {d.pct === 0 && (
+                    <p className="text-label-sm" style={{ color: d.color, opacity: 0.6 }}>No {d.label.toLowerCase()} questions</p>
+                  )}
                 </div>
               ))}
             </div>
           </Card>
 
-          {/* AI improvement suggestions */}
           <Card
             title="AI Improvement Plan"
             subtitle="Personalized next steps"
@@ -153,38 +240,43 @@ export default function TestAnalysis() {
                 <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>AI Analysis Summary</span>
               </div>
               <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}>
-                Your performance in Organic Chemistry (48%) and Rotational Motion (52%) needs improvement. Focus on these topics for maximum rank improvement.
+                {result.accuracyPct >= 80
+                  ? `Excellent performance on ${result.chapter}! You scored ${result.accuracyPct}% accuracy. Keep up the momentum and move to the next chapter.`
+                  : result.accuracyPct >= 50
+                  ? `Good effort on ${result.chapter}. You scored ${result.accuracyPct}% accuracy. Review the ${result.incorrectCount} incorrect answers to improve further.`
+                  : `${result.chapter} needs more practice. You scored ${result.accuracyPct}% accuracy. Revisit the fundamentals and try again.`
+                }
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                { topic: 'Organic Chemistry',  reason: 'Low accuracy on mechanism questions', priority: 'High',   icon: 'science',        color: '#EF4444' },
-                { topic: 'Rotational Motion',  reason: 'Time spent too high per question',    priority: 'High',   icon: 'rotate_right',   color: '#F59E0B' },
-                { topic: 'Differential Calc',  reason: 'Integration shortcuts missing',        priority: 'Medium', icon: 'calculate',      color: '#8B5CF6' },
-                { topic: 'Ionic Equilibrium',  reason: 'Good accuracy but slow speed',         priority: 'Medium', icon: 'science',        color: '#06B6D4' },
-              ].map(item => (
-                <Link
-                  key={item.topic}
-                  to="/student/practice"
-                  className="group flex items-start gap-3 p-3.5 rounded-xl transition-all hover:-translate-y-0.5"
-                  style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}
-                >
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${item.color}15` }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px', color: item.color }}>{item.icon}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-body-md font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>{item.topic}</div>
-                    <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{item.reason}</div>
-                  </div>
-                  <span
-                    className="text-label-sm font-bold shrink-0"
-                    style={{ color: item.priority === 'High' ? '#EF4444' : '#F59E0B' }}
+
+            {weakTopics.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {weakTopics.map(t => (
+                  <Link
+                    key={t.topic}
+                    to="/student/practice"
+                    className="group flex items-start gap-3 p-3.5 rounded-xl transition-all hover:-translate-y-0.5"
+                    style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}
                   >
-                    {item.priority}
-                  </span>
-                </Link>
-              ))}
-            </div>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(239,68,68,0.12)' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#EF4444' }}>priority_high</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-body-md font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>{t.topic}</div>
+                      <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{t.correct}/{t.total} correct · {t.pct}% accuracy</div>
+                    </div>
+                    <span className="text-label-sm font-bold shrink-0" style={{ color: '#EF4444' }}>Revise</span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 p-4 rounded-xl" style={{ backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.20)' }}>
+                <span className="material-symbols-outlined filled" style={{ fontSize: '24px', color: '#10B981' }}>verified</span>
+                <p className="text-body-md font-semibold" style={{ color: '#10B981' }}>
+                  Great job! All topics are above 70% accuracy.
+                </p>
+              </div>
+            )}
           </Card>
         </div>
       </div>

@@ -1,62 +1,157 @@
 import { useState } from 'react';
+import {
+  verifyBeforeUpdateEmail,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+} from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
 import Card from '../components/Card';
 import TopBar from '../components/TopBar';
 import { useTheme } from '../lib/theme';
-import { getAuthSession } from '../lib/auth';
-import { apiRequest } from '../lib/api';
+import { getAuthSession, setAuthSession } from '../lib/auth';
+import { auth, db } from '../lib/firebase';
+import { Col } from '../lib/db';
 
 const TABS = ['Profile', 'Appearance', 'Notifications', 'Security', 'Integrations'] as const;
 type SettingsTab = (typeof TABS)[number];
+
+type Msg = { type: 'success' | 'error'; text: string };
+
+function showFor(set: (m: Msg | null) => void, msg: Msg, ms = 4000) {
+  set(msg);
+  setTimeout(() => set(null), ms);
+}
 
 export default function Settings() {
   const { isDark, toggleTheme } = useTheme();
   const session = getAuthSession();
   const [tab, setTab] = useState<SettingsTab>('Profile');
 
+  // ── Profile tab ──────────────────────────────────────────────────────────────
+  const originalEmail = session?.user?.email ?? '';
   const [profile, setProfile] = useState({
-    name: session?.user?.name ?? '',
+    name:  session?.user?.name  ?? '',
     email: session?.user?.email ?? '',
     phone: '',
-    bio: '',
+    bio:   '',
   });
-  const [profileSaved, setProfileSaved] = useState(false);
+  const [profilePwd,    setProfilePwd]    = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg,    setProfileMsg]    = useState<Msg | null>(null);
 
-  const [notifications, setNotifications] = useState({
-    examReminders: true,
-    aiInsights: true,
-    batchAlerts: false,
-    weeklyDigest: true,
-    pushEnabled: false,
-  });
-
-  const [security, setSecurity] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-  const [securityMsg, setSecurityMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const emailChanged = profile.email.trim() !== originalEmail;
 
   async function handleSaveProfile() {
-    try {
-      await apiRequest('/api/profile/update', { method: 'POST', body: JSON.stringify(profile) });
-    } catch { /* use local state */ }
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 2500);
-  }
-
-  async function handleChangePassword() {
-    if (!security.newPassword || security.newPassword !== security.confirmPassword) {
-      setSecurityMsg({ type: 'error', text: 'Passwords do not match.' });
+    const uid = session?.user?.id;
+    if (!uid || !auth.currentUser) {
+      showFor(setProfileMsg, { type: 'error', text: 'Not signed in. Please log in again.' });
       return;
     }
-    try {
-      await apiRequest('/api/profile/password', { method: 'POST', body: JSON.stringify(security) });
-      setSecurityMsg({ type: 'success', text: 'Password updated successfully.' });
-      setSecurity({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch {
-      setSecurityMsg({ type: 'error', text: 'Failed to update password. Please try again.' });
+    if (emailChanged && !profilePwd) {
+      showFor(setProfileMsg, { type: 'error', text: 'Enter your current password to change email.' });
+      return;
     }
-    setTimeout(() => setSecurityMsg(null), 3000);
+
+    setProfileSaving(true);
+    try {
+      if (emailChanged) {
+        const credential = EmailAuthProvider.credential(auth.currentUser.email!, profilePwd);
+        await reauthenticateWithCredential(auth.currentUser, credential);
+        await verifyBeforeUpdateEmail(auth.currentUser, profile.email.trim());
+        // Revert email in local state — it only changes after the user clicks the verification link
+        setProfile(p => ({ ...p, email: originalEmail }));
+        setProfilePwd('');
+        showFor(setProfileMsg, {
+          type: 'success',
+          text: `Verification email sent to ${profile.email.trim()}. Click the link to complete the email change.`,
+        }, 8000);
+        return;
+      }
+
+      await updateDoc(doc(db, Col.users, uid), {
+        name:  profile.name.trim(),
+        phone: profile.phone.trim(),
+        bio:   profile.bio.trim(),
+      });
+
+      if (session) {
+        setAuthSession({
+          ...session,
+          user: { ...session.user, name: profile.name.trim() },
+        });
+      }
+
+      setProfilePwd('');
+      showFor(setProfileMsg, { type: 'success', text: 'Profile updated successfully.' });
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? '';
+      const message =
+        code === 'auth/wrong-password'          ? 'Current password is incorrect.'
+        : code === 'auth/requires-recent-login' ? 'Session expired. Please log out and log in again.'
+        : code === 'auth/email-already-in-use'  ? 'That email is already in use by another account.'
+        : code === 'auth/invalid-email'         ? 'Invalid email address.'
+        : (err as Error).message ?? 'Failed to update profile.';
+      showFor(setProfileMsg, { type: 'error', text: message });
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  // ── Notifications tab ────────────────────────────────────────────────────────
+  const [notifications, setNotifications] = useState({
+    examReminders: true,
+    aiInsights:    true,
+    batchAlerts:   false,
+    weeklyDigest:  true,
+    pushEnabled:   false,
+  });
+
+  // ── Security tab ─────────────────────────────────────────────────────────────
+  const [security, setSecurity] = useState({
+    currentPassword: '',
+    newPassword:     '',
+    confirmPassword: '',
+  });
+  const [securitySaving, setSecuritySaving] = useState(false);
+  const [securityMsg,    setSecurityMsg]    = useState<Msg | null>(null);
+
+  async function handleChangePassword() {
+    if (!security.newPassword) {
+      showFor(setSecurityMsg, { type: 'error', text: 'Enter a new password.' });
+      return;
+    }
+    if (security.newPassword !== security.confirmPassword) {
+      showFor(setSecurityMsg, { type: 'error', text: 'Passwords do not match.' });
+      return;
+    }
+    if (security.newPassword.length < 6) {
+      showFor(setSecurityMsg, { type: 'error', text: 'Password must be at least 6 characters.' });
+      return;
+    }
+    if (!auth.currentUser || !session?.user?.email) {
+      showFor(setSecurityMsg, { type: 'error', text: 'Not signed in. Please log in again.' });
+      return;
+    }
+
+    setSecuritySaving(true);
+    try {
+      const credential = EmailAuthProvider.credential(auth.currentUser.email!, security.currentPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updatePassword(auth.currentUser, security.newPassword);
+      setSecurity({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      showFor(setSecurityMsg, { type: 'success', text: 'Password updated successfully.' });
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? '';
+      const message =
+        code === 'auth/wrong-password'          ? 'Current password is incorrect.'
+        : code === 'auth/requires-recent-login' ? 'Session expired. Please log out and log in again.'
+        : code === 'auth/weak-password'         ? 'Password is too weak. Use at least 6 characters.'
+        : (err as Error).message ?? 'Failed to update password.';
+      showFor(setSecurityMsg, { type: 'error', text: message });
+    } finally {
+      setSecuritySaving(false);
+    }
   }
 
   return (
@@ -168,19 +263,43 @@ export default function Settings() {
                   </div>
                 </div>
 
+                {/* Current password — required only when changing email */}
+                {emailChanged && (
+                  <div>
+                    <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>
+                      Current Password
+                      <span className="ml-1 font-normal" style={{ color: '#F97316' }}>(required to change email)</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={profilePwd}
+                      onChange={e => setProfilePwd(e.target.value)}
+                      placeholder="Enter your current password"
+                      className="input-field w-full"
+                      style={{ backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={handleSaveProfile}
+                    disabled={profileSaving}
                     className="btn-primary btn-md"
-                    style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                    style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', opacity: profileSaving ? 0.7 : 1 }}
                   >
-                    Save Changes
+                    {profileSaving ? 'Saving…' : 'Save Changes'}
                   </button>
-                  {profileSaved && (
-                    <span className="flex items-center gap-1.5 text-body-md" style={{ color: '#10B981' }}>
-                      <span className="material-symbols-outlined filled" style={{ fontSize: '18px' }}>check_circle</span>
-                      Saved successfully
+                  {profileMsg && (
+                    <span
+                      className="flex items-center gap-1.5 text-body-md"
+                      style={{ color: profileMsg.type === 'success' ? '#10B981' : '#EF4444' }}
+                    >
+                      <span className="material-symbols-outlined filled" style={{ fontSize: '18px' }}>
+                        {profileMsg.type === 'success' ? 'check_circle' : 'error'}
+                      </span>
+                      {profileMsg.text}
                     </span>
                   )}
                 </div>
@@ -342,10 +461,11 @@ export default function Settings() {
                     <button
                       type="button"
                       onClick={handleChangePassword}
+                      disabled={securitySaving}
                       className="btn-primary btn-md"
-                      style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                      style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', opacity: securitySaving ? 0.7 : 1 }}
                     >
-                      Update Password
+                      {securitySaving ? 'Updating…' : 'Update Password'}
                     </button>
                     {securityMsg && (
                       <span
