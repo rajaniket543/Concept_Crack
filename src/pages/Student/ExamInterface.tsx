@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest } from '../../lib/api';
 import { getAuthSession } from '../../lib/auth';
@@ -62,6 +62,11 @@ export default function ExamInterface() {
   const [preCountdown, setPreCountdown] = useState(60);
   // Anti-cheat violations (tab switches, blocked copy/paste, etc.)
   const [violations, setViolations]   = useState(0);
+  // Tab-switch enforcement: 1st switch → last warning, 2nd switch → auto-submit
+  const [showTabWarning, setShowTabWarning] = useState(false);
+  const tabSwitches = useRef(0);
+  const submitRef   = useRef<() => void>(() => {});
+  const submittingRef = useRef(false);
 
   // Timer countdown — only runs once the test has actually started
   useEffect(() => {
@@ -91,6 +96,8 @@ export default function ExamInterface() {
     };
 
     const onContext = (e: MouseEvent) => { e.preventDefault(); };
+    const onSelectStart = (e: Event) => { e.preventDefault(); };
+    const onDragStart = (e: DragEvent) => { e.preventDefault(); };
     const onCopyPaste = (e: ClipboardEvent) => {
       e.preventDefault();
       flag('Copy / paste is disabled during the test.');
@@ -104,26 +111,37 @@ export default function ExamInterface() {
         flag('Action restricted — Concept Crack maintains strict exam integrity.');
       }
     };
-    const onVisibility = () => {
-      if (document.hidden) flag('⚠ Tab switch detected. Leaving the test is recorded and flagged.');
+    // Tab switch / leaving the window: 1st time → last warning, 2nd time → auto-submit.
+    const onTabSwitch = () => {
+      if (!document.hidden) return;
+      tabSwitches.current += 1;
+      setViolations(v => v + 1);
+      if (tabSwitches.current >= 2) {
+        toast('Test submitted automatically — you left the test more than once.', 'error');
+        submitRef.current();
+      } else {
+        setShowTabWarning(true);
+        toast('⚠ Warning: do not leave the test. The next tab switch will auto-submit your test.', 'error');
+      }
     };
-    const onBlur = () => flag('⚠ You left the test window. This is recorded and flagged.');
 
     document.addEventListener('contextmenu', onContext);
+    document.addEventListener('selectstart', onSelectStart);
+    document.addEventListener('dragstart', onDragStart);
     document.addEventListener('copy', onCopyPaste);
     document.addEventListener('cut', onCopyPaste);
     document.addEventListener('paste', onCopyPaste);
     document.addEventListener('keydown', onKey);
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('blur', onBlur);
+    document.addEventListener('visibilitychange', onTabSwitch);
     return () => {
       document.removeEventListener('contextmenu', onContext);
+      document.removeEventListener('selectstart', onSelectStart);
+      document.removeEventListener('dragstart', onDragStart);
       document.removeEventListener('copy', onCopyPaste);
       document.removeEventListener('cut', onCopyPaste);
       document.removeEventListener('paste', onCopyPaste);
       document.removeEventListener('keydown', onKey);
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('blur', onBlur);
+      document.removeEventListener('visibilitychange', onTabSwitch);
     };
   }, [toast, started]);
 
@@ -265,129 +283,142 @@ export default function ExamInterface() {
   function previous()    { setCurrent(c => Math.max(1, c - 1)); }
 
   async function submitExam() {
-    let apiResult: Record<string, unknown> = {};
-    if (sessionId) {
-      try {
-        apiResult = await apiRequest(`/api/exams/sessions/${sessionId}/submit`, { method: 'POST', body: JSON.stringify({ answers }) }) as Record<string, unknown>;
-      } catch { /* continue */ }
-    }
+    if (submittingRef.current) return;
+    submittingRef.current = true;
 
-    // Per-chapter AND overall stats — uses question.subject/chapter from Firestore
-    let correctCount = 0;
-    let incorrectCount = 0;
-    const diffStats: Record<string, { correct: number; total: number }> = {};
-    const chapterStats: Record<string, { subject: string; chapter: string; correct: number; incorrect: number; total: number }> = {};
-
-    questions.forEach((q, i) => {
-      const qNum     = i + 1;
-      const diff     = q.difficulty || 'Medium';
-      const qSubject = q.subject || subject;
-      const qChapter = q.chapter || q.section || chapter || 'Unknown';
-      const key      = `${qSubject}::${qChapter}`;
-
-      if (!diffStats[diff]) diffStats[diff] = { correct: 0, total: 0 };
-      diffStats[diff].total++;
-      if (!chapterStats[key]) chapterStats[key] = { subject: qSubject, chapter: qChapter, correct: 0, incorrect: 0, total: 0 };
-      chapterStats[key].total++;
-
-      if (answers[qNum] !== undefined) {
-        if (q.answer && answers[qNum] === q.answer) {
-          correctCount++;
-          diffStats[diff].correct++;
-          chapterStats[key].correct++;
-        } else {
-          incorrectCount++;
-          chapterStats[key].incorrect++;
-        }
+    try {
+      let apiResult: Record<string, unknown> = {};
+      if (sessionId) {
+        try {
+          apiResult = await apiRequest(`/api/exams/sessions/${sessionId}/submit`, { method: 'POST', body: JSON.stringify({ answers }) }) as Record<string, unknown>;
+        } catch { /* continue */ }
       }
-    });
 
-    const skippedCount = exam.totalQuestions - correctCount - incorrectCount;
-    const accuracyPct  = exam.totalQuestions > 0 ? Math.round((correctCount / exam.totalQuestions) * 100) : 0;
-    const score        = (apiResult.score as number) ?? Math.max(0, correctCount * 4 - incorrectCount);
-    const safePct      = (c: number, t: number) => t > 0 ? Math.round(c / t * 100) : 0;
-    const timeMinutes  = Math.max(1, Math.round((exam.durationSeconds - seconds) / 60));
+      // Per-chapter AND overall stats — uses question.subject/chapter from Firestore
+      let correctCount = 0;
+      let incorrectCount = 0;
+      const diffStats: Record<string, { correct: number; total: number }> = {};
+      const chapterStats: Record<string, { subject: string; chapter: string; correct: number; incorrect: number; total: number }> = {};
 
-    // Build per-topic accuracy array (one entry per chapter)
-    const topicAccuracy = Object.values(chapterStats).map(s => ({
-      topic:   s.chapter,
-      subject: s.subject,
-      pct:     s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
-      correct: s.correct,
-      total:   s.total,
-    }));
+      questions.forEach((q, i) => {
+        const qNum     = i + 1;
+        const diff     = q.difficulty || 'Medium';
+        const qSubject = q.subject || subject;
+        const qChapter = q.chapter || q.section || chapter || 'Unknown';
+        const key      = `${qSubject}::${qChapter}`;
 
-    // All subjects/chapters from the test
-    const allSubjects = testSubjects.length > 0 ? testSubjects : [subject];
-    const allChapters = testChapters.length > 0 ? testChapters : topicAccuracy.map(t => t.topic);
+        if (!diffStats[diff]) diffStats[diff] = { correct: 0, total: 0 };
+        diffStats[diff].total++;
+        if (!chapterStats[key]) chapterStats[key] = { subject: qSubject, chapter: qChapter, correct: 0, incorrect: 0, total: 0 };
+        chapterStats[key].total++;
 
-    const uid = getAuthSession()?.user?.id;
-
-    // Update weak topics for every chapter attempted
-    if (uid) {
-      void updateWeakTopics(uid, Object.values(chapterStats).map(s => ({
-        subject: s.subject, chapter: s.chapter, correct: s.correct, incorrect: s.incorrect,
-      })));
-    }
-
-    if (uid && testId) {
-      void saveTestAttempt({
-        testId,
-        studentId:     uid,
-        answers:       Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
-        score, correctCount, incorrectCount, skippedCount, accuracyPct,
-        timeSeconds:   exam.durationSeconds - seconds,
-        status:        'submitted',
-        startedAt:     new Date().toISOString(),
-        submittedAt:   new Date().toISOString(),
+        if (answers[qNum] !== undefined) {
+          if (q.answer && answers[qNum] === q.answer) {
+            correctCount++;
+            diffStats[diff].correct++;
+            chapterStats[key].correct++;
+          } else {
+            incorrectCount++;
+            chapterStats[key].incorrect++;
+          }
+        }
       });
-    }
 
-    if (uid) {
-      void updateStudentProgress(uid, {
-        lastActivity: {
-          type:        'test',
-          title:       exam.title,
-          score:       accuracyPct,
-          accuracy:    accuracyPct,
-          completedAt: new Date().toISOString(),
-        },
-        completedTests: 1,
-        latestTestResult: {
-          testTitle:      exam.title,
-          testDate:       new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      const skippedCount = exam.totalQuestions - correctCount - incorrectCount;
+      const accuracyPct  = exam.totalQuestions > 0 ? Math.round((correctCount / exam.totalQuestions) * 100) : 0;
+      const score        = (apiResult.score as number) ?? Math.max(0, correctCount * 4 - incorrectCount);
+      const safePct      = (c: number, t: number) => t > 0 ? Math.round(c / t * 100) : 0;
+      const timeMinutes  = Math.max(1, Math.round((exam.durationSeconds - seconds) / 60));
+
+      // Build per-topic accuracy array (one entry per chapter)
+      const topicAccuracy = Object.values(chapterStats).map(s => ({
+        topic:   s.chapter,
+        subject: s.subject,
+        pct:     s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+        correct: s.correct,
+        total:   s.total,
+      }));
+
+      // All subjects/chapters from the test
+      const allSubjects = testSubjects.length > 0 ? testSubjects : [subject];
+      const allChapters = testChapters.length > 0 ? testChapters : topicAccuracy.map(t => t.topic);
+
+      const uid = getAuthSession()?.user?.id;
+
+      // Update weak topics for every chapter attempted
+      if (uid) {
+        void updateWeakTopics(uid, Object.values(chapterStats).map(s => ({
+          subject: s.subject, chapter: s.chapter, correct: s.correct, incorrect: s.incorrect,
+        })));
+      }
+
+      if (uid && testId) {
+        void saveTestAttempt({
+          testId,
+          studentId:     uid,
+          answers:       Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
+          score, correctCount, incorrectCount, skippedCount, accuracyPct,
+          timeSeconds:   exam.durationSeconds - seconds,
+          status:        'submitted',
+          startedAt:     new Date().toISOString(),
+          submittedAt:   new Date().toISOString(),
+        });
+      }
+
+      if (uid) {
+        void updateStudentProgress(uid, {
+          lastActivity: {
+            type:        'test',
+            title:       exam.title,
+            score:       accuracyPct,
+            accuracy:    accuracyPct,
+            completedAt: new Date().toISOString(),
+          },
+          completedTests: 1,
+          latestTestResult: {
+            testTitle:      exam.title,
+            testDate:       new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            subject,
+            chapter,
+            subjects:       allSubjects,
+            chapters:       allChapters,
+            totalQuestions: exam.totalQuestions,
+            correctCount,
+            incorrectCount,
+            skippedCount,
+            accuracyPct,
+            score,
+            timeMinutes,
+            easyPct:   safePct(diffStats['Easy']?.correct   ?? 0, diffStats['Easy']?.total   ?? 0),
+            mediumPct: safePct(diffStats['Medium']?.correct ?? 0, diffStats['Medium']?.total ?? 0),
+            hardPct:   safePct(diffStats['Hard']?.correct   ?? 0, diffStats['Hard']?.total   ?? 0),
+            topicAccuracy,
+          },
+        });
+      }
+
+      navigate(pathFor('chatbot'), {
+        state: {
+          score, correctCount, incorrectCount, skippedCount, accuracyPct,
+          examTitle:      exam.title,
           subject,
           chapter,
           subjects:       allSubjects,
           chapters:       allChapters,
-          totalQuestions: exam.totalQuestions,
-          correctCount,
-          incorrectCount,
-          skippedCount,
-          accuracyPct,
-          score,
-          timeMinutes,
-          easyPct:   safePct(diffStats['Easy']?.correct   ?? 0, diffStats['Easy']?.total   ?? 0),
-          mediumPct: safePct(diffStats['Medium']?.correct ?? 0, diffStats['Medium']?.total ?? 0),
-          hardPct:   safePct(diffStats['Hard']?.correct   ?? 0, diffStats['Hard']?.total   ?? 0),
           topicAccuracy,
+          totalQuestions: exam.totalQuestions,
         },
       });
+    } finally {
+      submittingRef.current = false;
     }
-
-    navigate(pathFor('chatbot'), {
-      state: {
-        score, correctCount, incorrectCount, skippedCount, accuracyPct,
-        examTitle:      exam.title,
-        subject,
-        chapter,
-        subjects:       allSubjects,
-        chapters:       allChapters,
-        topicAccuracy,
-        totalQuestions: exam.totalQuestions,
-      },
-    });
   }
+
+  useEffect(() => {
+    submitRef.current = () => {
+      void submitExam();
+    };
+  }, [submitExam]);
 
   if (loading) {
     return (
@@ -785,6 +816,45 @@ export default function ExamInterface() {
           </div>
         </aside>
       </div>
+
+      {showTabWarning && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6" style={{ backgroundColor: 'rgba(3,7,18,0.72)', backdropFilter: 'blur(10px)' }}>
+          <div className="w-full max-w-md rounded-2xl p-6 shadow-2xl" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>
+                <span className="material-symbols-outlined">warning</span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: '#EF4444' }}>Integrity warning</p>
+                <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Last chance to stay in the test</h2>
+              </div>
+            </div>
+            <p className="text-sm leading-6 mb-5" style={{ color: 'var(--text-secondary)' }}>
+              You switched away from the exam. One more tab switch or window leave will automatically submit your test.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="btn-primary btn-md flex-1 justify-center"
+                style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                onClick={() => setShowTabWarning(false)}
+              >
+                I understand
+              </button>
+              <button
+                type="button"
+                className="btn-outline btn-md"
+                onClick={() => {
+                  setShowTabWarning(false);
+                  void submitRef.current();
+                }}
+              >
+                Submit now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Monitoring pill */}
       <div

@@ -161,12 +161,12 @@ export default function Login() {
     {/* Invisible reCAPTCHA container — must be in DOM but outside the layout grid */}
     <div ref={recaptchaRef} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} />
     <div
-      className="min-h-screen grid lg:grid-cols-[40%_60%]"
+      className="min-h-screen grid lg:grid-cols-2"
       style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: isDark ? '#0F0E17' : '#FFFFFF', color: isDark ? '#F9FAFB' : '#111827' }}
     >
       {/* ── Left panel ── */}
       <aside
-        className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden"
+        className="hidden lg:flex flex-col justify-between p-12 xl:p-14 relative overflow-hidden"
         style={{ background: 'linear-gradient(160deg, #0F0E17 0%, #1A1929 100%)' }}
       >
         {/* Gradient orbs */}
@@ -184,7 +184,7 @@ export default function Login() {
           alt=""
           aria-hidden="true"
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover scale-[1.02]"
           style={{ objectPosition: 'center' }}
         />
         {/* Dark overlay so the headline, features and testimonial stay readable */}
@@ -248,7 +248,7 @@ export default function Login() {
       </aside>
 
       {/* ── Right panel ── */}
-      <main className="relative flex items-center justify-center p-6 lg:p-14" style={{ backgroundColor: isDark ? '#0F0E17' : '#FAFAFA' }}>
+      <main className="relative flex items-center justify-center p-6 lg:p-10 xl:p-14" style={{ backgroundColor: isDark ? '#0F0E17' : '#FAFAFA' }}>
         <Link
           to={pathFor('landing')}
           className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:opacity-80"
@@ -257,7 +257,15 @@ export default function Login() {
           <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>info</span>
           About Us
         </Link>
-        <div className="w-full max-w-[420px]">
+        <div
+          className="w-full max-w-[560px] rounded-[32px] p-6 sm:p-8 lg:p-10"
+          style={{
+            backgroundColor: isDark ? 'rgba(30,29,46,0.72)' : 'rgba(255,255,255,0.86)',
+            border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
+            boxShadow: isDark ? '0 24px 80px rgba(0,0,0,0.35)' : '0 24px 80px rgba(17,24,39,0.08)',
+            backdropFilter: 'blur(18px)',
+          }}
+        >
           {/* Mobile logo */}
           <div className="lg:hidden mb-8">
             <Link to={pathFor('landing')} className="inline-flex items-center gap-2">
