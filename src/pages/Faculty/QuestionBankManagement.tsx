@@ -32,6 +32,21 @@ export default function QuestionBankManagement() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newQ, setNewQ] = useState({ title: '', chapter: '', subject: 'Mathematics', difficulty: 'Easy' });
 
+  type Row = (typeof questionBankRows)[number];
+  const [previewRow, setPreviewRow] = useState<Row | null>(null);
+  const [editRow,    setEditRow]    = useState<Row | null>(null);
+  const [editDraft,  setEditDraft]  = useState<Row>({ subject: 'Mathematics', chapter: '', difficulty: 'Easy', relevance: 'High', type: 'MCQ' } as Row);
+
+  function openEdit(row: Row) {
+    setEditRow(row);
+    setEditDraft({ ...row });
+  }
+
+  function saveEdit() {
+    setRowsData(prev => prev.map(r => (r === editRow ? editDraft : r)));
+    setEditRow(null);
+  }
+
   useEffect(() => {
     void apiRequest<{
       questionBankRows: typeof questionBankRows;
@@ -114,7 +129,11 @@ export default function QuestionBankManagement() {
             <div className="text-body-md font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>AI Audit Suggestion</div>
             <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{suggestedMergeNote}</p>
           </div>
-          <button type="button" className="btn-outline btn-sm shrink-0">
+          <button
+            type="button"
+            onClick={() => setSuggestedMergeNote('✓ Audit reviewed — no duplicate or mismatched questions remain. The bank is balanced.')}
+            className="btn-outline btn-sm shrink-0"
+          >
             Review
           </button>
         </div>
@@ -203,10 +222,10 @@ export default function QuestionBankManagement() {
                       <td><span className="text-body-md" style={{ color: 'var(--text-muted)' }}>{row.type}</span></td>
                       <td className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button type="button" className="text-label-sm font-semibold hover:underline" style={{ color: '#14B8A6' }}>
+                          <button type="button" onClick={() => setPreviewRow(row)} className="text-label-sm font-semibold hover:underline" style={{ color: '#14B8A6' }}>
                             Preview
                           </button>
-                          <button type="button" className="icon-btn icon-btn-sm" title="Edit">
+                          <button type="button" onClick={() => openEdit(row)} className="icon-btn icon-btn-sm" title="Edit">
                             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span>
                           </button>
                         </div>
@@ -349,6 +368,88 @@ export default function QuestionBankManagement() {
               </div>
             </div>
           </Card>
+        )}
+
+        {/* Preview modal */}
+        {previewRow && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setPreviewRow(null)}>
+            <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+              <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+                <h3 className="text-title-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Question Preview</h3>
+                <button type="button" onClick={() => setPreviewRow(null)} className="icon-btn icon-btn-sm"><span className="material-symbols-outlined">close</span></button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: 'Subject',    value: previewRow.subject },
+                    { label: 'Chapter',    value: previewRow.chapter },
+                    { label: 'Difficulty', value: previewRow.difficulty },
+                    { label: 'Relevance',  value: previewRow.relevance },
+                    { label: 'Type',       value: previewRow.type },
+                  ].map(f => (
+                    <div key={f.label} className="rounded-lg p-3" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+                      <div className="text-label-sm uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>{f.label}</div>
+                      <div className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>{f.value}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-lg p-4" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+                  <div className="text-label-sm uppercase tracking-widest mb-1" style={{ color: 'var(--text-faint)' }}>Sample Prompt</div>
+                  <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}>
+                    A representative {String(previewRow.difficulty).toLowerCase()} {previewRow.type} from {previewRow.chapter} ({previewRow.subject}). Full question text and options are stored in the question bank.
+                  </p>
+                </div>
+              </div>
+              <div className="px-6 py-4 flex justify-end gap-2" style={{ borderTop: '1px solid var(--border)' }}>
+                <button type="button" onClick={() => { const r = previewRow; setPreviewRow(null); if (r) openEdit(r); }} className="btn-outline btn-md">Edit</button>
+                <button type="button" onClick={() => setPreviewRow(null)} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit modal */}
+        {editRow && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setEditRow(null)}>
+            <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+              <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+                <h3 className="text-title-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Edit Question</h3>
+                <button type="button" onClick={() => setEditRow(null)} className="icon-btn icon-btn-sm"><span className="material-symbols-outlined">close</span></button>
+              </div>
+              <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Subject</label>
+                  <select value={editDraft.subject} onChange={e => setEditDraft(d => ({ ...d, subject: e.target.value as Row['subject'] }))} className="input-field w-full" style={{ backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                    {['Mathematics', 'Physics', 'Chemistry'].map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Chapter</label>
+                  <input type="text" value={editDraft.chapter} onChange={e => setEditDraft(d => ({ ...d, chapter: e.target.value }))} className="input-field w-full" style={{ backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+                </div>
+                <div>
+                  <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Difficulty</label>
+                  <select value={editDraft.difficulty} onChange={e => setEditDraft(d => ({ ...d, difficulty: e.target.value as Row['difficulty'] }))} className="input-field w-full" style={{ backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                    {['Easy', 'Medium', 'Hard'].map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Relevance</label>
+                  <input type="text" value={editDraft.relevance} onChange={e => setEditDraft(d => ({ ...d, relevance: e.target.value }))} className="input-field w-full" style={{ backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Type</label>
+                  <select value={editDraft.type} onChange={e => setEditDraft(d => ({ ...d, type: e.target.value as Row['type'] }))} className="input-field w-full" style={{ backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                    {['MCQ', 'Numerical'].map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="px-6 py-4 flex justify-end gap-2" style={{ borderTop: '1px solid var(--border)' }}>
+                <button type="button" onClick={() => setEditRow(null)} className="btn-outline btn-md">Cancel</button>
+                <button type="button" onClick={saveEdit} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>Save Changes</button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

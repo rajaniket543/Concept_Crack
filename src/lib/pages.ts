@@ -3,7 +3,6 @@ export type PageGroup = 'Main' | 'Student' | 'Parent' | 'Faculty' | 'Admin';
 export type PageKey =
   | 'landing'
   | 'login'
-  | 'register'
   | 'student'
   | 'streamSelect'
   | 'practice'
@@ -26,6 +25,8 @@ export type PageKey =
   | 'users'
   | 'institutes'
   | 'testApprovals'
+  | 'facultyReports'
+  | 'messages'
   | 'settings';
 
 export type LoginRole = 'student' | 'parent' | 'faculty' | 'admin';
@@ -40,7 +41,6 @@ export interface PageDef {
 export const pages: PageDef[] = [
   { key: 'landing', label: 'Landing', group: 'Main', path: '/about' },
   { key: 'login', label: 'Login', group: 'Main', path: '/login' },
-  { key: 'register', label: 'Register', group: 'Main', path: '/register' },
   { key: 'student', label: 'Student Dashboard', group: 'Student', path: '/student' },
   { key: 'streamSelect', label: 'Select Stream', group: 'Student', path: '/student/select-stream' },
   { key: 'practice', label: 'Practice Module', group: 'Student', path: '/student/practice' },
@@ -63,6 +63,8 @@ export const pages: PageDef[] = [
   { key: 'users', label: 'User Management', group: 'Admin', path: '/admin/users' },
   { key: 'institutes', label: 'Institute Management', group: 'Admin', path: '/admin/institutes' },
   { key: 'testApprovals', label: 'Test Approvals', group: 'Admin', path: '/admin/test-approvals' },
+  { key: 'facultyReports', label: 'Faculty Reports', group: 'Admin', path: '/admin/faculty-reports' },
+  { key: 'messages', label: 'Messages', group: 'Main', path: '/messages' },
   { key: 'settings', label: 'Settings', group: 'Main', path: '/settings' },
 ];
 

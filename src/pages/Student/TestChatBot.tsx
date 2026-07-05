@@ -69,13 +69,15 @@ Answer the student's question in 2-4 short sentences. Reference their ACTUAL res
 Student's question: ${userMessage}`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: systemPrompt }] }],
-        generationConfig: { maxOutputTokens: 300, temperature: 0.7 },
+        // thinkingBudget: 0 keeps 2.5-flash from spending the token budget on
+        // internal reasoning (which returns an empty answer for short replies).
+        generationConfig: { maxOutputTokens: 700, temperature: 0.6, thinkingConfig: { thinkingBudget: 0 } },
       }),
     }
   );

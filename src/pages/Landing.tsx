@@ -379,6 +379,7 @@ export default function Landing() {
               { title: 'Company', links: [
                 { label: 'About', href: '#stats' },
                 { label: 'Why Concept Crack', href: '#stats' },
+                { label: 'Built by Arcvion', href: '/built-by-arcvion' },
                 { label: 'Careers', href: 'mailto:careers@conceptcrack.app' },
                 { label: 'Contact', href: 'mailto:support@conceptcrack.app' },
               ] },

@@ -1,4 +1,5 @@
 import { ButtonHTMLAttributes, ReactNode } from 'react';
+import Spinner from './Spinner';
 
 type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'gradient';
 type Size = 'sm' | 'md' | 'lg' | 'xl';
@@ -46,7 +47,7 @@ export default function Button({
       className={['btn', variantClass[variant], sizeClass[size], className].join(' ')}
     >
       {loading ? (
-        <span className="material-symbols-outlined animate-spin" style={{ fontSize: '16px' }}>progress_activity</span>
+        <Spinner size={14} />
       ) : icon ? (
         <span className="material-symbols-outlined" style={{ fontSize: size === 'sm' ? '16px' : '18px' }}>{icon}</span>
       ) : null}

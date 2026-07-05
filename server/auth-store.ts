@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
 import { pool, withTransaction } from '../db/client';
 import { rolePermissions, type Role } from './seed';
-import { hashPassword } from './security';
 
 export interface AuthenticatedUser {
   id: string;
@@ -115,73 +114,6 @@ export async function findUserById(id: string) {
   );
   const row = result.rows[0];
   return row ? mapUser(row) : null;
-}
-
-/**
- * Creates a new self-registered student account. Single-tenant: the student is
- * placed in the default (first) institute and its first batch. Returns a
- * discriminated result so the caller can send a clean 409 on duplicates.
- */
-export async function createStudentAccount(input: {
-  name: string;
-  email: string;
-  mobile: string;
-  password: string;
-}): Promise<{ ok: true; user: AuthenticatedUser } | { ok: false; reason: string }> {
-  const name = input.name.trim();
-  const email = input.email.trim().toLowerCase();
-  const mobile = input.mobile.trim();
-
-  const existing = await pool.query<{ id: string }>(
-    'SELECT id FROM users WHERE LOWER(email) = $1 OR mobile = $2 LIMIT 1',
-    [email, mobile],
-  );
-  if (existing.rows[0]) {
-    return { ok: false, reason: 'An account with that email or mobile already exists.' };
-  }
-
-  const { salt, hash } = hashPassword(input.password);
-  const id = `usr_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
-
-  return withTransaction(async (client) => {
-    // Single-tenant: assign to the default institute + its first batch.
-    const institute = await client.query<{ id: string }>(
-      'SELECT id FROM institutes ORDER BY created_at ASC LIMIT 1',
-    );
-    const instituteId = institute.rows[0]?.id ?? null;
-    const batch = instituteId
-      ? await client.query<{ id: string }>(
-          'SELECT id FROM batches WHERE institute_id = $1 ORDER BY created_at ASC LIMIT 1',
-          [instituteId],
-        )
-      : { rows: [] as { id: string }[] };
-    const batchId = batch.rows[0]?.id ?? null;
-
-    await client.query(
-      `
-      INSERT INTO users (id, name, email, mobile, password_salt, password_hash, status, last_active_at, institute_id, batch_id)
-      VALUES ($1, $2, $3, $4, $5, $6, 'Active', now(), $7, $8);
-    `,
-      [id, name, email, mobile, salt, hash, instituteId, batchId],
-    );
-    await client.query(
-      "INSERT INTO user_roles (user_id, role_key) VALUES ($1, 'student') ON CONFLICT DO NOTHING;",
-      [id],
-    );
-
-    return {
-      ok: true as const,
-      user: {
-        id,
-        name,
-        role: 'student' as const,
-        email,
-        mobile,
-        status: 'Active',
-        permissions: rolePermissions.student ?? [],
-      },
-    };
-  });
 }
 
 export async function createSession(userId: string) {

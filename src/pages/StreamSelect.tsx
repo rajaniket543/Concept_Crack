@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Spinner from '../components/Spinner';
 import { useNavigate } from 'react-router-dom';
 import { type StudentStream, saveStreamLocal, STREAM_SUBJECTS } from '../lib/stream';
 import { saveStudentStream } from '../lib/db';
@@ -170,7 +171,7 @@ export default function StreamSelect() {
         >
           {saving ? (
             <>
-              <span className="material-symbols-outlined animate-spin" style={{ fontSize: '18px' }}>progress_activity</span>
+              <Spinner size={16} />
               Saving…
             </>
           ) : (

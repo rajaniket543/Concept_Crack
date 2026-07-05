@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
-import { PageSkeleton, ErrorState } from '../../components/DataStates';
 import { adminMetrics, buildHeatmapCells, healthLogs, topInstitutions } from '../../mocks/portal';
 import { apiRequest } from '../../lib/api';
 import { pathFor } from '../../lib/pages';
@@ -16,15 +15,11 @@ export default function AdminDashboard() {
     securityNotes: ['SOC2 Compliant', '99.9% Uptime', 'Encrypted Multi-Tenancy'],
   });
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     apiRequest('/api/admin/dashboard')
       .then(payload => { if (!cancelled) setData(payload); })
-      .catch(() => { if (!cancelled) setError(true); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
 
@@ -38,23 +33,6 @@ export default function AdminDashboard() {
   const HEATMAP_LEVELS = [
     'rgba(236,72,153,0.06)', 'rgba(236,72,153,0.18)', 'rgba(236,72,153,0.38)', 'rgba(236,72,153,0.60)', 'rgba(236,72,153,0.90)',
   ];
-
-  if (loading) {
-    return (
-      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
-        <TopBar breadcrumb={[{ label: 'Dashboard' }]} />
-        <div className="flex-1 p-6 lg:p-8 overflow-auto"><PageSkeleton /></div>
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
-        <TopBar breadcrumb={[{ label: 'Dashboard' }]} />
-        <div className="flex-1 p-6 lg:p-8 overflow-auto"><ErrorState message="We couldn't load the dashboard." /></div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>

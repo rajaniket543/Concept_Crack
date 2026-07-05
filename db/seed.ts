@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { pool, withTransaction, type PoolClient } from './client';
+import { pool, withTransaction } from './client';
 import {
   demoAccounts,
   rolePermissions,
@@ -17,7 +17,7 @@ function hash(text: string) {
   return crypto.createHash('sha256').update(text).digest('hex');
 }
 
-async function truncateAll(client: PoolClient) {
+async function truncateAll(client: Awaited<ReturnType<typeof pool.connect>>) {
   await client.query(`
     TRUNCATE TABLE
       leaderboard_snapshots,
@@ -44,7 +44,7 @@ async function truncateAll(client: PoolClient) {
   `);
 }
 
-async function seedRoles(client: PoolClient) {
+async function seedRoles(client: Awaited<ReturnType<typeof pool.connect>>) {
   await client.query(
     `
     INSERT INTO roles (key, label, description)
@@ -58,7 +58,7 @@ async function seedRoles(client: PoolClient) {
   );
 }
 
-async function seedInstitutes(client: PoolClient) {
+async function seedInstitutes(client: Awaited<ReturnType<typeof pool.connect>>) {
   for (const item of instituteRows) {
     await client.query(
       `
@@ -75,7 +75,7 @@ async function seedInstitutes(client: PoolClient) {
   }
 }
 
-async function seedBatches(client: PoolClient) {
+async function seedBatches(client: Awaited<ReturnType<typeof pool.connect>>) {
   const instituteMap = new Map<string, string>();
   const institutesResult = await client.query<{ id: string; name: string }>('SELECT id, name FROM institutes');
   for (const row of institutesResult.rows) instituteMap.set(row.name, row.id);
@@ -103,7 +103,7 @@ async function seedBatches(client: PoolClient) {
   }
 }
 
-async function seedSubjectsAndChapters(client: PoolClient) {
+async function seedSubjectsAndChapters(client: Awaited<ReturnType<typeof pool.connect>>) {
   const subjects = [
     { name: 'Mathematics', code: 'MATH' },
     { name: 'Physics', code: 'PHYS' },
@@ -154,7 +154,7 @@ async function seedSubjectsAndChapters(client: PoolClient) {
   }
 }
 
-async function seedUsers(client: PoolClient) {
+async function seedUsers(client: Awaited<ReturnType<typeof pool.connect>>) {
   const instituteRowsResult = await client.query<{ id: string; name: string }>('SELECT id, name FROM institutes');
   const instituteMap = new Map(instituteRowsResult.rows.map((row) => [row.name, row.id]));
 
@@ -226,7 +226,7 @@ async function seedUsers(client: PoolClient) {
   }
 }
 
-async function seedQuestionsAndTests(client: PoolClient) {
+async function seedQuestionsAndTests(client: Awaited<ReturnType<typeof pool.connect>>) {
   const subjectRows = await client.query<{ id: string; name: string }>('SELECT id, name FROM subjects');
   const chapterRows = await client.query<{ id: string; subject_id: string; name: string }>('SELECT id, subject_id, name FROM chapters');
   const subjectMap = new Map(subjectRows.rows.map((row) => [row.name, row.id]));
@@ -337,7 +337,7 @@ async function seedQuestionsAndTests(client: PoolClient) {
   }
 }
 
-async function seedAttemptData(client: PoolClient) {
+async function seedAttemptData(client: Awaited<ReturnType<typeof pool.connect>>) {
   const student = await client.query<{ id: string }>('SELECT id FROM users WHERE email = $1 LIMIT 1', ['student@prepmind.ai']);
   const test = await client.query<{ id: string }>('SELECT id FROM tests WHERE code = $1 LIMIT 1', ['PM-992-AX']);
   const questionRows = await client.query<{ id: string; prompt: string; correct_option: string }>(
@@ -467,108 +467,7 @@ async function seedAttemptData(client: PoolClient) {
   );
 }
 
-/**
- * Gives the whole student cohort realistic submitted attempts, scores and
- * leaderboard entries so rankings, percentiles, leaderboard and portal
- * aggregates reflect a real population (not just the single demo student).
- * The demo student keeps the rich attempt history seeded above; here we only
- * add their global leaderboard snapshot so the ranking is consistent.
- */
-async function seedCohortAttempts(client: PoolClient) {
-  const test = await client.query<{ id: string }>("SELECT id FROM tests WHERE code = 'PM-992-AX' LIMIT 1");
-  if (!test.rows[0]) return;
-  const testId = test.rows[0].id;
-
-  const psych = await client.query<{ id: string }>("SELECT id FROM subjects WHERE name = 'Psychology' LIMIT 1");
-  const subjectId = psych.rows[0]?.id ?? null;
-
-  const students = await client.query<{ id: string; batch_id: string | null; email: string }>(
-    `SELECT u.id, u.batch_id, u.email
-     FROM users u
-     JOIN user_roles ur ON ur.user_id = u.id AND ur.role_key = 'student'
-     ORDER BY u.id ASC`,
-  );
-
-  const DEMO_EMAIL = 'student@prepmind.ai';
-  const TOTAL_Q = 50;
-
-  // Deterministic pseudo-random in [0,1) from a string key (stable across re-seeds).
-  const rand = (key: string) => {
-    let h = 2166136261;
-    for (let i = 0; i < key.length; i += 1) {
-      h ^= key.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return ((h >>> 0) % 100000) / 100000;
-  };
-
-  type Profile = {
-    userId: string;
-    batchId: string | null;
-    isDemo: boolean;
-    accuracy: number;
-    correct: number;
-    incorrect: number;
-    skipped: number;
-    totalScore: number;
-    points: number;
-    timeTaken: number;
-    daysAgo: number;
-  };
-
-  const profiles: Profile[] = students.rows.map((s) => {
-    const isDemo = s.email === DEMO_EMAIL;
-    const accuracy = isDemo ? 88 : Math.round(38 + rand(s.id) * 58); // ~38..96
-    const correct = Math.round((accuracy / 100) * TOTAL_Q);
-    const incorrect = Math.min(
-      TOTAL_Q - correct,
-      Math.max(0, Math.round((TOTAL_Q - correct) * (0.4 + rand(`${s.id}:i`) * 0.5))),
-    );
-    const skipped = TOTAL_Q - correct - incorrect;
-    const totalScore = correct * 4 - incorrect; // 4 marks correct, -1 negative marking
-    const points = Math.round(totalScore * 12 + accuracy * 6 + rand(`${s.id}:p`) * 50);
-    const timeTaken = 2100 + Math.round(rand(`${s.id}:t`) * 700);
-    const daysAgo = 1 + Math.floor(rand(`${s.id}:d`) * 6);
-    return { userId: s.id, batchId: s.batch_id, isDemo, accuracy, correct, incorrect, skipped, totalScore, points, timeTaken, daysAgo };
-  });
-
-  // Rank the whole population by points (tie-break on accuracy).
-  profiles.sort((a, b) => b.points - a.points || b.accuracy - a.accuracy);
-  const total = profiles.length;
-
-  // Rebuild leaderboard snapshots for everyone (replaces the demo-only snapshot).
-  await client.query('DELETE FROM leaderboard_snapshots');
-
-  let rank = 0;
-  for (const profile of profiles) {
-    rank += 1;
-    const percentile = Math.max(1, Math.round((rank / total) * 100));
-
-    if (!profile.isDemo) {
-      const attempt = await client.query<{ id: string }>(
-        `INSERT INTO attempts (test_id, user_id, status, started_at, submitted_at, time_taken_seconds, lock_token)
-         VALUES ($1, $2, 'submitted', now() - ($3 || ' days')::interval, now() - ($3 || ' days')::interval, $4, $5)
-         RETURNING id`,
-        [testId, profile.userId, profile.daysAgo, profile.timeTaken, hash(`cohort-${profile.userId}`)],
-      );
-      await client.query(
-        `INSERT INTO scores (attempt_id, total_score, total_possible, correct_count, incorrect_count, skipped_count, accuracy_pct, rank_in_batch, percentile, computed_at)
-         VALUES ($1, $2, 200, $3, $4, $5, $6, $7, $8, now() - ($9 || ' days')::interval)`,
-        [attempt.rows[0].id, profile.totalScore, profile.correct, profile.incorrect, profile.skipped, profile.accuracy, rank, percentile, profile.daysAgo],
-      );
-    }
-
-    await client.query(
-      `INSERT INTO leaderboard_snapshots (batch_id, subject_id, user_id, rank, points, accuracy_pct, snapshot_key)
-       VALUES ($1, $2, $3, $4, $5, $6, 'current')`,
-      [profile.batchId, subjectId, profile.userId, rank, profile.points, profile.accuracy],
-    );
-  }
-
-  console.log(`Seeded cohort attempts + leaderboard for ${total} students.`);
-}
-
-async function seedSupportTables(client: PoolClient) {
+async function seedSupportTables(client: Awaited<ReturnType<typeof pool.connect>>) {
   const student = await client.query<{ id: string; batch_id: string | null }>('SELECT id, batch_id FROM users WHERE email = $1 LIMIT 1', [
     'student@prepmind.ai',
   ]);
@@ -607,7 +506,7 @@ async function seedSupportTables(client: PoolClient) {
   );
 }
 
-async function seedPortalAggregation(client: PoolClient) {
+async function seedPortalAggregation(client: Awaited<ReturnType<typeof pool.connect>>) {
   const parent = parentMetrics[0];
   const faculty = facultyMetrics[0];
   const admin = adminMetrics[0];
@@ -631,7 +530,6 @@ export async function seedDatabase() {
     await seedUsers(client);
     await seedQuestionsAndTests(client);
     await seedAttemptData(client);
-    await seedCohortAttempts(client);
     await seedSupportTables(client);
     await seedPortalAggregation(client);
   });

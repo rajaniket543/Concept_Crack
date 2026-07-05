@@ -3,6 +3,7 @@ import { PageKey, pathFor } from '../lib/pages';
 import { logout } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { useState } from 'react';
+import AICompanion from './AICompanion';
 
 interface NavSection {
   label?: string;
@@ -39,6 +40,7 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
     admin:   '#EC4899',
   };
   const accent = roleAccent[role] ?? '#5B4FE8';
+  const homePath = pathFor(role as PageKey);
 
   if (variant === 'focus') {
     return (
@@ -57,9 +59,19 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
 
   const sidebarWidth = collapsed ? '60px' : '260px';
 
+  // Highlight only the MOST specific matching nav item, so that e.g.
+  // /student/assigned-tests does not also light up the /student dashboard item.
+  const activeKey = sections
+    .flatMap(s => s.items)
+    .reduce<{ key: string; len: number }>((best, it) => {
+      const t = pathFor(it.key);
+      const matches = pathname === t || pathname.startsWith(t + '/');
+      return matches && t.length > best.len ? { key: it.key, len: t.length } : best;
+    }, { key: '', len: -1 }).key;
+
   function renderNavItem(item: NavItem) {
     const target = pathFor(item.key);
-    const active = pathname === target || pathname.startsWith(target + '/');
+    const active = item.key === activeKey;
     return (
       <Link
         key={item.key}
@@ -91,17 +103,19 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
           className="flex items-center gap-3 px-4 shrink-0"
           style={{ height: '64px', borderBottom: '1px solid var(--sidebar-border)' }}
         >
-          <img
-            src="/logo.png"
-            alt="Concept Crack"
-            className="w-8 h-8 rounded-lg object-cover shrink-0"
-          />
-          {!collapsed && (
-            <div className="min-w-0">
-              <div className="font-headline font-bold text-white text-sm tracking-tight truncate">Concept Crack</div>
-              <div className="text-[10px] uppercase tracking-widest truncate" style={{ color: 'var(--sidebar-text-muted)' }}>{brand}</div>
-            </div>
-          )}
+          <Link to={homePath} className="flex items-center gap-3 min-w-0" title="Go to dashboard">
+            <img
+              src="/logo.png"
+              alt="Concept Crack"
+              className="w-8 h-8 rounded-lg object-cover shrink-0"
+            />
+            {!collapsed && (
+              <div className="min-w-0">
+                <div className="font-headline font-bold text-white text-sm tracking-tight truncate">Concept Crack</div>
+                <div className="text-[10px] uppercase tracking-widest truncate" style={{ color: 'var(--sidebar-text-muted)' }}>{brand}</div>
+              </div>
+            )}
+          </Link>
           {!collapsed && (
             <button
               type="button"
@@ -169,6 +183,14 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
             <span className="material-symbols-outlined item-icon">home</span>
             {!collapsed && <span className="text-sm">Home</span>}
           </Link>
+          <Link
+            to="/built-by-arcvion"
+            title={collapsed ? 'Built by Arcvion' : undefined}
+            className="sidebar-item"
+          >
+            <span className="material-symbols-outlined item-icon">code</span>
+            {!collapsed && <span className="text-sm">Built by Arcvion</span>}
+          </Link>
           <button
             type="button"
             title={collapsed ? 'Sign out' : undefined}
@@ -185,6 +207,9 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
       <div className="flex-1 min-w-0 flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
         <Outlet />
       </div>
+
+      {/* AI Companion — students only, hidden during exams (focus variant) */}
+      {role === 'student' && <AICompanion />}
     </div>
   );
 }
