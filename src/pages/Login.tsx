@@ -161,12 +161,12 @@ export default function Login() {
     {/* Invisible reCAPTCHA container — must be in DOM but outside the layout grid */}
     <div ref={recaptchaRef} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} />
     <div
-      className="min-h-screen grid lg:grid-cols-2"
+      className="min-h-screen grid lg:grid-cols-[40%_60%]"
       style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: isDark ? '#0F0E17' : '#FFFFFF', color: isDark ? '#F9FAFB' : '#111827' }}
     >
       {/* ── Left panel ── */}
       <aside
-        className="hidden lg:flex flex-col justify-between p-12 xl:p-14 relative overflow-hidden"
+        className="hidden lg:flex flex-col justify-between p-10 xl:p-12 relative overflow-hidden"
         style={{ background: 'linear-gradient(160deg, #0F0E17 0%, #1A1929 100%)' }}
       >
         {/* Gradient orbs */}
@@ -194,32 +194,32 @@ export default function Login() {
           style={{ background: 'linear-gradient(160deg, rgba(15,14,23,0.90) 0%, rgba(26,25,41,0.78) 55%, rgba(15,14,23,0.92) 100%)' }}
         />
 
-        <div className="relative">
+        <div className="relative max-w-[460px]">
           <Link to={pathFor('landing')} className="flex items-center gap-2.5">
             <img src="/logo.png" alt="Concept Crack" className="w-9 h-9 rounded-xl object-cover" />
-            <span className="font-bold text-white text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
+            <span className="font-bold text-white text-sm" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
           </Link>
         </div>
 
-        <div className="relative">
-          <h2 className="text-3xl font-bold leading-tight text-white mb-3" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', letterSpacing: '-0.02em' }}>
+        <div className="relative max-w-[460px]">
+          <h2 className="text-2xl xl:text-[2.15rem] font-bold leading-tight text-white mb-2.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', letterSpacing: '-0.02em' }}>
             Your path to the<br />top rank starts here
           </h2>
-          <p className="text-sm mb-10" style={{ color: '#9CA3AF' }}>
+          <p className="text-xs xl:text-sm mb-8" style={{ color: '#9CA3AF' }}>
             Join 2M+ students using AI to crack JEE, NEET, UPSC, and CAT.
           </p>
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {leftPanelFeatures.map(feat => (
               <div key={feat.label} className="flex items-center gap-4">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                   style={{ backgroundColor: 'rgba(91,79,232,0.20)', border: '1px solid rgba(91,79,232,0.30)' }}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#818CF8' }}>{feat.icon}</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#818CF8' }}>{feat.icon}</span>
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-white">{feat.label}</div>
-                  <div className="text-xs" style={{ color: '#6B7280' }}>{feat.desc}</div>
+                  <div className="text-xs xl:text-sm font-semibold text-white">{feat.label}</div>
+                  <div className="text-[11px] xl:text-xs" style={{ color: '#6B7280' }}>{feat.desc}</div>
                 </div>
               </div>
             ))}
@@ -228,27 +228,27 @@ export default function Login() {
 
         {/* Testimonial card */}
         <div
-          className="relative rounded-xl p-5"
+          className="relative rounded-xl p-4 xl:p-5 max-w-[460px]"
           style={{ backgroundColor: 'rgba(30,29,46,0.80)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)' }}
         >
           <div className="flex mb-2.5 gap-0.5">
             {[1,2,3,4,5].map(i => <span key={i} className="material-symbols-outlined filled text-amber-400" style={{ fontSize: '14px' }}>star</span>)}
           </div>
-          <p className="text-sm mb-3 italic" style={{ color: '#D1D5DB', lineHeight: 1.6 }}>
+          <p className="text-xs xl:text-sm mb-3 italic" style={{ color: '#D1D5DB', lineHeight: 1.55 }}>
             "Concept Crack's AI identified my weak areas in Physics in just 3 days. I improved my rank from 8,000 to 247."
           </p>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>PS</div>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>PS</div>
             <div>
-              <div className="text-sm font-semibold text-white">Priya Sharma</div>
-              <div className="text-xs" style={{ color: '#6B7280' }}>JEE Advanced — AIR 247</div>
+              <div className="text-xs xl:text-sm font-semibold text-white">Priya Sharma</div>
+              <div className="text-[11px] xl:text-xs" style={{ color: '#6B7280' }}>JEE Advanced — AIR 247</div>
             </div>
           </div>
         </div>
       </aside>
 
       {/* ── Right panel ── */}
-      <main className="relative flex items-center justify-center p-6 lg:p-10 xl:p-14" style={{ backgroundColor: isDark ? '#0F0E17' : '#FAFAFA' }}>
+      <main className="relative flex items-center justify-center p-6 lg:p-10 xl:p-12" style={{ backgroundColor: isDark ? '#0F0E17' : '#FAFAFA' }}>
         <Link
           to={pathFor('landing')}
           className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:opacity-80"
@@ -258,7 +258,7 @@ export default function Login() {
           About Us
         </Link>
         <div
-          className="w-full max-w-[560px] rounded-[32px] p-6 sm:p-8 lg:p-10"
+          className="w-full max-w-[620px] rounded-[32px] p-6 sm:p-8 lg:p-10"
           style={{
             backgroundColor: isDark ? 'rgba(30,29,46,0.72)' : 'rgba(255,255,255,0.86)',
             border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
