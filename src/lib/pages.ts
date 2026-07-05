@@ -25,6 +25,8 @@ export type PageKey =
   | 'users'
   | 'institutes'
   | 'testApprovals'
+  | 'facultyReports'
+  | 'messages'
   | 'settings';
 
 export type LoginRole = 'student' | 'parent' | 'faculty' | 'admin';
@@ -61,6 +63,8 @@ export const pages: PageDef[] = [
   { key: 'users', label: 'User Management', group: 'Admin', path: '/admin/users' },
   { key: 'institutes', label: 'Institute Management', group: 'Admin', path: '/admin/institutes' },
   { key: 'testApprovals', label: 'Test Approvals', group: 'Admin', path: '/admin/test-approvals' },
+  { key: 'facultyReports', label: 'Faculty Reports', group: 'Admin', path: '/admin/faculty-reports' },
+  { key: 'messages', label: 'Messages', group: 'Main', path: '/messages' },
   { key: 'settings', label: 'Settings', group: 'Main', path: '/settings' },
 ];
 

@@ -24,7 +24,7 @@ function showFor(set: (m: Msg | null) => void, msg: Msg, ms = 4000) {
 }
 
 export default function Settings() {
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme, fontSize, setFontSize, accent, setAccent } = useTheme();
   const session = getAuthSession();
   const [tab, setTab] = useState<SettingsTab>('Profile');
 
@@ -345,19 +345,23 @@ export default function Settings() {
                 <div>
                   <label className="text-label-sm font-semibold mb-3 block" style={{ color: 'var(--text-muted)' }}>Font Size</label>
                   <div className="grid grid-cols-3 gap-3">
-                    {['Compact', 'Default', 'Comfortable'].map(size => (
-                      <button
-                        key={size}
-                        type="button"
-                        className="p-3 rounded-xl text-body-md font-medium transition-all"
-                        style={size === 'Default'
-                          ? { backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8', border: '1.5px solid #5B4FE8' }
-                          : { backgroundColor: 'var(--surface-muted)', color: 'var(--text-primary)', border: '1.5px solid var(--border)' }
-                        }
-                      >
-                        {size}
-                      </button>
-                    ))}
+                    {(['compact', 'default', 'comfortable'] as const).map(size => {
+                      const isActive = fontSize === size;
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => setFontSize(size)}
+                          className="p-3 rounded-xl text-body-md font-medium capitalize transition-all"
+                          style={isActive
+                            ? { backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8', border: '1.5px solid #5B4FE8' }
+                            : { backgroundColor: 'var(--surface-muted)', color: 'var(--text-primary)', border: '1.5px solid var(--border)' }
+                          }
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -371,18 +375,22 @@ export default function Settings() {
                       { name: 'Emerald', hex: '#10B981' },
                       { name: 'Rose', hex: '#F43F5E' },
                       { name: 'Amber', hex: '#F59E0B' },
-                    ].map(({ name, hex }) => (
-                      <button
-                        key={name}
-                        type="button"
-                        title={name}
-                        className="w-8 h-8 rounded-full ring-2 ring-offset-2 transition-all"
-                        style={hex === '#5B4FE8'
-                          ? { backgroundColor: hex, outline: `2px solid ${hex}`, outlineOffset: '2px' }
-                          : { backgroundColor: hex }
-                        }
-                      />
-                    ))}
+                    ].map(({ name, hex }) => {
+                      const isActive = accent === hex;
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          title={name}
+                          onClick={() => setAccent(hex)}
+                          className="w-8 h-8 rounded-full transition-all hover:scale-110"
+                          style={isActive
+                            ? { backgroundColor: hex, outline: `2px solid ${hex}`, outlineOffset: '2px' }
+                            : { backgroundColor: hex }
+                          }
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               </div>

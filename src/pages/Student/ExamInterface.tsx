@@ -57,30 +57,75 @@ export default function ExamInterface() {
   const [monitorOpacity, setMonitorOpacity] = useState(0.5);
   const [paletteState, setPaletteState] = useState<Record<number, PaletteState>>({});
 
-  // Timer countdown
+  // Pre-test instructions screen + 1-minute countdown
+  const [started, setStarted]         = useState(false);
+  const [preCountdown, setPreCountdown] = useState(60);
+  // Anti-cheat violations (tab switches, blocked copy/paste, etc.)
+  const [violations, setViolations]   = useState(0);
+
+  // Timer countdown — only runs once the test has actually started
   useEffect(() => {
+    if (!started) return;
     if (seconds <= 0) { void submitExam(); return; }
     const id = window.setInterval(() => setSeconds(s => s > 0 ? s - 1 : 0), 1000);
     return () => window.clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seconds]);
+  }, [seconds, started]);
 
-  // Anti-cheat: right-click + Ctrl+C/V/I blocking
+  // Pre-test countdown — auto-starts the test when it hits zero
   useEffect(() => {
-    const onContext = (e: MouseEvent) => e.preventDefault();
+    if (started || loading) return;
+    if (preCountdown <= 0) { setStarted(true); return; }
+    const id = window.setInterval(() => setPreCountdown(s => s > 0 ? s - 1 : 0), 1000);
+    return () => window.clearInterval(id);
+  }, [preCountdown, started, loading]);
+
+  // Anti-cheat: block right-click, copy/cut/paste, dev-tools & shortcut keys, and
+  // detect tab-switching / window-blur. Active only during the live test.
+  useEffect(() => {
+    if (!started) return;
+
+    const flag = (reason: string) => {
+      setViolations(v => v + 1);
+      toast(reason, 'error');
+    };
+
+    const onContext = (e: MouseEvent) => { e.preventDefault(); };
+    const onCopyPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      flag('Copy / paste is disabled during the test.');
+    };
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && ['c', 'v', 'i'].includes(e.key.toLowerCase())) {
+      const k = e.key.toLowerCase();
+      const blockedCombo = (e.ctrlKey || e.metaKey) && ['c', 'v', 'x', 'a', 'p', 'u', 's'].includes(k);
+      const devTools = k === 'f12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(k));
+      if (blockedCombo || devTools) {
         e.preventDefault();
-        toast('Action restricted — Concept Crack maintains strict exam integrity.', 'error');
+        flag('Action restricted — Concept Crack maintains strict exam integrity.');
       }
     };
+    const onVisibility = () => {
+      if (document.hidden) flag('⚠ Tab switch detected. Leaving the test is recorded and flagged.');
+    };
+    const onBlur = () => flag('⚠ You left the test window. This is recorded and flagged.');
+
     document.addEventListener('contextmenu', onContext);
+    document.addEventListener('copy', onCopyPaste);
+    document.addEventListener('cut', onCopyPaste);
+    document.addEventListener('paste', onCopyPaste);
     document.addEventListener('keydown', onKey);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('blur', onBlur);
     return () => {
       document.removeEventListener('contextmenu', onContext);
+      document.removeEventListener('copy', onCopyPaste);
+      document.removeEventListener('cut', onCopyPaste);
+      document.removeEventListener('paste', onCopyPaste);
       document.removeEventListener('keydown', onKey);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('blur', onBlur);
     };
-  }, [toast]);
+  }, [toast, started]);
 
   // Monitor opacity on mouse move
   useEffect(() => {
@@ -350,6 +395,98 @@ export default function ExamInterface() {
         <div className="text-center space-y-3">
           <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mx-auto" style={{ borderColor: '#5B4FE8', borderTopColor: 'transparent' }} />
           <p className="text-body-md" style={{ color: 'var(--text-muted)' }}>Loading questions…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Pre-test instructions / rules screen with 1-minute countdown ──
+  if (!started) {
+    const totalMarks  = exam.totalQuestions * 4;
+    const durationMin = Math.max(1, Math.round(exam.durationSeconds / 60));
+    const mm = Math.floor(preCountdown / 60);
+    const ss = preCountdown % 60;
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--bg)', color: 'var(--text-primary)' }}>
+        <div className="w-full max-w-2xl rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}>
+          <div className="px-8 py-6" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <img src="/logo.png" alt="Concept Crack" className="w-7 h-7 rounded-lg object-cover" />
+              <span className="text-white/80 text-xs font-bold uppercase tracking-widest">Concept Crack · Exam</span>
+            </div>
+            <h1 className="text-white text-2xl font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{exam.title}</h1>
+            <p className="text-white/80 text-sm mt-1">Read the instructions carefully before you begin.</p>
+          </div>
+
+          <div className="p-8 space-y-6">
+            {/* Countdown */}
+            <div className="flex flex-col items-center gap-1 py-2">
+              <span className="text-label-sm uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Test begins in</span>
+              <div className="text-5xl font-bold font-mono" style={{ color: preCountdown <= 10 ? '#EF4444' : '#5B4FE8' }}>
+                {mm}:{ss < 10 ? '0' : ''}{ss}
+              </div>
+            </div>
+
+            {/* Test details */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Questions',   value: String(exam.totalQuestions), icon: 'quiz' },
+                { label: 'Duration',    value: `${durationMin} min`,        icon: 'timer' },
+                { label: 'Marking',     value: '+4 / −1',                   icon: 'calculate' },
+                { label: 'Total Marks', value: String(totalMarks),          icon: 'star' },
+              ].map(d => (
+                <div key={d.label} className="rounded-xl p-3 text-center" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#5B4FE8' }}>{d.icon}</span>
+                  <div className="text-lg font-bold mt-1" style={{ color: 'var(--text-primary)' }}>{d.value}</div>
+                  <div className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>{d.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Rules */}
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Test Rules</h2>
+              <ul className="space-y-2.5">
+                {[
+                  'Copy, paste, cut and right-click are disabled throughout the test.',
+                  'Do NOT switch tabs or leave the test window — every switch is recorded and flagged.',
+                  'The timer starts the moment the test begins and will not pause.',
+                  'Each correct answer = +4 marks; each wrong answer = −1 (negative marking). Unattempted = 0.',
+                  'Use the question palette to move between questions; your answers auto-save.',
+                  'Do not refresh or press the browser back button during the test.',
+                  'AI proctoring is active for the full duration of the test.',
+                ].map((rule, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    <span className="material-symbols-outlined shrink-0" style={{ fontSize: '18px', color: '#10B981' }}>check_circle</span>
+                    <span>{rule}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setStarted(true)}
+                className="btn-primary btn-md w-full sm:flex-1 justify-center"
+                style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>play_arrow</span>
+                Start Test Now
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="btn-outline btn-md w-full sm:w-auto justify-center"
+              >
+                Cancel
+              </button>
+            </div>
+            <p className="text-center text-xs" style={{ color: 'var(--text-faint)' }}>
+              The test will start automatically when the countdown reaches zero.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -664,6 +801,15 @@ export default function ExamInterface() {
       >
         <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#EF4444' }} />
         <span className="text-sm font-semibold">You are being monitored</span>
+        {violations > 0 && (
+          <span
+            className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: 'rgba(239,68,68,0.25)', color: '#FCA5A5' }}
+            title="Integrity violations detected (tab switches / blocked actions)"
+          >
+            {violations} flag{violations > 1 ? 's' : ''}
+          </span>
+        )}
       </div>
     </div>
   );

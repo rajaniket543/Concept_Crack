@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import Layout from './components/Layout';
 import RouteProgress from './components/RouteProgress';
+import ArcvionBadge from './components/ArcvionBadge';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
@@ -27,6 +28,9 @@ import AdminDashboard from './pages/Admin/AdminDashboard';
 import UserManagement from './pages/Admin/UserManagement';
 import InstituteManagement from './pages/Admin/InstituteManagement';
 import TestApprovals from './pages/Admin/TestApprovals';
+import FacultyReports from './pages/Admin/FacultyReports';
+import Messages from './pages/Messages';
+import Arcvion from './pages/Arcvion';
 import Settings from './pages/Settings';
 import ChangePassword from './pages/ChangePassword';
 import { getAuthSession } from './lib/auth';
@@ -76,7 +80,7 @@ const parentNav = [
   {
     items: [
       { key: 'parent' as PageKey,   label: 'Overview',      icon: 'family_restroom' },
-      { key: 'student' as PageKey,  label: 'Student View',  icon: 'school' },
+      { key: 'messages' as PageKey, label: 'Messages',      icon: 'chat' },
     ],
   },
   {
@@ -104,7 +108,7 @@ const facultyNav = [
     label: 'Manage',
     items: [
       { key: 'questionBank' as PageKey, label: 'Question Bank',  icon: 'library_books' },
-      { key: 'student' as PageKey,      label: 'Student View',   icon: 'school' },
+      { key: 'messages' as PageKey,     label: 'Messages',       icon: 'chat' },
     ],
   },
   {
@@ -128,6 +132,7 @@ const adminNav = [
       { key: 'institutes' as PageKey,   label: 'Institutes',      icon: 'apartment' },
       { key: 'faculty' as PageKey,      label: 'Faculty',         icon: 'co_present' },
       { key: 'testApprovals' as PageKey,label: 'Test Approvals',  icon: 'verified' },
+      { key: 'facultyReports' as PageKey, label: 'Faculty Reports', icon: 'summarize' },
     ],
   },
   {
@@ -181,6 +186,7 @@ export default function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/about" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/built-by-arcvion" element={<Arcvion />} />
 
       <Route path="/student/select-stream" element={<RequireAuth roles={['student']}><StreamSelect /></RequireAuth>} />
       <Route path="/student/chatbot" element={<RequireAuth roles={['student']}><TestChatBot /></RequireAuth>} />
@@ -218,13 +224,16 @@ export default function App() {
         <Route path="users" element={<RequireAuth roles={['admin']}><UserManagement /></RequireAuth>} />
         <Route path="institutes" element={<RequireAuth roles={['admin']}><InstituteManagement /></RequireAuth>} />
         <Route path="test-approvals" element={<RequireAuth roles={['admin']}><TestApprovals /></RequireAuth>} />
+        <Route path="faculty-reports" element={<RequireAuth roles={['admin']}><FacultyReports /></RequireAuth>} />
       </Route>
 
       <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
+      <Route path="/messages" element={<RequireAuth roles={['parent', 'faculty', 'admin']}><Messages /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
 
       <Route path="*" element={<NotFound />} />
       </Routes>
+      <ArcvionBadge />
     </>
   );
 }

@@ -4,6 +4,7 @@ import { login as authLogin, forgotPassword, sendPhoneOtp, verifyPhoneOtp, type 
 import { getStudentStream } from '../lib/stream';
 import { seedDemoAccounts, markDemoSeeded, seedConceptCrackAccounts, type SeedResult, type CCAccountResult } from '../lib/seed-demo';
 import { LoginRole, pathFor } from '../lib/pages';
+import Spinner from '../components/Spinner';
 import { useTheme } from '../lib/theme';
 
 const SUPPORT_EMAIL = 'support@conceptcrack.app';
@@ -174,6 +175,24 @@ export default function Login() {
           <div className="absolute bottom-20 right-0 w-48 h-48 rounded-full blur-3xl opacity-20" style={{ background: 'radial-gradient(circle, #7C3AED, transparent)' }} />
           <div className="absolute top-1/2 right-10 w-32 h-32 rounded-full blur-2xl opacity-15" style={{ background: 'radial-gradient(circle, #06B6D4, transparent)' }} />
         </div>
+
+        {/* Full-bleed hero photo covering the left half.
+            Save your image as  public/login-hero.jpg  (falls back to the
+            gradient below if the file is not present). */}
+        <img
+          src="/login-hero.jpg"
+          alt=""
+          aria-hidden="true"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ objectPosition: 'center' }}
+        />
+        {/* Dark overlay so the headline, features and testimonial stay readable */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          aria-hidden="true"
+          style={{ background: 'linear-gradient(160deg, rgba(15,14,23,0.90) 0%, rgba(26,25,41,0.78) 55%, rgba(15,14,23,0.92) 100%)' }}
+        />
 
         <div className="relative">
           <Link to={pathFor('landing')} className="flex items-center gap-2.5">
@@ -429,7 +448,7 @@ export default function Login() {
               style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
             >
               {loading ? (
-                <span className="material-symbols-outlined animate-spin" style={{ fontSize: '18px' }}>progress_activity</span>
+                <Spinner size={16} />
               ) : (
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
                   {method === 'otp' && !challengeId ? 'send' : 'login'}
@@ -458,7 +477,7 @@ export default function Login() {
               }}
             >
               {ccLoading
-                ? <><span className="material-symbols-outlined animate-spin" style={{ fontSize: '16px' }}>progress_activity</span> Creating… ({ccProgress.done}/{ccProgress.total})</>
+                ? <><Spinner size={14} /> Creating… ({ccProgress.done}/{ccProgress.total})</>
                 : <><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>group_add</span> Setup All Accounts (53 accounts)</>
               }
             </button>
@@ -476,7 +495,7 @@ export default function Login() {
               }}
             >
               {seedLoading
-                ? <><span className="material-symbols-outlined animate-spin" style={{ fontSize: '16px' }}>progress_activity</span> Setting up…</>
+                ? <><Spinner size={14} /> Setting up…</>
                 : <><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>database</span> Setup Demo Accounts (4 accounts)</>
               }
             </button>
