@@ -2,7 +2,6 @@ import { FormEvent, KeyboardEvent, useEffect, useRef, useState, type InputHTMLAt
 import { Link, useNavigate } from 'react-router-dom';
 import { login as authLogin, forgotPassword, sendPhoneOtp, verifyPhoneOtp, type ConfirmationResult } from '../lib/auth';
 import { getStudentStream } from '../lib/stream';
-import { seedDemoAccounts, markDemoSeeded, seedConceptCrackAccounts, type SeedResult, type CCAccountResult } from '../lib/seed-demo';
 import { LoginRole, pathFor } from '../lib/pages';
 import Spinner from '../components/Spinner';
 import { useTheme } from '../lib/theme';
@@ -40,11 +39,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(true);
   const [capsLock, setCapsLock] = useState(false);
-  const [seedLoading, setSeedLoading] = useState(false);
-  const [seedResults, setSeedResults] = useState<SeedResult[] | null>(null);
-  const [ccLoading,   setCCLoading]   = useState(false);
-  const [ccResults,   setCCResults]   = useState<CCAccountResult[] | null>(null);
-  const [ccProgress,  setCCProgress]  = useState({ done: 0, total: 53, current: '' });
   const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
   const recaptchaRef = useRef<HTMLDivElement>(null);
 
@@ -119,38 +113,6 @@ export default function Login() {
       setErrorMessage(err instanceof Error ? err.message : 'Unable to send reset email.');
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleSeedDemo() {
-    setSeedLoading(true);
-    setSeedResults(null);
-    setErrorMessage(null);
-    try {
-      const results = await seedDemoAccounts();
-      await markDemoSeeded();
-      setSeedResults(results);
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Seeding failed.');
-    } finally {
-      setSeedLoading(false);
-    }
-  }
-
-  async function handleSetupAllAccounts() {
-    setCCLoading(true);
-    setCCResults(null);
-    setCCProgress({ done: 0, total: 53, current: '' });
-    setErrorMessage(null);
-    try {
-      const results = await seedConceptCrackAccounts((done, total, current) => {
-        setCCProgress({ done, total, current });
-      });
-      setCCResults(results);
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Setup failed.');
-    } finally {
-      setCCLoading(false);
     }
   }
 
@@ -465,99 +427,6 @@ export default function Login() {
               {loading ? 'Signing in...' : submitLabel}
             </button>
           </form>
-
-          {/* First-time setup */}
-          <div className="mt-5 pt-5 border-t" style={{ borderColor: isDark ? '#2D2B42' : '#E5E7EB' }}>
-            <p className="text-xs text-center mb-3" style={{ color: isDark ? '#4B5563' : '#9CA3AF' }}>
-              First time? Set up accounts in Firebase:
-            </p>
-
-            {/* Full 53-account seed */}
-            <button
-              type="button"
-              onClick={handleSetupAllAccounts}
-              disabled={ccLoading || seedLoading}
-              className="w-full h-10 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all hover:-translate-y-px disabled:opacity-60 disabled:pointer-events-none mb-2"
-              style={{
-                background: ccLoading ? undefined : 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.12))',
-                border: `1px solid ${isDark ? 'rgba(16,185,129,0.30)' : 'rgba(16,185,129,0.40)'}`,
-                color: '#10B981',
-              }}
-            >
-              {ccLoading
-                ? <><Spinner size={14} /> Creating… ({ccProgress.done}/{ccProgress.total})</>
-                : <><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>group_add</span> Setup All Accounts (53 accounts)</>
-              }
-            </button>
-
-            {/* Demo 4-account seed */}
-            <button
-              type="button"
-              onClick={handleSeedDemo}
-              disabled={seedLoading || ccLoading}
-              className="w-full h-10 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all hover:-translate-y-px disabled:opacity-60 disabled:pointer-events-none"
-              style={{
-                backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6',
-                border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
-                color: isDark ? '#9CA3AF' : '#6B7280',
-              }}
-            >
-              {seedLoading
-                ? <><Spinner size={14} /> Setting up…</>
-                : <><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>database</span> Setup Demo Accounts (4 accounts)</>
-              }
-            </button>
-
-            {/* CC Seed results */}
-            {ccResults && (
-              <div className="mt-3">
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  {ccResults.map(r => (
-                    <div
-                      key={r.email}
-                      className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs"
-                      style={{
-                        backgroundColor: r.status === 'error' ? 'rgba(239,68,68,0.08)' : r.status === 'created' ? 'rgba(16,185,129,0.06)' : isDark ? '#1E1D2E' : '#F9FAFB',
-                        border: `1px solid ${r.status === 'error' ? 'rgba(239,68,68,0.2)' : r.status === 'created' ? 'rgba(16,185,129,0.15)' : isDark ? '#2D2B42' : '#E5E7EB'}`,
-                      }}
-                    >
-                      <span className="truncate max-w-[200px]" style={{ color: isDark ? '#D1D5DB' : '#374151' }}>{r.email}</span>
-                      <span className="font-semibold shrink-0 ml-2" style={{ color: r.status === 'error' ? '#EF4444' : r.status === 'created' ? '#10B981' : '#6B7280' }}>
-                        {r.status === 'created' ? '✓' : r.status === 'exists' ? '•' : '✗'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-center text-xs pt-2" style={{ color: '#10B981' }}>
-                  {ccResults.filter(r => r.status === 'created').length} created · {ccResults.filter(r => r.status === 'exists').length} already existed · Sign in to continue
-                </p>
-              </div>
-            )}
-
-            {/* Demo seed results */}
-            {seedResults && (
-              <div className="mt-3 space-y-1.5">
-                {seedResults.map(r => (
-                  <div
-                    key={r.email}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg text-xs"
-                    style={{
-                      backgroundColor: r.status === 'error' ? 'rgba(239,68,68,0.08)' : r.status === 'created' ? 'rgba(16,185,129,0.08)' : isDark ? '#1E1D2E' : '#F9FAFB',
-                      border: `1px solid ${r.status === 'error' ? 'rgba(239,68,68,0.2)' : r.status === 'created' ? 'rgba(16,185,129,0.2)' : isDark ? '#2D2B42' : '#E5E7EB'}`,
-                    }}
-                  >
-                    <span style={{ color: isDark ? '#D1D5DB' : '#374151' }}>{r.email}</span>
-                    <span className="font-semibold" style={{ color: r.status === 'error' ? '#EF4444' : r.status === 'created' ? '#10B981' : '#6B7280' }}>
-                      {r.status === 'created' ? '✓ Created' : r.status === 'exists' ? '• Exists' : `✗ ${r.error}`}
-                    </span>
-                  </div>
-                ))}
-                <p className="text-center text-xs pt-1" style={{ color: '#10B981' }}>
-                  Done! Sign in with the pre-filled credentials above.
-                </p>
-              </div>
-            )}
-          </div>
 
           <p className="text-xs text-center mt-4" style={{ color: isDark ? '#4B5563' : '#9CA3AF' }}>
             <a href={`mailto:${SUPPORT_EMAIL}`} className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Contact admin</a>
