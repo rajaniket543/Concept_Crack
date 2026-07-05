@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest } from '../../lib/api';
+import { getAuthSession } from '../../lib/auth';
+import { updateStudentProgress } from '../../lib/db';
 import {
   currentStudent,
   examMeta,
@@ -8,7 +10,11 @@ import {
   type ExamOption as ExamOptionType,
   type ExamMeta,
 } from '../../mocks/student';
+import { getQuestionsForChapter, getQuestionsByIds, type ExamQuestion as FirestoreQuestion } from '../../lib/questions';
+import { getTest, saveTestAttempt } from '../../lib/tests';
+import { updateWeakTopics } from '../../lib/weakTopics';
 import { pathFor } from '../../lib/pages';
+import { useToast } from '../../components/Toast';
 
 const fallbackMeta = examMeta;
 
@@ -28,18 +34,28 @@ const PALETTE_STYLES: Record<PaletteState, { bg: string; color: string; border: 
 };
 
 export default function ExamInterface() {
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const toast     = useToast();
+
+  // State from PracticeModule (subject/chapter) or test-based (testId)
+  const { subject: stateSubject = 'Physics', chapter: stateChapter = '', testId = null, examTitle: stateTitle = '' } =
+    (location.state ?? {}) as { subject?: string; chapter?: string; testId?: string | null; examTitle?: string };
+  const [subject, setSubject]             = useState(stateSubject);
+  const [chapter, setChapter]             = useState(stateChapter);
+  const [testSubjects, setTestSubjects]   = useState<string[]>([]);
+  const [testChapters, setTestChapters]   = useState<string[]>([]);
+
   const [exam, setExam]             = useState<ExamMeta>(fallbackMeta);
-  const [questions, setQuestions]   = useState(() => genExamQuestions(fallbackMeta.totalQuestions));
+  const [questions, setQuestions]   = useState<FirestoreQuestion[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [seconds, setSeconds]       = useState(fallbackMeta.durationSeconds);
-  const [current, setCurrent]       = useState(fallbackMeta.currentIndex);
+  const [current, setCurrent]       = useState(1);
   const [answers, setAnswers]       = useState<Record<number, ExamOptionType['key']>>({});
   const [marked, setMarked]         = useState<Set<number>>(new Set());
   const [sessionId, setSessionId]   = useState<string | null>(null);
   const [monitorOpacity, setMonitorOpacity] = useState(0.5);
-  const [paletteState, setPaletteState] = useState<Record<number, PaletteState>>(() =>
-    Object.fromEntries(Array.from({ length: fallbackMeta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState]))
-  );
+  const [paletteState, setPaletteState] = useState<Record<number, PaletteState>>({});
 
   // Timer countdown
   useEffect(() => {
@@ -55,7 +71,7 @@ export default function ExamInterface() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && ['c', 'v', 'i'].includes(e.key.toLowerCase())) {
         e.preventDefault();
-        alert('Action Restricted: Concept Crack maintains strict exam integrity.');
+        toast('Action restricted — Concept Crack maintains strict exam integrity.', 'error');
       }
     };
     document.addEventListener('contextmenu', onContext);
@@ -64,7 +80,7 @@ export default function ExamInterface() {
       document.removeEventListener('contextmenu', onContext);
       document.removeEventListener('keydown', onKey);
     };
-  }, []);
+  }, [toast]);
 
   // Monitor opacity on mouse move
   useEffect(() => {
@@ -78,23 +94,83 @@ export default function ExamInterface() {
     return () => { document.removeEventListener('mousemove', onMove); if (timeout) window.clearTimeout(timeout); };
   }, []);
 
-  // Load exam from API
+  // Load questions from Firestore — by testId or by subject/chapter
   useEffect(() => {
     let cancelled = false;
-    apiRequest<ExamMeta>('/api/student/exam/meta')
-      .then(meta => {
-        if (cancelled) return;
+    setLoading(true);
+
+    const load = async () => {
+      let qs: FirestoreQuestion[] = [];
+      let titleOverride = stateTitle;
+
+      if (testId) {
+        try {
+          const test = await getTest(testId);
+          if (test && test.questionIds.length > 0) {
+            qs = await getQuestionsByIds(test.questionIds);
+            if (!titleOverride) titleOverride = test.title;
+            if (test.subjects.length > 0) { setTestSubjects(test.subjects); setSubject(test.subjects[0]); }
+            if (test.chapters.length > 0) { setTestChapters(test.chapters); setChapter(test.chapters[0]); }
+            if (!cancelled && qs.length > 0) {
+              const meta: ExamMeta = {
+                id: test.id.slice(0, 30),
+                title: test.title,
+                totalQuestions: qs.length,
+                currentIndex: 1,
+                durationSeconds: test.durationSeconds,
+                candidateId: currentStudent.id,
+              };
+              setExam(meta);
+              setSeconds(test.durationSeconds);
+              setCurrent(1);
+              setQuestions(qs);
+              setPaletteState(Object.fromEntries(qs.map((_, i) => [i + 1, 'not-visited' as PaletteState])));
+              setLoading(false);
+              return;
+            }
+          }
+        } catch { /* fall through */ }
+      }
+
+      if (qs.length === 0 && chapter) {
+        try {
+          qs = await getQuestionsForChapter(subject, chapter, 30);
+        } catch { /* fall through */ }
+      }
+
+      if (cancelled) return;
+
+      if (qs.length > 0) {
+        const durationSeconds = qs.length * 90;
+        const meta: ExamMeta = {
+          id:              `${subject}-${chapter}`.slice(0, 30),
+          title:           titleOverride || `${subject}: ${chapter}`,
+          totalQuestions:  qs.length,
+          currentIndex:    1,
+          durationSeconds,
+          candidateId:     currentStudent.id,
+        };
         setExam(meta);
-        setSeconds(meta.durationSeconds);
-        setCurrent(meta.currentIndex);
-        setQuestions(genExamQuestions(meta.totalQuestions));
-        setPaletteState(Object.fromEntries(Array.from({ length: meta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState])));
-        return apiRequest<{ sessionId: string }>(`/api/exams/${meta.id}/start`, { method: 'POST' });
-      })
-      .then(data => { if (!cancelled && data) setSessionId(data.sessionId); })
-      .catch(() => { if (!cancelled) setSessionId(null); });
+        setSeconds(durationSeconds);
+        setCurrent(1);
+        setQuestions(qs);
+        setPaletteState(Object.fromEntries(qs.map((_, i) => [i + 1, 'not-visited' as PaletteState])));
+      } else {
+        const mockQs = genExamQuestions(fallbackMeta.totalQuestions);
+        setExam(fallbackMeta);
+        setSeconds(fallbackMeta.durationSeconds);
+        setCurrent(1);
+        setQuestions(mockQs as unknown as FirestoreQuestion[]);
+        setPaletteState(Object.fromEntries(Array.from({ length: fallbackMeta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState])));
+      }
+
+      setLoading(false);
+    };
+
+    void load();
     return () => { cancelled = true; };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testId, subject, chapter]);
 
   const question   = questions[current - 1];
   const selectedKey = answers[current] ?? null;
@@ -144,12 +220,139 @@ export default function ExamInterface() {
   function previous()    { setCurrent(c => Math.max(1, c - 1)); }
 
   async function submitExam() {
+    let apiResult: Record<string, unknown> = {};
     if (sessionId) {
       try {
-        await apiRequest(`/api/exams/sessions/${sessionId}/submit`, { method: 'POST', body: JSON.stringify({ answers }) });
+        apiResult = await apiRequest(`/api/exams/sessions/${sessionId}/submit`, { method: 'POST', body: JSON.stringify({ answers }) }) as Record<string, unknown>;
       } catch { /* continue */ }
     }
-    navigate(pathFor('analysis'));
+
+    // Per-chapter AND overall stats — uses question.subject/chapter from Firestore
+    let correctCount = 0;
+    let incorrectCount = 0;
+    const diffStats: Record<string, { correct: number; total: number }> = {};
+    const chapterStats: Record<string, { subject: string; chapter: string; correct: number; incorrect: number; total: number }> = {};
+
+    questions.forEach((q, i) => {
+      const qNum     = i + 1;
+      const diff     = q.difficulty || 'Medium';
+      const qSubject = q.subject || subject;
+      const qChapter = q.chapter || q.section || chapter || 'Unknown';
+      const key      = `${qSubject}::${qChapter}`;
+
+      if (!diffStats[diff]) diffStats[diff] = { correct: 0, total: 0 };
+      diffStats[diff].total++;
+      if (!chapterStats[key]) chapterStats[key] = { subject: qSubject, chapter: qChapter, correct: 0, incorrect: 0, total: 0 };
+      chapterStats[key].total++;
+
+      if (answers[qNum] !== undefined) {
+        if (q.answer && answers[qNum] === q.answer) {
+          correctCount++;
+          diffStats[diff].correct++;
+          chapterStats[key].correct++;
+        } else {
+          incorrectCount++;
+          chapterStats[key].incorrect++;
+        }
+      }
+    });
+
+    const skippedCount = exam.totalQuestions - correctCount - incorrectCount;
+    const accuracyPct  = exam.totalQuestions > 0 ? Math.round((correctCount / exam.totalQuestions) * 100) : 0;
+    const score        = (apiResult.score as number) ?? Math.max(0, correctCount * 4 - incorrectCount);
+    const safePct      = (c: number, t: number) => t > 0 ? Math.round(c / t * 100) : 0;
+    const timeMinutes  = Math.max(1, Math.round((exam.durationSeconds - seconds) / 60));
+
+    // Build per-topic accuracy array (one entry per chapter)
+    const topicAccuracy = Object.values(chapterStats).map(s => ({
+      topic:   s.chapter,
+      subject: s.subject,
+      pct:     s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+      correct: s.correct,
+      total:   s.total,
+    }));
+
+    // All subjects/chapters from the test
+    const allSubjects = testSubjects.length > 0 ? testSubjects : [subject];
+    const allChapters = testChapters.length > 0 ? testChapters : topicAccuracy.map(t => t.topic);
+
+    const uid = getAuthSession()?.user?.id;
+
+    // Update weak topics for every chapter attempted
+    if (uid) {
+      void updateWeakTopics(uid, Object.values(chapterStats).map(s => ({
+        subject: s.subject, chapter: s.chapter, correct: s.correct, incorrect: s.incorrect,
+      })));
+    }
+
+    if (uid && testId) {
+      void saveTestAttempt({
+        testId,
+        studentId:     uid,
+        answers:       Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
+        score, correctCount, incorrectCount, skippedCount, accuracyPct,
+        timeSeconds:   exam.durationSeconds - seconds,
+        status:        'submitted',
+        startedAt:     new Date().toISOString(),
+        submittedAt:   new Date().toISOString(),
+      });
+    }
+
+    if (uid) {
+      void updateStudentProgress(uid, {
+        lastActivity: {
+          type:        'test',
+          title:       exam.title,
+          score:       accuracyPct,
+          accuracy:    accuracyPct,
+          completedAt: new Date().toISOString(),
+        },
+        completedTests: 1,
+        latestTestResult: {
+          testTitle:      exam.title,
+          testDate:       new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          subject,
+          chapter,
+          subjects:       allSubjects,
+          chapters:       allChapters,
+          totalQuestions: exam.totalQuestions,
+          correctCount,
+          incorrectCount,
+          skippedCount,
+          accuracyPct,
+          score,
+          timeMinutes,
+          easyPct:   safePct(diffStats['Easy']?.correct   ?? 0, diffStats['Easy']?.total   ?? 0),
+          mediumPct: safePct(diffStats['Medium']?.correct ?? 0, diffStats['Medium']?.total ?? 0),
+          hardPct:   safePct(diffStats['Hard']?.correct   ?? 0, diffStats['Hard']?.total   ?? 0),
+          topicAccuracy,
+        },
+      });
+    }
+
+    navigate(pathFor('chatbot'), {
+      state: {
+        score, correctCount, incorrectCount, skippedCount, accuracyPct,
+        examTitle:      exam.title,
+        subject,
+        chapter,
+        subjects:       allSubjects,
+        chapters:       allChapters,
+        topicAccuracy,
+        totalQuestions: exam.totalQuestions,
+      },
+    });
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mx-auto" style={{ borderColor: '#5B4FE8', borderTopColor: 'transparent' }} />
+          <p className="text-body-md" style={{ color: 'var(--text-muted)' }}>Loading questions…</p>
+        </div>
+      </div>
+    );
   }
 
   if (!question) return null;

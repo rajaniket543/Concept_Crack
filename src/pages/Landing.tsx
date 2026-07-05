@@ -4,55 +4,6 @@ import { pathFor } from '../lib/pages';
 import { features, stats, testimonials } from '../mocks';
 import { useTheme } from '../lib/theme';
 
-const pricingTiers = [
-  {
-    name: 'Free',
-    price: { monthly: 0, annual: 0 },
-    description: 'Get started with AI-powered prep',
-    features: [
-      '5 mock tests per month',
-      'Basic performance analytics',
-      'Access to 500 questions',
-      'Community leaderboard',
-      'Email support',
-    ],
-    cta: 'Start Free',
-    highlight: false,
-  },
-  {
-    name: 'Pro',
-    price: { monthly: 799, annual: 599 },
-    description: 'Everything you need to crack your exam',
-    features: [
-      'Unlimited mock tests',
-      'AI adaptive study plan',
-      'Full question bank (50,000+)',
-      'Detailed topic analysis',
-      'AI performance insights',
-      'Priority support',
-      'Parent dashboard access',
-    ],
-    cta: 'Start Pro Trial',
-    highlight: true,
-  },
-  {
-    name: 'Enterprise',
-    price: { monthly: null, annual: null },
-    description: 'For coaching institutes & schools',
-    features: [
-      'Everything in Pro',
-      'Batch management',
-      'Faculty dashboard',
-      'Custom question bank',
-      'Institutional analytics',
-      'Dedicated account manager',
-      'SLA & custom integrations',
-    ],
-    cta: 'Contact Sales',
-    highlight: false,
-  },
-];
-
 const faqItems = [
   { q: 'Which exams does Concept Crack cover?', a: 'Concept Crack currently supports JEE (Main + Advanced), NEET UG, UPSC Prelims, and CAT. More exams are added regularly.' },
   { q: 'How does the AI adaptive engine work?', a: 'Our AI analyzes every answer you give — time spent, accuracy pattern, error type — and builds a real-time model of your strengths and gaps to recommend exactly what to practice next.' },
@@ -61,7 +12,6 @@ const faqItems = [
 ];
 
 export default function Landing() {
-  const [billing, setBilling] = useState<'monthly' | 'annual'>('annual');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const { toggleTheme, isDark } = useTheme();
 
@@ -80,15 +30,24 @@ export default function Landing() {
           borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : '#E5E7EB'}`,
         }}
       >
-        <Link to={pathFor('landing')} className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="Concept Crack" className="w-8 h-8 rounded-lg object-cover" />
-          <span className="font-headline font-bold text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to={pathFor('login')}
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:opacity-80"
+            style={{ backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6', color: isDark ? '#9CA3AF' : '#6B7280' }}
+            title="Back to Login"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+          </Link>
+          <Link to={pathFor('landing')} className="flex items-center gap-2.5">
+            <img src="/logo.png" alt="Concept Crack" className="w-8 h-8 rounded-lg object-cover" />
+            <span className="font-headline font-bold text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
+          </Link>
+        </div>
 
         <nav className="hidden lg:flex items-center gap-8 text-sm font-medium" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
           <a href="#features" className="hover:text-[#5B4FE8] transition-colors">Features</a>
           <a href="#stats" className="hover:text-[#5B4FE8] transition-colors">Why Concept Crack</a>
-          <a href="#pricing" className="hover:text-[#5B4FE8] transition-colors">Pricing</a>
           <a href="#faq" className="hover:text-[#5B4FE8] transition-colors">FAQ</a>
         </nav>
 
@@ -309,85 +268,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Pricing ── */}
-      <section id="pricing" className="py-24 max-w-6xl mx-auto px-6 lg:px-10">
-        <div className="text-center mb-12">
-          <div className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4" style={{ color: '#5B4FE8', backgroundColor: 'rgba(91,79,232,0.10)' }}>
-            Pricing
-          </div>
-          <h2 className="text-4xl font-headline font-bold tracking-tight mb-4" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-            Simple, transparent pricing
-          </h2>
-          {/* Billing toggle */}
-          <div className="inline-flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6' }}>
-            {(['monthly', 'annual'] as const).map(b => (
-              <button
-                key={b}
-                type="button"
-                onClick={() => setBilling(b)}
-                className="px-5 h-8 rounded-md text-sm font-semibold transition-all"
-                style={billing === b ? { backgroundColor: isDark ? '#2D2B42' : '#fff', color: '#5B4FE8', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' } : { color: isDark ? '#6B7280' : '#9CA3AF' }}
-              >
-                {b === 'monthly' ? 'Monthly' : 'Annual (save 25%)'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-6 items-stretch">
-          {pricingTiers.map(tier => (
-            <div
-              key={tier.name}
-              className="rounded-2xl p-8 flex flex-col"
-              style={tier.highlight
-                ? { background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', color: '#fff', boxShadow: '0 8px 32px rgba(91,79,232,0.40)' }
-                : { backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF', border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}` }
-              }
-            >
-              <div className="mb-6">
-                <div className="text-sm font-semibold uppercase tracking-widest mb-2" style={{ color: tier.highlight ? 'rgba(255,255,255,0.70)' : '#9CA3AF' }}>
-                  {tier.name}
-                </div>
-                <div className="flex items-end gap-1 mb-2">
-                  {tier.price.monthly === null ? (
-                    <span className="text-4xl font-headline font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Custom</span>
-                  ) : tier.price.monthly === 0 ? (
-                    <span className="text-4xl font-headline font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Free</span>
-                  ) : (
-                    <>
-                      <span className="text-4xl font-headline font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-                        ₹{billing === 'monthly' ? tier.price.monthly : tier.price.annual}
-                      </span>
-                      <span className="text-sm mb-2" style={{ color: tier.highlight ? 'rgba(255,255,255,0.60)' : '#9CA3AF' }}>/mo</span>
-                    </>
-                  )}
-                </div>
-                <p className="text-sm" style={{ color: tier.highlight ? 'rgba(255,255,255,0.70)' : isDark ? '#9CA3AF' : '#6B7280' }}>
-                  {tier.description}
-                </p>
-              </div>
-              <ul className="flex-1 space-y-3 mb-8">
-                {tier.features.map(feat => (
-                  <li key={feat} className="flex items-start gap-2.5 text-sm">
-                    <span className="material-symbols-outlined filled mt-0.5" style={{ fontSize: '16px', color: tier.highlight ? '#A5F3FC' : '#10B981', flexShrink: 0 }}>check_circle</span>
-                    <span style={{ color: tier.highlight ? 'rgba(255,255,255,0.85)' : isDark ? '#D1D5DB' : '#374151' }}>{feat}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                to={pathFor('login')}
-                className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center transition-all hover:-translate-y-px"
-                style={tier.highlight
-                  ? { backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', backdropFilter: 'blur(4px)' }
-                  : { backgroundColor: isDark ? '#2D2B42' : '#5B4FE8', color: tier.name === 'Free' ? (isDark ? '#F9FAFB' : '#5B4FE8') : '#fff', border: isDark ? '1px solid #3D3B58' : 'none' }
-                }
-              >
-                {tier.cta}
-              </Link>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* ── FAQ ── */}
       <section
@@ -459,6 +339,20 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Collab strip ── */}
+      <div className="py-6 text-center" style={{ borderTop: `1px solid ${isDark ? '#1E1D2E' : '#E5E7EB'}` }}>
+        <p className="text-sm" style={{ color: isDark ? '#6B7280' : '#9CA3AF' }}>
+          Have a project in mind?{' '}
+          <a
+            href="mailto:mishrasatarupa360@gmail.com"
+            className="font-semibold hover:underline transition-colors"
+            style={{ color: '#5B4FE8' }}
+          >
+            Contact us for collaborations.
+          </a>
+        </p>
+      </div>
+
       {/* ── Footer ── */}
       <footer
         className="py-10 px-6 lg:px-10"
@@ -476,15 +370,29 @@ export default function Landing() {
               </p>
             </div>
             {[
-              { title: 'Product', links: ['Features', 'Pricing', 'Question Bank', 'Mock Tests', 'AI Insights'] },
-              { title: 'Company', links: ['About', 'Blog', 'Careers', 'Contact'] },
-              { title: 'Legal', links: ['Privacy Policy', 'Terms of Service', 'Refund Policy'] },
+              { title: 'Product', links: [
+                { label: 'Features', href: '#features' },
+                { label: 'Question Bank', href: '#features' },
+                { label: 'Mock Tests', href: '#features' },
+                { label: 'AI Insights', href: '#features' },
+              ] },
+              { title: 'Company', links: [
+                { label: 'About', href: '#stats' },
+                { label: 'Why Concept Crack', href: '#stats' },
+                { label: 'Careers', href: 'mailto:careers@conceptcrack.app' },
+                { label: 'Contact', href: 'mailto:support@conceptcrack.app' },
+              ] },
+              { title: 'Legal', links: [
+                { label: 'Privacy Policy', href: '#faq' },
+                { label: 'Terms of Service', href: '#faq' },
+                { label: 'Refund Policy', href: '#faq' },
+              ] },
             ].map(col => (
               <div key={col.title}>
                 <h4 className="text-sm font-semibold text-white mb-3">{col.title}</h4>
                 <ul className="space-y-2">
                   {col.links.map(l => (
-                    <li key={l}><a href="#" className="text-sm transition-colors hover:text-white" style={{ color: '#9CA3AF' }}>{l}</a></li>
+                    <li key={l.label}><a href={l.href} className="text-sm transition-colors hover:text-white" style={{ color: '#9CA3AF' }}>{l.label}</a></li>
                   ))}
                 </ul>
               </div>
