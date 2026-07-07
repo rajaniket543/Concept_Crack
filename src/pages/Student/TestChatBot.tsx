@@ -31,6 +31,13 @@ interface TestResult {
   isBattle?: boolean;
   battleRank?: number;
   battleParticipants?: BattlePlayer[];
+  // Feature 2 — exam-integrity telemetry from the browser-lock system
+  integrity?: {
+    lockMode?: 'open' | 'locked';
+    tabSwitchCount?: number;
+    timeOutsideSeconds?: number;
+    lockViolations?: number;
+  };
 }
 
 interface Message { id: number; role: 'ai' | 'user'; text: string; typing?: boolean; }
@@ -371,6 +378,38 @@ export default function TestResultAndChat() {
               <div className="text-sm text-white/75 mt-0.5">
                 {result.examTitle ?? 'Practice Test'} · {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </div>
+              {result.integrity && (
+                <div className="flex items-center flex-wrap gap-2 mt-2">
+                  <span
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.20)', color: '#fff' }}
+                    title="Browser-lock mode for this test"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 13 }}>
+                      {result.integrity.lockMode === 'locked' ? 'lock' : 'lock_open'}
+                    </span>
+                    {result.integrity.lockMode === 'locked' ? 'Locked' : 'Open'}
+                  </span>
+                  <span
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: (result.integrity.tabSwitchCount ?? 0) > 0 ? 'rgba(245,158,11,0.30)' : 'rgba(255,255,255,0.20)', color: '#fff' }}
+                    title="Number of times you left the exam window"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 13 }}>tab</span>
+                    {result.integrity.tabSwitchCount ?? 0} tab switch{(result.integrity.tabSwitchCount ?? 0) === 1 ? '' : 'es'}
+                  </span>
+                  {(result.integrity.timeOutsideSeconds ?? 0) > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.20)', color: '#fff' }}
+                      title="Total time spent away from the exam"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 13 }}>schedule</span>
+                      {result.integrity.timeOutsideSeconds}s away
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <Link

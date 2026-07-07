@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDoc, getDocs, addDoc, updateDoc,
+  collection, doc, getDoc, getDocs, addDoc, updateDoc, setDoc,
   query, where, limit, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -7,8 +7,25 @@ import { db } from './firebase';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type TestType   = 'faculty_batch' | 'faculty_coaching' | 'ai' | 'custom';
-export type TestStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'active' | 'closed';
+export type TestStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'final_rejected' | 'active' | 'closed';
+
+// Feature 8 — optional verification stage between faculty submission and final admin approval.
+export type VerificationStage = 'none' | 'awaiting' | 'verified' | 'rejected';
+export interface TestVerification {
+  stage:                VerificationStage;
+  verifierId?:          string;
+  verifierName?:        string;
+  verifierDesignation?: string;   // HOD / Senior Faculty / Subject Expert
+  forwardedAt?:         string;
+  decidedAt?:           string;
+  remarks?:             string;
+}
 export type Difficulty = 'Easy' | 'Medium' | 'Hard' | 'Mixed';
+// Feature 2 — browser security mode chosen by faculty at test creation.
+//  'open'   → tab switching allowed; every switch is logged & the student is flagged.
+//  'locked' → complete lock: block tab-switch/copy/paste/right-click/dev-tools, warn,
+//             and auto-submit after `autoSubmitViolations` leaves (0 = never auto-submit).
+export type LockMode = 'open' | 'locked';
 
 export interface Test {
   id:              string;
@@ -26,9 +43,14 @@ export interface Test {
   endAt:           string | null;
   instructions:    string;
   negativeMarking: boolean;
+  lockMode?:            LockMode;   // Feature 2 (faculty tests). AI/custom tests are always 'open'.
+  autoSubmitViolations?: number;    // locked mode: auto-submit after N leaves (0 = never)
+  questionMarks?:  Record<string, number>;  // Feature 7 — per-question marks (manual builder)
+  questionTimes?:  Record<string, number>;  // Feature 7 — per-question seconds (manual builder)
   assignedTo:      string[] | 'all';
   questionIds:     string[];
   rejectionNote?:  string;
+  verification?:   TestVerification;   // Feature 8
   createdAt:       string;
   updatedAt:       string;
 }
@@ -47,6 +69,11 @@ export interface TestAttempt {
   status:        'in_progress' | 'submitted';
   startedAt:     string;
   submittedAt:   string | null;
+  // Feature 2 — browser-lock telemetry (recorded for every test type).
+  tabSwitchCount?:     number;
+  tabSwitchEvents?:    Array<{ at: string; awaySeconds: number }>;
+  timeOutsideSeconds?: number;
+  lockViolations?:     number;   // blocked copy/paste/right-click/dev-tools attempts (locked mode)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -74,9 +101,14 @@ function docToTest(id: string, data: Record<string, unknown>): Test {
     endAt:           toIso(data.endAt),
     instructions:    (data.instructions   as string) ?? '',
     negativeMarking: (data.negativeMarking as boolean) ?? false,
+    lockMode:        (data.lockMode        as LockMode | undefined) ?? undefined,
+    autoSubmitViolations: (data.autoSubmitViolations as number | undefined) ?? undefined,
+    questionMarks:   (data.questionMarks   as Record<string, number> | undefined) ?? undefined,
+    questionTimes:   (data.questionTimes   as Record<string, number> | undefined) ?? undefined,
     assignedTo:      (data.assignedTo     as string[] | 'all') ?? [],
     questionIds:     (data.questionIds    as string[]) ?? [],
     rejectionNote:   data.rejectionNote   as string | undefined,
+    verification:    (data.verification   as TestVerification | undefined) ?? undefined,
     createdAt:       toIso(data.createdAt) ?? '',
     updatedAt:       toIso(data.updatedAt) ?? '',
   };
@@ -91,8 +123,10 @@ function byCreatedDesc(a: Test, b: Test) {
 export async function createTest(
   data: Omit<Test, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
+  // Firestore rejects `undefined` field values — strip them (e.g. optional lockMode).
+  const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
   const ref = await addDoc(collection(db, 'tests'), {
-    ...data,
+    ...clean,
     stream: data.stream ?? 'JEE',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -159,6 +193,75 @@ export async function getPendingApprovalTests(): Promise<Test[]> {
   }
 }
 
+// ── Feature 8: multi-level approval workflow ──────────────────────────────────
+
+/** Admin forwards a pending coaching test to a chosen faculty verifier. */
+export async function forwardForVerification(
+  testId: string,
+  verifier: { id: string; name: string; designation: string },
+): Promise<void> {
+  await updateDoc(doc(db, 'tests', testId), {
+    verification: {
+      stage: 'awaiting',
+      verifierId: verifier.id,
+      verifierName: verifier.name,
+      verifierDesignation: verifier.designation,
+      forwardedAt: new Date().toISOString(),
+    },
+    updatedAt: serverTimestamp(),
+  });
+  // Remember this person's designation for future forwards (best-effort).
+  try { await setDoc(doc(db, 'users', verifier.id), { designation: verifier.designation }, { merge: true }); } catch { /* ignore */ }
+}
+
+/** The verifier approves or rejects, attaching remarks. Returns to admin either way. */
+export async function submitVerification(
+  testId: string,
+  decision: 'verified' | 'rejected',
+  remarks: string,
+  verifier: { id: string; name: string },
+): Promise<void> {
+  const snap = await getDoc(doc(db, 'tests', testId));
+  const existing = (snap.exists() ? (snap.data().verification ?? {}) : {}) as TestVerification;
+  await updateDoc(doc(db, 'tests', testId), {
+    verification: {
+      ...existing,
+      stage: decision,
+      verifierId: verifier.id,
+      verifierName: verifier.name,
+      decidedAt: new Date().toISOString(),
+      remarks: remarks ?? '',
+    },
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Tests currently awaiting the given verifier's review. */
+export async function getVerificationQueue(verifierUid: string): Promise<Test[]> {
+  try {
+    const q = query(collection(db, 'tests'), where('verification.verifierId', '==', verifierUid), limit(100));
+    const snap = await getDocs(q);
+    return snap.docs
+      .map(d => docToTest(d.id, d.data() as Record<string, unknown>))
+      .filter(t => t.verification?.stage === 'awaiting')
+      .sort(byCreatedDesc);
+  } catch (e) {
+    console.error('getVerificationQueue error:', e);
+    return [];
+  }
+}
+
+/** Admin's final decision. 'final_rejected' is terminal — faculty must recreate. */
+export async function finalizeApproval(
+  testId: string,
+  decision: 'approved' | 'final_rejected',
+  note?: string,
+): Promise<void> {
+  const updates: Record<string, unknown> = { status: decision, updatedAt: serverTimestamp() };
+  if (note) updates.rejectionNote = note;
+  await updateDoc(doc(db, 'tests', testId), updates);
+}
+
 // ── Student: assigned faculty_batch tests ─────────────────────────────────────
 
 export async function getAssignedTests(studentUid: string, studentStream?: string): Promise<Test[]> {
@@ -210,8 +313,9 @@ export async function getCoachingTests(studentStream?: string): Promise<Test[]> 
 // ── Test Attempts ─────────────────────────────────────────────────────────────
 
 export async function saveTestAttempt(attempt: Omit<TestAttempt, 'id'>): Promise<string> {
+  const clean = Object.fromEntries(Object.entries(attempt).filter(([, v]) => v !== undefined));
   const ref = await addDoc(collection(db, 'testAttempts'), {
-    ...attempt,
+    ...clean,
     startedAt:   serverTimestamp(),
     submittedAt: serverTimestamp(),
   });

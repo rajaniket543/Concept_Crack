@@ -11,8 +11,10 @@ import {
   type ExamMeta,
 } from '../../mocks/student';
 import { getQuestionsForChapter, getQuestionsByIds, type ExamQuestion as FirestoreQuestion } from '../../lib/questions';
-import { getTest, saveTestAttempt } from '../../lib/tests';
+import { getTest, saveTestAttempt, type LockMode } from '../../lib/tests';
 import { updateWeakTopics } from '../../lib/weakTopics';
+import { getChapterFormulas, getSubjectHighlights, generateFormulasAI, type FormulaGroup } from '../../lib/formulas';
+import { hasAI } from '../../lib/ai';
 import { pathFor } from '../../lib/pages';
 import { useToast } from '../../components/Toast';
 
@@ -57,14 +59,26 @@ export default function ExamInterface() {
   const [monitorOpacity, setMonitorOpacity] = useState(0.5);
   const [paletteState, setPaletteState] = useState<Record<number, PaletteState>>({});
 
+  // Feature 1 — important formulas shown on the pre-test synopsis screen
+  const [formulaGroups, setFormulaGroups] = useState<FormulaGroup[]>([]);
+  const [formulasLoading, setFormulasLoading] = useState(false);
+
   // Pre-test instructions screen + 1-minute countdown
   const [started, setStarted]         = useState(false);
   const [preCountdown, setPreCountdown] = useState(60);
   // Anti-cheat violations (tab switches, blocked copy/paste, etc.)
   const [violations, setViolations]   = useState(0);
-  // Tab-switch enforcement: 1st switch → last warning, 2nd switch → auto-submit
+  // Tab-switch enforcement (locked mode): warn, then auto-submit after N leaves
   const [showTabWarning, setShowTabWarning] = useState(false);
+  const [multiTabBlocked, setMultiTabBlocked] = useState(false);
+  // Feature 2 — effective browser-lock policy for this test
+  const [lockMode, setLockMode]         = useState<LockMode>('open');
+  const [autoSubmitAfter, setAutoSubmitAfter] = useState(2);
   const tabSwitches = useRef(0);
+  const tabEvents   = useRef<Array<{ at: string; awaySeconds: number }>>([]);
+  const timeOutsideRef = useRef(0);
+  const hiddenAtRef = useRef<number | null>(null);
+  const lockViolationsRef = useRef(0);
   const submitRef   = useRef<() => void>(() => {});
   const submittingRef = useRef(false);
 
@@ -85,65 +99,97 @@ export default function ExamInterface() {
     return () => window.clearInterval(id);
   }, [preCountdown, started, loading]);
 
-  // Anti-cheat: block right-click, copy/cut/paste, dev-tools & shortcut keys, and
-  // detect tab-switching / window-blur. Active only during the live test.
+  // Feature 2 — browser-lock policy depends on the test type/mode:
+  //   • open   (AI, Practice, custom, or faculty "Allow Tab Switching"): switches are
+  //             RECORDED and flagged, but nothing is blocked and there is no auto-submit.
+  //   • locked (faculty "Complete Lock Mode"): block copy/paste/right-click/dev-tools,
+  //             warn on leaving, and auto-submit after `autoSubmitAfter` leaves (0 = never).
+  // Every mode records tab-switch telemetry (count, timestamps, seconds away) for analytics.
   useEffect(() => {
     if (!started) return;
 
-    const flag = (reason: string) => {
+    const flagLock = (reason: string) => {
+      lockViolationsRef.current += 1;
       setViolations(v => v + 1);
       toast(reason, 'error');
     };
 
-    const onContext = (e: MouseEvent) => { e.preventDefault(); };
-    const onSelectStart = (e: Event) => { e.preventDefault(); };
-    const onDragStart = (e: DragEvent) => { e.preventDefault(); };
-    const onCopyPaste = (e: ClipboardEvent) => {
-      e.preventDefault();
-      flag('Copy / paste is disabled during the test.');
-    };
-    const onKey = (e: KeyboardEvent) => {
-      const k = e.key.toLowerCase();
-      const blockedCombo = (e.ctrlKey || e.metaKey) && ['c', 'v', 'x', 'a', 'p', 'u', 's'].includes(k);
-      const devTools = k === 'f12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(k));
-      if (blockedCombo || devTools) {
-        e.preventDefault();
-        flag('Action restricted — Concept Crack maintains strict exam integrity.');
-      }
-    };
-    // Tab switch / leaving the window: 1st time → last warning, 2nd time → auto-submit.
-    const onTabSwitch = () => {
-      if (!document.hidden) return;
+    const onVisibility = () => {
+      if (document.hidden) { hiddenAtRef.current = Date.now(); return; }
+      // Returned to the exam tab — record how long the student was away.
+      const away = hiddenAtRef.current ? Math.round((Date.now() - hiddenAtRef.current) / 1000) : 0;
+      hiddenAtRef.current = null;
       tabSwitches.current += 1;
+      tabEvents.current.push({ at: new Date().toISOString(), awaySeconds: away });
+      timeOutsideRef.current += away;
       setViolations(v => v + 1);
-      if (tabSwitches.current >= 2) {
-        toast('Test submitted automatically — you left the test more than once.', 'error');
-        submitRef.current();
+
+      if (lockMode === 'locked') {
+        if (autoSubmitAfter > 0 && tabSwitches.current >= autoSubmitAfter) {
+          toast('Test submitted automatically — you left the exam window too many times.', 'error');
+          submitRef.current();
+        } else {
+          setShowTabWarning(true);
+          toast('⚠ Warning: do not leave the exam window. This event has been recorded.', 'error');
+        }
       } else {
-        setShowTabWarning(true);
-        toast('⚠ Warning: do not leave the test. The next tab switch will auto-submit your test.', 'error');
+        toast(`Tab switch recorded (${tabSwitches.current}). Away for ${away}s.`, 'error');
       }
     };
+    document.addEventListener('visibilitychange', onVisibility);
 
-    document.addEventListener('contextmenu', onContext);
-    document.addEventListener('selectstart', onSelectStart);
-    document.addEventListener('dragstart', onDragStart);
-    document.addEventListener('copy', onCopyPaste);
-    document.addEventListener('cut', onCopyPaste);
-    document.addEventListener('paste', onCopyPaste);
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('visibilitychange', onTabSwitch);
+    // Hard restrictions apply only in Complete Lock Mode.
+    let cleanupLock = () => {};
+    if (lockMode === 'locked') {
+      const onContext = (e: MouseEvent) => { e.preventDefault(); };
+      const onSelectStart = (e: Event) => { e.preventDefault(); };
+      const onDragStart = (e: DragEvent) => { e.preventDefault(); };
+      const onCopyPaste = (e: ClipboardEvent) => { e.preventDefault(); flagLock('Copy / paste is disabled during this test.'); };
+      const onKey = (e: KeyboardEvent) => {
+        const k = e.key.toLowerCase();
+        const blockedCombo = (e.ctrlKey || e.metaKey) && ['c', 'v', 'x', 'a', 'p', 'u', 's'].includes(k);
+        const devTools = k === 'f12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(k));
+        if (blockedCombo || devTools) { e.preventDefault(); flagLock('Action restricted — this test is in Complete Lock Mode.'); }
+      };
+      document.addEventListener('contextmenu', onContext);
+      document.addEventListener('selectstart', onSelectStart);
+      document.addEventListener('dragstart', onDragStart);
+      document.addEventListener('copy', onCopyPaste);
+      document.addEventListener('cut', onCopyPaste);
+      document.addEventListener('paste', onCopyPaste);
+      document.addEventListener('keydown', onKey);
+      cleanupLock = () => {
+        document.removeEventListener('contextmenu', onContext);
+        document.removeEventListener('selectstart', onSelectStart);
+        document.removeEventListener('dragstart', onDragStart);
+        document.removeEventListener('copy', onCopyPaste);
+        document.removeEventListener('cut', onCopyPaste);
+        document.removeEventListener('paste', onCopyPaste);
+        document.removeEventListener('keydown', onKey);
+      };
+    }
+
     return () => {
-      document.removeEventListener('contextmenu', onContext);
-      document.removeEventListener('selectstart', onSelectStart);
-      document.removeEventListener('dragstart', onDragStart);
-      document.removeEventListener('copy', onCopyPaste);
-      document.removeEventListener('cut', onCopyPaste);
-      document.removeEventListener('paste', onCopyPaste);
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('visibilitychange', onTabSwitch);
+      document.removeEventListener('visibilitychange', onVisibility);
+      cleanupLock();
     };
-  }, [toast, started]);
+  }, [toast, started, lockMode, autoSubmitAfter]);
+
+  // Feature 2 — locked mode: prevent the same exam being open in a second tab.
+  // BroadcastChannel only delivers to OTHER tabs, so a reload never blocks itself.
+  useEffect(() => {
+    if (!started || lockMode !== 'locked' || !testId) return;
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel(`cc_exam_${testId}`);
+      bc.onmessage = (ev) => {
+        if (ev.data === 'ping') bc?.postMessage('already_open');
+        else if (ev.data === 'already_open') setMultiTabBlocked(true);
+      };
+      bc.postMessage('ping');
+    } catch { /* BroadcastChannel unsupported — skip */ }
+    return () => { bc?.close(); };
+  }, [started, lockMode, testId]);
 
   // Monitor opacity on mouse move
   useEffect(() => {
@@ -174,6 +220,11 @@ export default function ExamInterface() {
             if (!titleOverride) titleOverride = test.title;
             if (test.subjects.length > 0) { setTestSubjects(test.subjects); setSubject(test.subjects[0]); }
             if (test.chapters.length > 0) { setTestChapters(test.chapters); setChapter(test.chapters[0]); }
+            // Feature 2 — AI/custom tests are always open (logged only); faculty tests use their chosen mode.
+            const isFacultyTest = test.type === 'faculty_batch' || test.type === 'faculty_coaching';
+            const effMode: LockMode = isFacultyTest ? (test.lockMode ?? 'locked') : 'open';
+            setLockMode(effMode);
+            setAutoSubmitAfter(effMode === 'locked' ? (test.autoSubmitViolations ?? 2) : 0);
             if (!cancelled && qs.length > 0) {
               const meta: ExamMeta = {
                 id: test.id.slice(0, 30),
@@ -234,6 +285,65 @@ export default function ExamInterface() {
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testId, subject, chapter]);
+
+  // Feature 1 — build the "Important Formulas for this Test" list from the
+  // subject+chapters actually present in the loaded questions. Static bank first
+  // (instant); Gemini fills in any chapter the bank doesn't cover.
+  useEffect(() => {
+    if (loading || questions.length === 0) return;
+    let cancelled = false;
+
+    // Unique subject::chapter pairs across this test
+    const pairs = new Map<string, { subject: string; chapter: string }>();
+    questions.forEach(q => {
+      const s = (q.subject || subject || '').trim();
+      const c = (q.chapter || q.section || chapter || '').trim();
+      if (s && c) pairs.set(`${s}::${c}`, { subject: s, chapter: c });
+    });
+    if (pairs.size === 0 && subject && chapter) {
+      pairs.set(`${subject}::${chapter}`, { subject, chapter });
+    }
+    const pairList = [...pairs.values()];
+
+    const groups: FormulaGroup[] = [];
+    const aiTargets: Array<{ subject: string; chapter: string }> = [];
+    pairList.forEach(({ subject: s, chapter: c }) => {
+      const g = getChapterFormulas(s, c);
+      if (g && !groups.some(x => x.subject === g.subject && x.chapter === g.chapter)) groups.push(g);
+      else if (!g) aiTargets.push({ subject: s, chapter: c });
+    });
+
+    // Never show an empty section: fall back to subject highlights.
+    if (groups.length === 0) {
+      groups.push(...getSubjectHighlights([...new Set(pairList.map(p => p.subject))]));
+    }
+    setFormulaGroups(groups);
+
+    // Best-effort Gemini fill for up to 3 uncovered chapters.
+    if (hasAI() && aiTargets.length > 0) {
+      setFormulasLoading(true);
+      void (async () => {
+        const extra: FormulaGroup[] = [];
+        for (const { subject: s, chapter: c } of aiTargets.slice(0, 3)) {
+          const formulas = await generateFormulasAI(s, c);
+          if (cancelled) return;
+          if (formulas.length > 0) extra.push({ subject: s, chapter: c, formulas });
+        }
+        if (cancelled || extra.length === 0) { if (!cancelled) setFormulasLoading(false); return; }
+        // Prefer AI chapter-specific groups; drop generic subject highlights if we now have real matches.
+        setFormulaGroups(prev => {
+          const base = prev.length > 0 && aiTargets.length >= pairList.length ? [] : prev;
+          const merged = [...base];
+          extra.forEach(g => { if (!merged.some(x => x.subject === g.subject && x.chapter === g.chapter)) merged.push(g); });
+          return merged;
+        });
+        setFormulasLoading(false);
+      })();
+    }
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, questions]);
 
   const question   = questions[current - 1];
   const selectedKey = answers[current] ?? null;
@@ -362,6 +472,11 @@ export default function ExamInterface() {
           status:        'submitted',
           startedAt:     new Date().toISOString(),
           submittedAt:   new Date().toISOString(),
+          // Feature 2 — browser-lock telemetry
+          tabSwitchCount:     tabSwitches.current,
+          tabSwitchEvents:    tabEvents.current,
+          timeOutsideSeconds: timeOutsideRef.current,
+          lockViolations:     lockViolationsRef.current,
         });
       }
 
@@ -407,6 +522,13 @@ export default function ExamInterface() {
           chapters:       allChapters,
           topicAccuracy,
           totalQuestions: exam.totalQuestions,
+          // Feature 2 — exam-integrity telemetry
+          integrity: {
+            lockMode,
+            tabSwitchCount:     tabSwitches.current,
+            timeOutsideSeconds: timeOutsideRef.current,
+            lockViolations:     lockViolationsRef.current,
+          },
         },
       });
     } finally {
@@ -437,6 +559,25 @@ export default function ExamInterface() {
     const durationMin = Math.max(1, Math.round(exam.durationSeconds / 60));
     const mm = Math.floor(preCountdown / 60);
     const ss = preCountdown % 60;
+    const rules = lockMode === 'locked'
+      ? [
+          'Copy, paste, cut and right-click are disabled throughout the test.',
+          autoSubmitAfter > 0
+            ? `Do NOT leave the exam window — you will be warned, and the test auto-submits after ${autoSubmitAfter} leave${autoSubmitAfter === 1 ? '' : 's'}.`
+            : 'Do NOT leave the exam window — you will be warned and every leave is recorded.',
+          'Opening this exam in a second browser tab is blocked.',
+          'The timer starts the moment the test begins and will not pause.',
+          'Use the question palette to move between questions; your answers auto-save.',
+          'AI proctoring is active for the full duration of the test.',
+        ]
+      : [
+          'You may switch tabs if you need to — but every switch and the time you spend away is recorded and shown in your analytics.',
+          'Repeated tab switching is flagged for your faculty.',
+          'Nothing is blocked in this mode, so please keep your focus on the test.',
+          'The timer starts the moment the test begins and will not pause.',
+          'Use the question palette to move between questions; your answers auto-save.',
+          'AI proctoring is active for the full duration of the test.',
+        ];
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--bg)', color: 'var(--text-primary)' }}>
         <div className="w-full max-w-2xl rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}>
@@ -476,17 +617,20 @@ export default function ExamInterface() {
 
             {/* Rules */}
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Test Rules</h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Test Rules</h2>
+                <span
+                  className="text-label-sm font-bold px-2.5 py-1 rounded-full flex items-center gap-1"
+                  style={lockMode === 'locked'
+                    ? { backgroundColor: 'rgba(239,68,68,0.10)', color: '#DC2626' }
+                    : { backgroundColor: 'rgba(16,185,129,0.10)', color: '#059669' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{lockMode === 'locked' ? 'lock' : 'lock_open'}</span>
+                  {lockMode === 'locked' ? 'Locked Mode' : 'Open · switches logged'}
+                </span>
+              </div>
               <ul className="space-y-2.5">
-                {[
-                  'Copy, paste, cut and right-click are disabled throughout the test.',
-                  'Do NOT switch tabs or leave the test window — every switch is recorded and flagged.',
-                  'The timer starts the moment the test begins and will not pause.',
-                  'Each correct answer = +4 marks; each wrong answer = −1 (negative marking). Unattempted = 0.',
-                  'Use the question palette to move between questions; your answers auto-save.',
-                  'Do not refresh or press the browser back button during the test.',
-                  'AI proctoring is active for the full duration of the test.',
-                ].map((rule, i) => (
+                {rules.map((rule, i) => (
                   <li key={i} className="flex items-start gap-2.5 text-sm" style={{ color: 'var(--text-secondary)' }}>
                     <span className="material-symbols-outlined shrink-0" style={{ fontSize: '18px', color: '#10B981' }}>check_circle</span>
                     <span>{rule}</span>
@@ -494,6 +638,52 @@ export default function ExamInterface() {
                 ))}
               </ul>
             </div>
+
+            {/* Important formulas for this test (Feature 1) */}
+            {(formulaGroups.length > 0 || formulasLoading) && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#5B4FE8' }}>functions</span>
+                    Important Formulas for this Test
+                  </h2>
+                  {formulasLoading && (
+                    <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-faint)' }}>
+                      <span className="w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: '#5B4FE8', borderTopColor: 'transparent' }} />
+                      Adding more…
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                  {formulaGroups.map(group => (
+                    <div
+                      key={`${group.subject}::${group.chapter}`}
+                      className="rounded-xl p-4"
+                      style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}
+                    >
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <span className="text-label-sm font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8' }}>
+                          {group.subject}
+                        </span>
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{group.chapter}</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                        {group.formulas.map((f, i) => (
+                          <div key={i} className="flex flex-col">
+                            <span className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>{f.name}</span>
+                            <span className="text-sm font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{f.expr}</span>
+                            {f.note && <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{f.note}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] mt-2" style={{ color: 'var(--text-faint)' }}>
+                  Auto-selected from this test's subjects &amp; chapters. The timer keeps running while you revise.
+                </p>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
@@ -528,7 +718,7 @@ export default function ExamInterface() {
   return (
     <div
       className="min-h-screen flex flex-col"
-      style={{ backgroundColor: 'var(--bg)', color: 'var(--text-primary)', userSelect: 'none' }}
+      style={{ backgroundColor: 'var(--bg)', color: 'var(--text-primary)', userSelect: lockMode === 'locked' ? 'none' : 'auto' }}
     >
       {/* ── Top bar ── */}
       <header
@@ -816,6 +1006,27 @@ export default function ExamInterface() {
           </div>
         </aside>
       </div>
+
+      {multiTabBlocked && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-6" style={{ backgroundColor: 'rgba(3,7,18,0.85)', backdropFilter: 'blur(12px)' }}>
+          <div className="w-full max-w-md rounded-2xl p-6 text-center shadow-2xl" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 28 }}>tab_close</span>
+            </div>
+            <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>This exam is already open</h2>
+            <p className="text-sm leading-6 mb-5" style={{ color: 'var(--text-secondary)' }}>
+              This test is running in another browser tab. To keep the exam secure, it can only be open in one place. Close this tab and continue in the original one.
+            </p>
+            <button
+              type="button"
+              className="btn-outline btn-md w-full justify-center"
+              onClick={() => navigate(-1)}
+            >
+              Go back
+            </button>
+          </div>
+        </div>
+      )}
 
       {showTabWarning && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-6" style={{ backgroundColor: 'rgba(3,7,18,0.72)', backdropFilter: 'blur(10px)' }}>

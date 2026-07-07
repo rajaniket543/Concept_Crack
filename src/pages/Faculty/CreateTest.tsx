@@ -4,7 +4,7 @@ import { getAuthSession } from '../../lib/auth';
 import { getStudentStream } from '../../lib/stream';
 import { getChaptersForSubject } from '../../lib/questions';
 import { getQuestionsForCustomTest } from '../../lib/questions';
-import { createTest, type TestType, type Difficulty } from '../../lib/tests';
+import { createTest, type TestType, type Difficulty, type LockMode } from '../../lib/tests';
 import { pathFor } from '../../lib/pages';
 import { useToast } from '../../components/Toast';
 
@@ -36,6 +36,8 @@ export default function CreateTest() {
   const [endAt, setEndAt]             = useState('');
   const [instructions, setInstructions] = useState('');
   const [negativeMarking, setNeg]     = useState(false);
+  const [lockMode, setLockMode]       = useState<LockMode>('locked');
+  const [autoSubmitViolations, setAutoSubmit] = useState(2);
   const [loadingCh, setLoadingCh]     = useState(false);
   const [submitting, setSubmitting]   = useState(false);
 
@@ -79,6 +81,8 @@ export default function CreateTest() {
         endAt:     endAt   || null,
         instructions: instructions.trim(),
         negativeMarking,
+        lockMode,
+        autoSubmitViolations: lockMode === 'locked' ? autoSubmitViolations : 0,
         assignedTo: 'all',
         questionIds,
         stream,
@@ -292,6 +296,50 @@ export default function CreateTest() {
             style={{ transform: negativeMarking ? 'translateX(20px)' : 'translateX(0)' }} />
         </button>
         <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Enable negative marking (−1 per wrong answer)</span>
+      </div>
+
+      {/* Browser security mode (Feature 2) */}
+      <div className="space-y-2">
+        <label className="text-label-sm font-bold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Browser Security</label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {([
+            { val: 'open',   label: 'Allow Tab Switching', desc: 'Tab switches are logged and the student is flagged — no blocking.', icon: 'tab' },
+            { val: 'locked', label: 'Complete Lock Mode',  desc: 'Blocks tab-switch, copy/paste, right-click & dev-tools. Warns and can auto-submit.', icon: 'lock' },
+          ] as const).map(opt => (
+            <button
+              key={opt.val}
+              type="button"
+              onClick={() => setLockMode(opt.val)}
+              className="text-left rounded-2xl p-4 flex gap-3 items-start transition-all"
+              style={{
+                backgroundColor: lockMode === opt.val ? 'rgba(91,79,232,0.06)' : 'var(--surface)',
+                border: `1.5px solid ${lockMode === opt.val ? '#5B4FE8' : 'var(--border)'}`,
+              }}
+            >
+              <span className="material-symbols-outlined shrink-0 mt-0.5" style={{ fontSize: 20, color: lockMode === opt.val ? '#5B4FE8' : 'var(--text-muted)' }}>
+                {opt.icon}
+              </span>
+              <div>
+                <div className="text-sm font-semibold" style={{ color: lockMode === opt.val ? '#5B4FE8' : 'var(--text-primary)' }}>{opt.label}</div>
+                <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{opt.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+        {lockMode === 'locked' && (
+          <div className="flex items-center flex-wrap gap-2 mt-1 px-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
+            <span>Auto-submit after</span>
+            <select
+              value={autoSubmitViolations}
+              onChange={e => setAutoSubmit(Number(e.target.value))}
+              className="rounded-lg px-2 py-1 text-sm"
+              style={{ backgroundColor: 'var(--surface)', border: '1.5px solid var(--border)', color: 'var(--text-primary)' }}
+            >
+              {[0, 1, 2, 3, 5].map(n => <option key={n} value={n}>{n === 0 ? 'never' : n}</option>)}
+            </select>
+            <span>window-leave{autoSubmitViolations === 1 ? '' : 's'}{autoSubmitViolations === 0 ? ' (warnings only)' : ''}.</span>
+          </div>
+        )}
       </div>
 
       <button

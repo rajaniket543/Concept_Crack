@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import Layout from './components/Layout';
 import RouteProgress from './components/RouteProgress';
 import ArcvionBadge from './components/ArcvionBadge';
+import ActivityTracker from './components/ActivityTracker';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
@@ -21,6 +22,10 @@ import FacultyDashboard from './pages/Faculty/FacultyDashboard';
 import QuestionBankManagement from './pages/Faculty/QuestionBankManagement';
 import StudentDetail from './pages/Faculty/StudentDetail';
 import CreateTest from './pages/Faculty/CreateTest';
+import UploadQuestions from './pages/Faculty/UploadQuestions';
+import AIGenerateTest from './pages/Faculty/AIGenerateTest';
+import ManualTestBuilder from './pages/Faculty/ManualTestBuilder';
+import TestVerification from './pages/Faculty/TestVerification';
 import ManageTests from './pages/Faculty/ManageTests';
 import StreamSelect from './pages/StreamSelect';
 import TestChatBot from './pages/Student/TestChatBot';
@@ -100,15 +105,19 @@ const facultyNav = [
   {
     label: 'Tests',
     items: [
-      { key: 'createTest' as PageKey,   label: 'Create Test',    icon: 'add_circle' },
-      { key: 'manageTests' as PageKey,  label: 'My Tests',       icon: 'quiz' },
+      { key: 'createTest' as PageKey,   label: 'Create Test',      icon: 'add_circle' },
+      { key: 'aiGenerate' as PageKey,   label: 'AI Generator',     icon: 'auto_awesome' },
+      { key: 'buildTest' as PageKey,    label: 'Build a Test',     icon: 'construction' },
+      { key: 'manageTests' as PageKey,  label: 'My Tests',         icon: 'quiz' },
     ],
   },
   {
     label: 'Manage',
     items: [
-      { key: 'questionBank' as PageKey, label: 'Question Bank',  icon: 'library_books' },
-      { key: 'messages' as PageKey,     label: 'Messages',       icon: 'chat' },
+      { key: 'questionBank' as PageKey,    label: 'Question Bank',   icon: 'library_books' },
+      { key: 'uploadQuestions' as PageKey, label: 'Upload Questions', icon: 'upload_file' },
+      { key: 'verifications' as PageKey,   label: 'Verifications',   icon: 'fact_check' },
+      { key: 'messages' as PageKey,        label: 'Messages',        icon: 'chat' },
     ],
   },
   {
@@ -182,6 +191,7 @@ export default function App() {
   return (
     <>
       <RouteProgress />
+      <ActivityTracker />
       <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/about" element={<Landing />} />
@@ -216,6 +226,10 @@ export default function App() {
         <Route path="questions" element={<RequireAuth roles={['faculty', 'admin']}><QuestionBankManagement /></RequireAuth>} />
         <Route path="student/:studentId" element={<RequireAuth roles={['faculty', 'admin']}><StudentDetail /></RequireAuth>} />
         <Route path="create-test" element={<RequireAuth roles={['faculty', 'admin']}><CreateTest /></RequireAuth>} />
+        <Route path="upload-questions" element={<RequireAuth roles={['faculty', 'admin']}><UploadQuestions /></RequireAuth>} />
+        <Route path="ai-generate" element={<RequireAuth roles={['faculty', 'admin']}><AIGenerateTest /></RequireAuth>} />
+        <Route path="build-test" element={<RequireAuth roles={['faculty', 'admin']}><ManualTestBuilder /></RequireAuth>} />
+        <Route path="verifications" element={<RequireAuth roles={['faculty', 'admin']}><TestVerification /></RequireAuth>} />
         <Route path="tests" element={<RequireAuth roles={['faculty', 'admin']}><ManageTests /></RequireAuth>} />
       </Route>
 

@@ -20,6 +20,10 @@ export type PageKey =
   | 'questionBank'
   | 'studentDetail'
   | 'createTest'
+  | 'uploadQuestions'
+  | 'aiGenerate'
+  | 'buildTest'
+  | 'verifications'
   | 'manageTests'
   | 'admin'
   | 'users'
@@ -58,6 +62,10 @@ export const pages: PageDef[] = [
   { key: 'questionBank', label: 'Question Bank', group: 'Faculty', path: '/faculty/questions' },
   { key: 'studentDetail', label: 'Student Detail', group: 'Faculty', path: '/faculty/student' },
   { key: 'createTest', label: 'Create Test', group: 'Faculty', path: '/faculty/create-test' },
+  { key: 'uploadQuestions', label: 'Upload Questions', group: 'Faculty', path: '/faculty/upload-questions' },
+  { key: 'aiGenerate', label: 'AI Test Generator', group: 'Faculty', path: '/faculty/ai-generate' },
+  { key: 'buildTest', label: 'Build a Test', group: 'Faculty', path: '/faculty/build-test' },
+  { key: 'verifications', label: 'Verifications', group: 'Faculty', path: '/faculty/verifications' },
   { key: 'manageTests', label: 'Manage Tests', group: 'Faculty', path: '/faculty/tests' },
   { key: 'admin', label: 'Admin Dashboard', group: 'Admin', path: '/admin' },
   { key: 'users', label: 'User Management', group: 'Admin', path: '/admin/users' },

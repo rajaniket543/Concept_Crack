@@ -49,6 +49,14 @@ service cloud.firestore {
       allow write: if isAuthenticated() && (isOwner(uid) || isAdmin());
     }
 
+    // ── /studentActivity/{uid} ─────────────────────────────────────────────────
+    // Website-activity / study-time tracking (Feature 4). The student writes their
+    // own doc; parents, faculty and admins can read it.
+    match /studentActivity/{uid} {
+      allow read:  if isAuthenticated() && (isOwner(uid) || isAdminOrFaculty() || isParent());
+      allow write: if isAuthenticated() && isOwner(uid);
+    }
+
     // ── /institutes/{id} ──────────────────────────────────────────────────────
     // Any signed-in user can read. Only admins can write.
     match /institutes/{id} {
@@ -58,12 +66,13 @@ service cloud.firestore {
 
     // ── /questions/{id} ───────────────────────────────────────────────────────
     // Any signed-in user can read questions (needed for exams).
-    // Faculty and admins can create/update. Only admins can delete.
+    // Faculty and admins can create/update. Admins delete any; faculty may delete
+    // questions they uploaded themselves.
     match /questions/{id} {
       allow read:   if isAuthenticated();
       allow create: if isAdminOrFaculty();
       allow update: if isAdminOrFaculty();
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (isFaculty() && resource.data.uploadedBy == request.auth.uid);
     }
 
     // ── /exams/{id} ───────────────────────────────────────────────────────────
@@ -111,9 +120,49 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── /tests/{id} ───────────────────────────────────────────────────────────
+    // Any signed-in user can read (students see assigned/coaching tests; the exam
+    // reads test config). Faculty and admins create/update — this also covers the
+    // approval workflow: admins forward/finalize and faculty verifiers record their
+    // decision (Feature 8). Admins delete any; faculty may delete their own.
+    match /tests/{id} {
+      allow read:   if isAuthenticated();
+      allow create: if isAdminOrFaculty();
+      allow update: if isAdminOrFaculty();
+      allow delete: if isAdmin() || (isFaculty() && resource.data.createdBy == request.auth.uid);
+    }
+
+    // ── /testAttempts/{id} ────────────────────────────────────────────────────
+    // Students create/read their own attempts; faculty and admins read all.
+    match /testAttempts/{id} {
+      allow read:   if isAuthenticated() && (resource.data.studentId == request.auth.uid || isAdminOrFaculty());
+      allow create: if isStudent() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.studentId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // ── /chapters/{id} ────────────────────────────────────────────────────────
+    match /chapters/{id} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdminOrFaculty();
+    }
+
+    // ── /studentProgress/{uid} ─────────────────────────────────────────────────
+    // Owner writes; owner, parents, faculty and admins can read.
+    match /studentProgress/{uid} {
+      allow read:  if isAuthenticated() && (isOwner(uid) || isAdminOrFaculty() || isParent());
+      allow write: if isAuthenticated() && isOwner(uid);
+    }
+
+    // ── /studentWeakTopics/{uid} ───────────────────────────────────────────────
+    match /studentWeakTopics/{uid} {
+      allow read:  if isAuthenticated() && (isOwner(uid) || isAdminOrFaculty() || isParent());
+      allow write: if isAuthenticated() && isOwner(uid);
+    }
+
     // ── /_meta/{id} ───────────────────────────────────────────────────────────
-    // Used for seed tracking. Any authenticated user can read/write
-    // so the one-time demo setup button works before admin is assigned.
+    // Seed tracking + the global question-code counter (Feature 3). Any
+    // authenticated user can read/write.
     match /_meta/{id} {
       allow read, write: if isAuthenticated();
     }
