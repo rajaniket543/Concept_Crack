@@ -65,19 +65,7 @@ export default function StudentDashboard() {
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
-      <TopBar
-        breadcrumb={[{ label: 'Dashboard' }]}
-        actions={
-          <Link
-            to="/student/exam"
-            className="btn-primary btn-md flex items-center gap-1.5"
-            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.30)' }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>quiz</span>
-            Take Mock Test
-          </Link>
-        }
-      />
+      <TopBar breadcrumb={[{ label: 'Dashboard' }]} />
 
       <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">
         {/* ── Resume Progress Banner ── */}

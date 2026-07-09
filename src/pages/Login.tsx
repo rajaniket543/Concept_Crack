@@ -2,8 +2,8 @@ import { FormEvent, KeyboardEvent, useEffect, useRef, useState, type InputHTMLAt
 import { Link, useNavigate } from 'react-router-dom';
 import { login as authLogin, forgotPassword, sendPhoneOtp, verifyPhoneOtp, type ConfirmationResult } from '../lib/auth';
 import { getStudentStream } from '../lib/stream';
-import { seedDemoAccounts, markDemoSeeded, seedConceptCrackAccounts, type SeedResult, type CCAccountResult } from '../lib/seed-demo';
 import { LoginRole, pathFor } from '../lib/pages';
+import Spinner from '../components/Spinner';
 import { useTheme } from '../lib/theme';
 
 const SUPPORT_EMAIL = 'support@conceptcrack.app';
@@ -39,11 +39,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(true);
   const [capsLock, setCapsLock] = useState(false);
-  const [seedLoading, setSeedLoading] = useState(false);
-  const [seedResults, setSeedResults] = useState<SeedResult[] | null>(null);
-  const [ccLoading,   setCCLoading]   = useState(false);
-  const [ccResults,   setCCResults]   = useState<CCAccountResult[] | null>(null);
-  const [ccProgress,  setCCProgress]  = useState({ done: 0, total: 53, current: '' });
   const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
   const recaptchaRef = useRef<HTMLDivElement>(null);
 
@@ -121,38 +116,6 @@ export default function Login() {
     }
   }
 
-  async function handleSeedDemo() {
-    setSeedLoading(true);
-    setSeedResults(null);
-    setErrorMessage(null);
-    try {
-      const results = await seedDemoAccounts();
-      await markDemoSeeded();
-      setSeedResults(results);
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Seeding failed.');
-    } finally {
-      setSeedLoading(false);
-    }
-  }
-
-  async function handleSetupAllAccounts() {
-    setCCLoading(true);
-    setCCResults(null);
-    setCCProgress({ done: 0, total: 53, current: '' });
-    setErrorMessage(null);
-    try {
-      const results = await seedConceptCrackAccounts((done, total, current) => {
-        setCCProgress({ done, total, current });
-      });
-      setCCResults(results);
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Setup failed.');
-    } finally {
-      setCCLoading(false);
-    }
-  }
-
   const submitLabel = isPhoneMethod ? (phoneConfirmation ? 'Verify OTP' : 'Send OTP') : 'Sign in';
 
   return (
@@ -165,7 +128,7 @@ export default function Login() {
     >
       {/* ── Left panel ── */}
       <aside
-        className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden"
+        className="hidden lg:flex flex-col justify-between p-10 xl:p-12 relative overflow-hidden"
         style={{ background: 'linear-gradient(160deg, #0F0E17 0%, #1A1929 100%)' }}
       >
         {/* Gradient orbs */}
@@ -175,32 +138,50 @@ export default function Login() {
           <div className="absolute top-1/2 right-10 w-32 h-32 rounded-full blur-2xl opacity-15" style={{ background: 'radial-gradient(circle, #06B6D4, transparent)' }} />
         </div>
 
-        <div className="relative">
+        {/* Full-bleed hero photo covering the left half.
+            Save your image as  public/login-hero.jpg  (falls back to the
+            gradient below if the file is not present). */}
+        <img
+          src="/login-hero.jpg"
+          alt=""
+          aria-hidden="true"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          className="absolute inset-0 w-full h-full object-cover scale-[1.02]"
+          style={{ objectPosition: 'center' }}
+        />
+        {/* Dark overlay so the headline, features and testimonial stay readable */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          aria-hidden="true"
+          style={{ background: 'linear-gradient(160deg, rgba(15,14,23,0.90) 0%, rgba(26,25,41,0.78) 55%, rgba(15,14,23,0.92) 100%)' }}
+        />
+
+        <div className="relative max-w-[460px]">
           <Link to={pathFor('landing')} className="flex items-center gap-2.5">
             <img src="/logo.png" alt="Concept Crack" className="w-9 h-9 rounded-xl object-cover" />
-            <span className="font-bold text-white text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
+            <span className="font-bold text-white text-sm" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
           </Link>
         </div>
 
-        <div className="relative">
-          <h2 className="text-3xl font-bold leading-tight text-white mb-3" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', letterSpacing: '-0.02em' }}>
+        <div className="relative max-w-[460px]">
+          <h2 className="text-2xl xl:text-[2.15rem] font-bold leading-tight text-white mb-2.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', letterSpacing: '-0.02em' }}>
             Your path to the<br />top rank starts here
           </h2>
-          <p className="text-sm mb-10" style={{ color: '#9CA3AF' }}>
+          <p className="text-xs xl:text-sm mb-8" style={{ color: '#9CA3AF' }}>
             Join 2M+ students using AI to crack JEE, NEET, UPSC, and CAT.
           </p>
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {leftPanelFeatures.map(feat => (
               <div key={feat.label} className="flex items-center gap-4">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                   style={{ backgroundColor: 'rgba(91,79,232,0.20)', border: '1px solid rgba(91,79,232,0.30)' }}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#818CF8' }}>{feat.icon}</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#818CF8' }}>{feat.icon}</span>
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-white">{feat.label}</div>
-                  <div className="text-xs" style={{ color: '#6B7280' }}>{feat.desc}</div>
+                  <div className="text-xs xl:text-sm font-semibold text-white">{feat.label}</div>
+                  <div className="text-[11px] xl:text-xs" style={{ color: '#6B7280' }}>{feat.desc}</div>
                 </div>
               </div>
             ))}
@@ -209,27 +190,27 @@ export default function Login() {
 
         {/* Testimonial card */}
         <div
-          className="relative rounded-xl p-5"
+          className="relative rounded-xl p-4 xl:p-5 max-w-[460px]"
           style={{ backgroundColor: 'rgba(30,29,46,0.80)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)' }}
         >
           <div className="flex mb-2.5 gap-0.5">
             {[1,2,3,4,5].map(i => <span key={i} className="material-symbols-outlined filled text-amber-400" style={{ fontSize: '14px' }}>star</span>)}
           </div>
-          <p className="text-sm mb-3 italic" style={{ color: '#D1D5DB', lineHeight: 1.6 }}>
+          <p className="text-xs xl:text-sm mb-3 italic" style={{ color: '#D1D5DB', lineHeight: 1.55 }}>
             "Concept Crack's AI identified my weak areas in Physics in just 3 days. I improved my rank from 8,000 to 247."
           </p>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>PS</div>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>PS</div>
             <div>
-              <div className="text-sm font-semibold text-white">Priya Sharma</div>
-              <div className="text-xs" style={{ color: '#6B7280' }}>JEE Advanced — AIR 247</div>
+              <div className="text-xs xl:text-sm font-semibold text-white">Priya Sharma</div>
+              <div className="text-[11px] xl:text-xs" style={{ color: '#6B7280' }}>JEE Advanced — AIR 247</div>
             </div>
           </div>
         </div>
       </aside>
 
       {/* ── Right panel ── */}
-      <main className="relative flex items-center justify-center p-6 lg:p-14" style={{ backgroundColor: isDark ? '#0F0E17' : '#FAFAFA' }}>
+      <main className="relative flex items-center justify-center p-6 lg:p-10 xl:p-12" style={{ backgroundColor: isDark ? '#0F0E17' : '#FAFAFA' }}>
         <Link
           to={pathFor('landing')}
           className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:opacity-80"
@@ -238,7 +219,15 @@ export default function Login() {
           <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>info</span>
           About Us
         </Link>
-        <div className="w-full max-w-[420px]">
+        <div
+          className="w-full max-w-[620px] rounded-[32px] p-6 sm:p-8 lg:p-10"
+          style={{
+            backgroundColor: isDark ? 'rgba(30,29,46,0.72)' : 'rgba(255,255,255,0.86)',
+            border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
+            boxShadow: isDark ? '0 24px 80px rgba(0,0,0,0.35)' : '0 24px 80px rgba(17,24,39,0.08)',
+            backdropFilter: 'blur(18px)',
+          }}
+        >
           {/* Mobile logo */}
           <div className="lg:hidden mb-8">
             <Link to={pathFor('landing')} className="inline-flex items-center gap-2">
@@ -429,7 +418,7 @@ export default function Login() {
               style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
             >
               {loading ? (
-                <span className="material-symbols-outlined animate-spin" style={{ fontSize: '18px' }}>progress_activity</span>
+                <Spinner size={16} />
               ) : (
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
                   {method === 'otp' && !challengeId ? 'send' : 'login'}
@@ -438,99 +427,6 @@ export default function Login() {
               {loading ? 'Signing in...' : submitLabel}
             </button>
           </form>
-
-          {/* First-time setup */}
-          <div className="mt-5 pt-5 border-t" style={{ borderColor: isDark ? '#2D2B42' : '#E5E7EB' }}>
-            <p className="text-xs text-center mb-3" style={{ color: isDark ? '#4B5563' : '#9CA3AF' }}>
-              First time? Set up accounts in Firebase:
-            </p>
-
-            {/* Full 53-account seed */}
-            <button
-              type="button"
-              onClick={handleSetupAllAccounts}
-              disabled={ccLoading || seedLoading}
-              className="w-full h-10 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all hover:-translate-y-px disabled:opacity-60 disabled:pointer-events-none mb-2"
-              style={{
-                background: ccLoading ? undefined : 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.12))',
-                border: `1px solid ${isDark ? 'rgba(16,185,129,0.30)' : 'rgba(16,185,129,0.40)'}`,
-                color: '#10B981',
-              }}
-            >
-              {ccLoading
-                ? <><span className="material-symbols-outlined animate-spin" style={{ fontSize: '16px' }}>progress_activity</span> Creating… ({ccProgress.done}/{ccProgress.total})</>
-                : <><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>group_add</span> Setup All Accounts (53 accounts)</>
-              }
-            </button>
-
-            {/* Demo 4-account seed */}
-            <button
-              type="button"
-              onClick={handleSeedDemo}
-              disabled={seedLoading || ccLoading}
-              className="w-full h-10 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all hover:-translate-y-px disabled:opacity-60 disabled:pointer-events-none"
-              style={{
-                backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6',
-                border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
-                color: isDark ? '#9CA3AF' : '#6B7280',
-              }}
-            >
-              {seedLoading
-                ? <><span className="material-symbols-outlined animate-spin" style={{ fontSize: '16px' }}>progress_activity</span> Setting up…</>
-                : <><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>database</span> Setup Demo Accounts (4 accounts)</>
-              }
-            </button>
-
-            {/* CC Seed results */}
-            {ccResults && (
-              <div className="mt-3">
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  {ccResults.map(r => (
-                    <div
-                      key={r.email}
-                      className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xs"
-                      style={{
-                        backgroundColor: r.status === 'error' ? 'rgba(239,68,68,0.08)' : r.status === 'created' ? 'rgba(16,185,129,0.06)' : isDark ? '#1E1D2E' : '#F9FAFB',
-                        border: `1px solid ${r.status === 'error' ? 'rgba(239,68,68,0.2)' : r.status === 'created' ? 'rgba(16,185,129,0.15)' : isDark ? '#2D2B42' : '#E5E7EB'}`,
-                      }}
-                    >
-                      <span className="truncate max-w-[200px]" style={{ color: isDark ? '#D1D5DB' : '#374151' }}>{r.email}</span>
-                      <span className="font-semibold shrink-0 ml-2" style={{ color: r.status === 'error' ? '#EF4444' : r.status === 'created' ? '#10B981' : '#6B7280' }}>
-                        {r.status === 'created' ? '✓' : r.status === 'exists' ? '•' : '✗'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-center text-xs pt-2" style={{ color: '#10B981' }}>
-                  {ccResults.filter(r => r.status === 'created').length} created · {ccResults.filter(r => r.status === 'exists').length} already existed · Sign in to continue
-                </p>
-              </div>
-            )}
-
-            {/* Demo seed results */}
-            {seedResults && (
-              <div className="mt-3 space-y-1.5">
-                {seedResults.map(r => (
-                  <div
-                    key={r.email}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg text-xs"
-                    style={{
-                      backgroundColor: r.status === 'error' ? 'rgba(239,68,68,0.08)' : r.status === 'created' ? 'rgba(16,185,129,0.08)' : isDark ? '#1E1D2E' : '#F9FAFB',
-                      border: `1px solid ${r.status === 'error' ? 'rgba(239,68,68,0.2)' : r.status === 'created' ? 'rgba(16,185,129,0.2)' : isDark ? '#2D2B42' : '#E5E7EB'}`,
-                    }}
-                  >
-                    <span style={{ color: isDark ? '#D1D5DB' : '#374151' }}>{r.email}</span>
-                    <span className="font-semibold" style={{ color: r.status === 'error' ? '#EF4444' : r.status === 'created' ? '#10B981' : '#6B7280' }}>
-                      {r.status === 'created' ? '✓ Created' : r.status === 'exists' ? '• Exists' : `✗ ${r.error}`}
-                    </span>
-                  </div>
-                ))}
-                <p className="text-center text-xs pt-1" style={{ color: '#10B981' }}>
-                  Done! Sign in with the pre-filled credentials above.
-                </p>
-              </div>
-            )}
-          </div>
 
           <p className="text-xs text-center mt-4" style={{ color: isDark ? '#4B5563' : '#9CA3AF' }}>
             <a href={`mailto:${SUPPORT_EMAIL}`} className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Contact admin</a>

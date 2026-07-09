@@ -10,8 +10,15 @@ const STATUS_META: Record<string, { label: string; bg: string; color: string }> 
   pending_approval: { label: 'Pending Approval', bg: 'rgba(245,158,11,0.10)',  color: '#B45309' },
   approved:         { label: 'Approved',         bg: 'rgba(91,79,232,0.10)',   color: '#5B4FE8' },
   rejected:         { label: 'Rejected',         bg: 'rgba(239,68,68,0.10)',   color: '#EF4444' },
+  final_rejected:   { label: 'Final Rejected',   bg: 'rgba(239,68,68,0.14)',   color: '#DC2626' },
   active:           { label: 'Active',           bg: 'rgba(16,185,129,0.10)',  color: '#059669' },
   closed:           { label: 'Closed',           bg: 'rgba(107,114,128,0.10)', color: '#6B7280' },
+};
+
+const VERIFY_META: Record<string, { label: string; bg: string; color: string }> = {
+  awaiting: { label: 'Awaiting verification', bg: 'rgba(59,130,246,0.10)', color: '#2563EB' },
+  verified: { label: 'Verified',              bg: 'rgba(16,185,129,0.10)', color: '#059669' },
+  rejected: { label: 'Verifier rejected',     bg: 'rgba(239,68,68,0.10)',  color: '#DC2626' },
 };
 
 function formatDuration(secs: number) {
@@ -114,6 +121,12 @@ export default function ManageTests() {
                       <span className="text-label-sm px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-muted)' }}>
                         {test.type === 'faculty_batch' ? 'Batch' : 'Coaching'}
                       </span>
+                      {test.verification && test.verification.stage !== 'none' && test.status === 'pending_approval' && VERIFY_META[test.verification.stage] && (
+                        <span className="text-label-sm font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: VERIFY_META[test.verification.stage].bg, color: VERIFY_META[test.verification.stage].color }}>
+                          {VERIFY_META[test.verification.stage].label}
+                          {test.verification.verifierName ? ` · ${test.verification.verifierName}` : ''}
+                        </span>
+                      )}
                     </div>
                     <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{test.title}</h3>
                     <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -156,13 +169,21 @@ export default function ManageTests() {
                       Ends {new Date(test.endAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
-                  {test.status === 'rejected' && test.rejectionNote && (
+                  {(test.status === 'rejected' || test.status === 'final_rejected') && test.rejectionNote && (
                     <span className="flex items-center gap-1" style={{ color: '#EF4444' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: 14 }}>error</span>
                       {test.rejectionNote}
                     </span>
                   )}
                 </div>
+                {test.status === 'final_rejected' && (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.20)' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#DC2626' }}>block</span>
+                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      This submission is finally rejected and can't be edited. Create a fresh test to restart the approval workflow.
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })}

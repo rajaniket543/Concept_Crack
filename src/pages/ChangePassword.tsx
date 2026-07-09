@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import Spinner from '../components/Spinner';
 import { useNavigate } from 'react-router-dom';
 import { completePasswordChange } from '../lib/accountManagement';
 import { getAuthSession, setAuthSession } from '../lib/auth';
@@ -183,7 +184,7 @@ export default function ChangePassword() {
             style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
           >
             {loading
-              ? <><span className="material-symbols-outlined animate-spin" style={{ fontSize: '18px' }}>progress_activity</span> Saving…</>
+              ? <><Spinner size={16} /> Saving…</>
               : <><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span> Set Password &amp; Continue</>
             }
           </button>
