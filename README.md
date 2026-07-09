@@ -194,16 +194,7 @@ vars are applied at build time).
 
 ---
 
-## 🏢 Built by Arcvion
 
-Concept Crack is a product of **[Arcvion](https://arcvion.in)** — a software &
-product studio building AI-first web, mobile, and cloud solutions. Learn more on
-the in-app **"Built by Arcvion"** page (linked in the footer and sidebar).
 
-![Built by Arcvion](docs/screenshots/built-by-arcvion.png)
 
-<div align="center">
 
-Built with ❤️ by [**Arcvion**](https://arcvion.in)
-
-</div>
