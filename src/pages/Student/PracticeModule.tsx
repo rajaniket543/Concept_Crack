@@ -1,8 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import TopBar from '../../components/TopBar';
+import { getAuthSession } from '../../lib/auth';
+import { getStudentDashboard } from '../../lib/db';
 import { getStudentStream } from '../../lib/stream';
 import { getChaptersForSubject, type ChapterInfo } from '../../lib/questions';
+
+interface AIRecommendation {
+  title: string;
+  subject: string;
+  rationale: string;
+  durationMins: number;
+}
 
 const SUBJECT_META: Record<string, { color: string; bg: string; icon: string; gradient: string }> = {
   Physics:     { color: '#5B4FE8', bg: 'rgba(91,79,232,0.10)',   icon: 'electric_bolt', gradient: 'linear-gradient(135deg, #5B4FE8, #818CF8)' },
@@ -26,6 +35,7 @@ export default function PracticeModule() {
   const [chapters, setChapters] = useState<ChapterInfo[]>([]);
   const [loading, setLoading]   = useState(true);
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +50,22 @@ export default function PracticeModule() {
         if (cancelled) return;
         setLoading(false);
       });
+
+    const uid = getAuthSession()?.user?.id;
+    if (uid) {
+      getStudentDashboard(uid)
+        .then(payload => {
+          if (cancelled) return;
+          setRecommendations((payload.aiRecommendations ?? []).slice(0, 4) as AIRecommendation[]);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setRecommendations([]);
+        });
+    } else {
+      setRecommendations([]);
+    }
+
     return () => { cancelled = true; };
   // subjects array is derived from stream which is stable
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,6 +137,59 @@ export default function PracticeModule() {
             );
           })}
         </div>
+
+        {recommendations.length > 0 && (
+          <div className="rounded-2xl p-5 space-y-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-label-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+                  AI Recommended Practice
+                </h2>
+                <p className="text-body-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Focus on the topics that will move your score the fastest.
+                </p>
+              </div>
+              <Link to="/student/insights" className="btn-outline btn-sm">
+                View insights
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+              {recommendations.map(rec => {
+                const subject = rec.subject || thirdSubject;
+                const meta = SUBJECT_META[subject] ?? SUBJECT_META.Physics;
+                return (
+                  <button
+                    key={`${rec.title}-${subject}`}
+                    type="button"
+                    onClick={() => setActiveSubject(subject)}
+                    className="text-left rounded-xl p-4 transition-all duration-200 hover:-translate-y-0.5"
+                    style={{ backgroundColor: 'var(--surface-muted)', border: `1px solid ${activeSubject === subject ? meta.color : 'var(--border)'}` }}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: meta.bg }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 20, color: meta.color }}>{meta.icon}</span>
+                      </div>
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: 'var(--surface)', color: meta.color, border: `1px solid ${meta.color}20` }}>
+                        {subject}
+                      </span>
+                    </div>
+                    <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                      {rec.title}
+                    </div>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      {rec.rationale}
+                    </p>
+                    <div className="flex items-center justify-between mt-4">
+                      <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{rec.durationMins} min</span>
+                      <span className="text-label-sm font-semibold" style={{ color: meta.color }}>Focus this</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Loading skeleton */}
         {loading && (

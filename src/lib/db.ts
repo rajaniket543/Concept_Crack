@@ -184,6 +184,24 @@ export async function listUsers(search = '', role?: string) {
   return users;
 }
 
+// ── Faculty (verifier picker — Feature 8) ─────────────────────────────────────
+export async function listFaculty(excludeUid?: string): Promise<Array<{ id: string; name: string; email: string; designation?: string }>> {
+  try {
+    const snap = await getDocs(collection(db, Col.users));
+    const all = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Record<string, unknown>[];
+    return all
+      .filter(u => u['role'] === 'faculty' && u['id'] !== excludeUid)
+      .map(u => ({
+        id: String(u['id']),
+        name: (u['name'] as string) ?? (u['email'] as string) ?? String(u['id']),
+        email: (u['email'] as string) ?? '',
+        designation: u['designation'] as string | undefined,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 // ── Institutes ────────────────────────────────────────────────────────────────
 export async function listInstitutes(region = 'All', plan = 'All') {
   const snap = await getDocs(collection(db, Col.institutes));

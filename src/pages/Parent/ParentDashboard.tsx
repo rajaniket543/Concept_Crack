@@ -6,6 +6,7 @@ import { parentActivity, parentGrowth, parentMastery, parentMetrics, parentRepor
 import { pathFor } from '../../lib/pages';
 import { getAuthSession } from '../../lib/auth';
 import { getLinkedStudentData, getStudentDashboard } from '../../lib/db';
+import { getActivitySummary, formatDuration, ACTIVITY_META, UPCOMING_ACTIVITIES, type ActivitySummary, type ActivityCategory } from '../../lib/activity';
 
 export default function ParentDashboard() {
   const session = getAuthSession();
@@ -19,6 +20,7 @@ export default function ParentDashboard() {
     latestPrediction: 94.5,
   });
   const [linkedStudent, setLinkedStudent] = useState<any>(null);
+  const [activity, setActivity] = useState<ActivitySummary | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,6 +30,9 @@ export default function ParentDashboard() {
       if (cancelled) return;
       if (!stu) return;
       setLinkedStudent(stu);
+
+      // Website-activity summary (Feature 4)
+      getActivitySummary(stu.id).then(a => { if (!cancelled) setActivity(a); }).catch(() => undefined);
 
       // Fetch the exact same dashboard data the student sees
       const dash = await getStudentDashboard(stu.id).catch(() => null);
@@ -91,15 +96,7 @@ export default function ParentDashboard() {
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
-      <TopBar
-        breadcrumb={[{ label: 'Parent Dashboard' }]}
-        actions={
-          <Link to={pathFor('student')} className="btn-outline btn-md flex items-center gap-1.5">
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>school</span>
-            Student View
-          </Link>
-        }
-      />
+      <TopBar breadcrumb={[{ label: 'Parent Dashboard' }]} />
 
       <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">
         <div>
@@ -176,6 +173,77 @@ export default function ParentDashboard() {
             );
           })}
         </div>
+
+        {/* Website Activity (Feature 4) */}
+        {activity && (
+          <Card title="Website Activity" subtitle="How your child spends time on Concept Crack (updates live as they study)">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {[
+                { label: 'Today',           value: activity.todaySeconds,    icon: 'today' },
+                { label: 'This Week',       value: activity.weekSeconds,     icon: 'date_range' },
+                { label: 'This Month',      value: activity.monthSeconds,    icon: 'calendar_month' },
+                { label: 'Avg / Active Day', value: activity.avgDailySeconds, icon: 'timelapse' },
+              ].map(t => (
+                <div key={t.label} className="rounded-xl p-4" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#F97316' }}>{t.icon}</span>
+                    <span className="text-label-sm uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>{t.label}</span>
+                  </div>
+                  <div className="text-2xl font-bold font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>{formatDuration(t.value)}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Time by activity */}
+              <div>
+                <h3 className="text-label-lg font-bold mb-3" style={{ color: 'var(--text-secondary)' }}>Time by activity · last 30 days</h3>
+                {(() => {
+                  const cats = ['tests', 'practice', 'ai', 'other'] as ActivityCategory[];
+                  const max = Math.max(1, ...cats.map(c => activity.byCategory[c]));
+                  const anyTime = cats.some(c => activity.byCategory[c] > 0);
+                  return anyTime ? (
+                    <div className="space-y-3">
+                      {cats.map(c => {
+                        const meta = ACTIVITY_META[c];
+                        const secs = activity.byCategory[c];
+                        return (
+                          <div key={c}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="flex items-center gap-1.5 text-body-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: 16, color: meta.color }}>{meta.icon}</span>
+                                {meta.label}
+                              </span>
+                              <span className="text-label-sm font-semibold" style={{ color: 'var(--text-muted)' }}>{formatDuration(secs)}</span>
+                            </div>
+                            <div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${Math.round((secs / max) * 100)}%`, backgroundColor: meta.color }} /></div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-body-sm rounded-xl p-4" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+                      No activity recorded yet. Time will appear here as soon as your child starts using the platform.
+                    </p>
+                  );
+                })()}
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {UPCOMING_ACTIVITIES.map(a => (
+                    <span key={a} className="text-label-sm px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-faint)', border: '1px dashed var(--border)' }}>
+                      {a} · coming soon
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Daily usage chart */}
+              <div>
+                <h3 className="text-label-lg font-bold mb-3" style={{ color: 'var(--text-secondary)' }}>Daily usage · last 7 days</h3>
+                <DailyUsageChart daily={activity.daily} />
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Growth chart + subject mastery */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -265,6 +333,29 @@ export default function ParentDashboard() {
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DailyUsageChart({ daily }: { daily: Array<{ date: string; label: string; seconds: number }> }) {
+  const max = Math.max(1, ...daily.map(d => d.seconds));
+  return (
+    <div className="flex items-end justify-between gap-2 h-40 pt-2">
+      {daily.map((d, i) => {
+        const h = Math.round((d.seconds / max) * 100);
+        const mins = Math.round(d.seconds / 60);
+        return (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+            <span className="text-[10px] font-semibold" style={{ color: 'var(--text-faint)' }}>{mins > 0 ? `${mins}m` : ''}</span>
+            <div
+              className="w-full rounded-t-md transition-all"
+              style={{ height: `${Math.max(2, h)}%`, minHeight: 2, background: d.seconds > 0 ? 'linear-gradient(180deg, #F97316, #EA580C)' : 'var(--border)' }}
+              title={`${d.label}: ${formatDuration(d.seconds)}`}
+            />
+            <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{d.label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

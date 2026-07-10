@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Spinner from '../../components/Spinner';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
@@ -174,7 +175,7 @@ export default function FacultyDashboard() {
           >
             {loadingStudents ? (
               <div className="flex items-center justify-center h-32">
-                <span className="material-symbols-outlined animate-spin" style={{ color: '#14B8A6', fontSize: '28px' }}>progress_activity</span>
+                <Spinner size={28} color="#14B8A6" />
               </div>
             ) : assignedStudents.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 gap-2">
