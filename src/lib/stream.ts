@@ -7,11 +7,6 @@ export const STREAM_SUBJECTS: Record<StudentStream, string[]> = {
   NEET: ['Physics', 'Chemistry', 'Biology'],
 };
 
-export const STREAM_EXAM: Record<StudentStream, string> = {
-  JEE:  'JEE 2025',
-  NEET: 'NEET 2025',
-};
-
 // Distinct hues per subject — Physics (blue) and Chemistry (orange) kept far
 // apart so they never look alike on charts and cards (5c).
 export const STREAM_COLORS: Record<string, string> = {

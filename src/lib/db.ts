@@ -110,7 +110,7 @@ export async function getStudentDashboard(uid: string) {
         : heatmapCells;
 
       return {
-        currentStudent: { ...currentStudent, examTarget: 'JEE 2025', daysToExam: 47 },
+        currentStudent,
         metrics: [
           { label: 'Overall Score',   value: completedTests > 0 ? `${overallAccuracy}%` : '—',  trend: 0, icon: 'insights',   tone: 'primary'   as const },
           { label: 'Current Rank',    value: completedTests > 0 ? `#${Math.max(1, 50 - completedTests)}` : '—', trend: 0, icon: 'leaderboard', tone: 'secondary' as const },
@@ -130,7 +130,7 @@ export async function getStudentDashboard(uid: string) {
 
   // Mock fallback for new users or Firestore unavailable
   return {
-    currentStudent: { ...currentStudent, examTarget: 'JEE 2025', daysToExam: 47 },
+    currentStudent,
     metrics: [
       { label: 'Overall Score',   value: '—',  trend: 0, icon: 'insights',            tone: 'primary'   as const },
       { label: 'Current Rank',    value: '—',  trend: 0, icon: 'leaderboard',          tone: 'secondary' as const },

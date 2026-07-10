@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAuthSession } from '../lib/auth';
-import { getStudentStream, STREAM_EXAM } from '../lib/stream';
+import { getStudentStream } from '../lib/stream';
+import { getExamCountdown } from '../lib/examCountdown';
 
 interface Msg { id: number; role: 'ai' | 'user'; text: string; typing?: boolean }
 
@@ -62,7 +63,7 @@ export default function AICompanion() {
   const session = getAuthSession();
   const firstName = session?.user?.name?.split(' ')[0] ?? 'there';
   const stream = getStudentStream();
-  const exam = stream ? STREAM_EXAM[stream] : 'JEE/NEET';
+  const exam = stream ? getExamCountdown(stream).examLabel : 'JEE/NEET';
 
   useEffect(() => {
     if (open && messages.length === 0) {

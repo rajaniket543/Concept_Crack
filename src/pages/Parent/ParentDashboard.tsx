@@ -8,6 +8,8 @@ import { pathFor } from '../../lib/pages';
 import { getAuthSession } from '../../lib/auth';
 import { getLinkedStudentData, getStudentDashboard } from '../../lib/db';
 import { getActivitySummary, getDailyActivityMinutes, formatDuration, ACTIVITY_META, UPCOMING_ACTIVITIES, type ActivitySummary, type ActivityCategory } from '../../lib/activity';
+import { formatExamCountdown } from '../../lib/examCountdown';
+import type { StudentStream } from '../../lib/stream';
 
 export default function ParentDashboard() {
   const session = getAuthSession();
@@ -114,8 +116,8 @@ export default function ParentDashboard() {
         {/* Child info banner */}
         {(() => {
           const childName    = linkedStudent?.name    ?? 'Arjun Sharma';
-          const childStream  = linkedStudent?.stream  ?? 'JEE';
-          const childTarget  = linkedStudent?.examTarget ?? 'JEE 2025';
+          const childStream  = (linkedStudent?.stream as StudentStream) ?? 'JEE';
+          const childTarget  = formatExamCountdown(childStream);
           const childRank    = linkedStudent?.rank    ?? 247;
           const childScore   = linkedStudent?.score   ?? 92;
           const initials     = childName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
@@ -132,7 +134,7 @@ export default function ParentDashboard() {
                   {childName}
                 </div>
                 <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>
-                  {childStream} · {childTarget} · Rank: #{childRank} · Score: {childScore}%
+                  {childTarget} · Rank: #{childRank} · Score: {childScore}%
                 </div>
                 {linkedStudent?.progress?.lastActivity && (
                   <div className="text-label-sm mt-0.5" style={{ color: '#F97316' }}>

@@ -326,41 +326,57 @@ export default function Battle() {
     const myRank = leaderboard.findIndex(p => p.uid === uid) + 1;
     const examTitle = `Battle — ${battle.subjects.join(' / ') || 'Mixed'}`;
 
-    // Log the battle as an attempt so it appears in Review Tests, categorised as "Battle".
-    await Promise.all([
-      saveTestAttempt({
-        testId:       `battle:${battle.id}`,
-        studentId:    uid,
-        answers:      Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
-        score, correctCount: correct, incorrectCount: incorrect,
-        skippedCount: skipped, accuracyPct: accuracy, timeSeconds: timeUsed,
-        status:       'submitted',
-        startedAt:    new Date().toISOString(),
-        submittedAt:  new Date().toISOString(),
-        testType:     'battle',
-        testTitle:    examTitle,
-        subjects:     battle.subjects.length ? battle.subjects : ['Mixed'],
-        questionIds:  questions.map(q => q.id),
-      }),
-      updateStudentProgress(uid, {
-        lastActivity: { type: 'test', title: examTitle, score: accuracy, accuracy, completedAt: new Date().toISOString() },
-        completedTests: 1,
-        latestTestResult: {
-          testTitle: examTitle,
-          testDate:  new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          subject:   battle.subjects[0] ?? 'Mixed',
-          chapter:   battle.chapters[0] ?? '',
-          subjects:  battle.subjects.length ? battle.subjects : ['Mixed'],
-          chapters:  battle.chapters,
-          totalQuestions: questions.length,
-          correctCount: correct, incorrectCount: incorrect, skippedCount: skipped,
-          accuracyPct: accuracy, score,
-          timeMinutes: Math.max(1, Math.round(timeUsed / 60)),
-          easyPct:   0, mediumPct: 0, hardPct: 0,
-          topicAccuracy,
-        },
-      }),
-    ]);
+    // Log the battle as an attempt so it appears in Review Tests, categorised as
+    // "Battle". Must never block reaching the results screen — retry once, and
+    // if it still fails, let the student through with a visible warning instead
+    // of silently losing the attempt.
+    const battleAttemptPayload = {
+      testId:       `battle:${battle.id}`,
+      studentId:    uid,
+      answers:      Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
+      score, correctCount: correct, incorrectCount: incorrect,
+      skippedCount: skipped, accuracyPct: accuracy, timeSeconds: timeUsed,
+      status:       'submitted' as const,
+      startedAt:    new Date().toISOString(),
+      submittedAt:  new Date().toISOString(),
+      testType:     'battle' as const,
+      testTitle:    examTitle,
+      subjects:     battle.subjects.length ? battle.subjects : ['Mixed'],
+      questionIds:  questions.map(q => q.id),
+      rank:         myRank,
+    };
+
+    try {
+      await saveTestAttempt(battleAttemptPayload);
+    } catch {
+      await new Promise(r => setTimeout(r, 800));
+      try {
+        await saveTestAttempt(battleAttemptPayload);
+      } catch (e) {
+        console.error('saveTestAttempt failed after retry', e);
+        toast('Your result is shown below, but this battle could not be saved to Review Tests. Please check your connection.', 'error');
+      }
+    }
+
+    // Never throws internally (see updateStudentProgress) — safe to await.
+    await updateStudentProgress(uid, {
+      lastActivity: { type: 'test', title: examTitle, score: accuracy, accuracy, completedAt: new Date().toISOString() },
+      completedTests: 1,
+      latestTestResult: {
+        testTitle: examTitle,
+        testDate:  new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        subject:   battle.subjects[0] ?? 'Mixed',
+        chapter:   battle.chapters[0] ?? '',
+        subjects:  battle.subjects.length ? battle.subjects : ['Mixed'],
+        chapters:  battle.chapters,
+        totalQuestions: questions.length,
+        correctCount: correct, incorrectCount: incorrect, skippedCount: skipped,
+        accuracyPct: accuracy, score,
+        timeMinutes: Math.max(1, Math.round(timeUsed / 60)),
+        easyPct:   0, mediumPct: 0, hardPct: 0,
+        topicAccuracy,
+      },
+    });
 
     // Navigate to the same animated result + AI tutor page as regular tests
     navigate(pathFor('chatbot'), {

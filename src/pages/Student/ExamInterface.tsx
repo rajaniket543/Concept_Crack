@@ -491,59 +491,78 @@ export default function ExamInterface() {
       // Log EVERY attempt (mock, custom, ai, assigned, and chapter practice) so it
       // shows up in Review Tests — not only faculty tests. Practice runs with no
       // real Test doc get a synthetic id so answer review still works.
+      //
+      // This write must never block the student from reaching the results screen.
+      // A Firestore failure here (network blip, transient quota error) used to
+      // reject the whole submitExam() call and leave the student stuck on the
+      // exam screen with nothing saved and no explanation — retry once, and if
+      // it still fails, let them through anyway with a visible warning instead
+      // of silently losing the attempt.
       if (uid) {
         const attemptTestId = testId ?? `practice:${subject}:${chapter || 'general'}`;
-        await Promise.all([
-          saveTestAttempt({
-            testId:        attemptTestId,
-            studentId:     uid,
-            answers:       Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
-            score, correctCount, incorrectCount, skippedCount, accuracyPct,
-            timeSeconds:   exam.durationSeconds - seconds,
-            status:        'submitted',
-            startedAt:     new Date().toISOString(),
-            submittedAt:   new Date().toISOString(),
-            // Test History categorisation + labelling
-            testType:      attemptType,
-            testTitle:     exam.title,
-            subjects:      allSubjects,
-            questionIds:   questions.map(q => q.id),
-            // Feature 2 — browser-lock telemetry
-            tabSwitchCount:     tabSwitches.current,
-            tabSwitchEvents:    tabEvents.current,
-            timeOutsideSeconds: timeOutsideRef.current,
-            lockViolations:     lockViolationsRef.current,
-          }),
-          updateStudentProgress(uid, {
-            lastActivity: {
-              type:        'test',
-              title:       exam.title,
-              score:       accuracyPct,
-              accuracy:    accuracyPct,
-              completedAt: new Date().toISOString(),
-            },
-            completedTests: 1,
-            latestTestResult: {
-              testTitle:      exam.title,
-              testDate:       new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-              subject,
-              chapter,
-              subjects:       allSubjects,
-              chapters:       allChapters,
-              totalQuestions: exam.totalQuestions,
-              correctCount,
-              incorrectCount,
-              skippedCount,
-              accuracyPct,
-              score,
-              timeMinutes,
-              easyPct:   safePct(diffStats['Easy']?.correct   ?? 0, diffStats['Easy']?.total   ?? 0),
-              mediumPct: safePct(diffStats['Medium']?.correct ?? 0, diffStats['Medium']?.total ?? 0),
-              hardPct:   safePct(diffStats['Hard']?.correct   ?? 0, diffStats['Hard']?.total   ?? 0),
-              topicAccuracy,
-            },
-          }),
-        ]);
+        const attemptPayload = {
+          testId:        attemptTestId,
+          studentId:     uid,
+          answers:       Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
+          score, correctCount, incorrectCount, skippedCount, accuracyPct,
+          timeSeconds:   exam.durationSeconds - seconds,
+          status:        'submitted' as const,
+          startedAt:     new Date().toISOString(),
+          submittedAt:   new Date().toISOString(),
+          // Test History categorisation + labelling
+          testType:      attemptType,
+          testTitle:     exam.title,
+          subjects:      allSubjects,
+          questionIds:   questions.map(q => q.id),
+          // Feature 2 — browser-lock telemetry
+          tabSwitchCount:     tabSwitches.current,
+          tabSwitchEvents:    tabEvents.current,
+          timeOutsideSeconds: timeOutsideRef.current,
+          lockViolations:     lockViolationsRef.current,
+        };
+
+        try {
+          await saveTestAttempt(attemptPayload);
+        } catch {
+          await new Promise(r => setTimeout(r, 800));
+          try {
+            await saveTestAttempt(attemptPayload);
+          } catch (e) {
+            console.error('saveTestAttempt failed after retry', e);
+            toast('Your result is shown below, but this attempt could not be saved to Review Tests. Please check your connection.', 'error');
+          }
+        }
+
+        // Never throws internally (see updateStudentProgress) — safe to await.
+        await updateStudentProgress(uid, {
+          lastActivity: {
+            type:        'test',
+            title:       exam.title,
+            score:       accuracyPct,
+            accuracy:    accuracyPct,
+            completedAt: new Date().toISOString(),
+          },
+          completedTests: 1,
+          latestTestResult: {
+            testTitle:      exam.title,
+            testDate:       new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            subject,
+            chapter,
+            subjects:       allSubjects,
+            chapters:       allChapters,
+            totalQuestions: exam.totalQuestions,
+            correctCount,
+            incorrectCount,
+            skippedCount,
+            accuracyPct,
+            score,
+            timeMinutes,
+            easyPct:   safePct(diffStats['Easy']?.correct   ?? 0, diffStats['Easy']?.total   ?? 0),
+            mediumPct: safePct(diffStats['Medium']?.correct ?? 0, diffStats['Medium']?.total ?? 0),
+            hardPct:   safePct(diffStats['Hard']?.correct   ?? 0, diffStats['Hard']?.total   ?? 0),
+            topicAccuracy,
+          },
+        });
       }
 
       navigate(pathFor('chatbot'), {

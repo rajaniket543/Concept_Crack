@@ -4,7 +4,8 @@ import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
 import { getMockStudentProfile, type MockStudentProfile } from '../../lib/db';
 import { pathFor } from '../../lib/pages';
-import { STREAM_COLORS, STREAM_BG } from '../../lib/stream';
+import { STREAM_COLORS, STREAM_BG, type StudentStream } from '../../lib/stream';
+import { formatExamCountdown } from '../../lib/examCountdown';
 
 const SUBJECT_ICONS: Record<string, string> = {
   Physics:     'bolt',
@@ -135,7 +136,7 @@ export default function StudentDetail() {
             <div className="flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
               <span>{student.stream} Stream</span>
               <span>·</span>
-              <span>{student.examTarget}</span>
+              <span>{formatExamCountdown(student.stream === 'NEET' ? 'NEET' : ('JEE' as StudentStream))}</span>
               <span>·</span>
               <span>{student.email}</span>
             </div>

@@ -182,6 +182,12 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
   const fmtDate = (iso: string | null) =>
     iso ? new Date(iso).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
+  const fmtDuration = (totalSeconds: number) => {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  };
+
   const STATUS_META = {
     correct:   { color: '#059669', bg: 'rgba(16,185,129,0.10)', label: 'Correct', icon: 'check_circle' },
     incorrect: { color: '#DC2626', bg: 'rgba(239,68,68,0.10)',  label: 'Incorrect', icon: 'cancel' },
@@ -274,7 +280,7 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
           <Card>
             <div className="py-12 text-center" style={{ color: 'var(--text-faint)' }}>
               <span className="material-symbols-outlined block mx-auto mb-2" style={{ fontSize: '32px' }}>history_edu</span>
-              <p className="text-body-md font-semibold" style={{ color: 'var(--text-secondary)' }}>No tests attempted yet</p>
+              <p className="text-body-md font-semibold" style={{ color: 'var(--text-secondary)' }}>No completed tests yet.</p>
               <p className="text-body-sm mt-1">Complete a test and it will show up here for review.</p>
             </div>
           </Card>
@@ -305,6 +311,9 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
                       </div>
                       <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>
                         {a.subjects.join(', ') || 'Mixed'} · {fmtDate(a.submittedAt)}
+                        {' · '}{a.correctCount + a.incorrectCount + a.skippedCount} questions
+                        {' · '}{fmtDuration(a.timeSeconds)}
+                        {a.rank ? ` · Rank #${a.rank}` : ''}
                       </div>
                     </div>
                     <div className="hidden sm:flex items-center gap-3 shrink-0">

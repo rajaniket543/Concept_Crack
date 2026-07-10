@@ -10,6 +10,10 @@ import { facultyTrend } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
 import { getAuthSession } from '../../lib/auth';
 import { getAssignedStudentsData, type MockStudentProfile } from '../../lib/db';
+import { formatExamCountdown } from '../../lib/examCountdown';
+import type { StudentStream } from '../../lib/stream';
+
+const asStream = (s: string): StudentStream => (s === 'NEET' ? 'NEET' : 'JEE');
 
 interface RealMetric { label: string; value: string; }
 
@@ -288,7 +292,7 @@ export default function FacultyDashboard() {
                               </div>
                               <div>
                                 <div className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{s.name}</div>
-                                <div className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{s.examTarget}</div>
+                                <div className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{formatExamCountdown(asStream(s.stream))}</div>
                               </div>
                             </div>
                           </td>

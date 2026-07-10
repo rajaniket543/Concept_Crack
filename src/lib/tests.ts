@@ -93,6 +93,7 @@ export interface TestAttempt {
   tabSwitchEvents?:    Array<{ at: string; awaySeconds: number }>;
   timeOutsideSeconds?: number;
   lockViolations?:     number;   // blocked copy/paste/right-click/dev-tools attempts (locked mode)
+  rank?:               number;   // only meaningful for Battle attempts (position among participants)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
