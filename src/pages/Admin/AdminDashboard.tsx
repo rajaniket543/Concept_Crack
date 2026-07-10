@@ -1,8 +1,9 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
 import Spinner from '../../components/Spinner';
+import ActivityHeatmap from '../../components/ActivityHeatmap';
 import { collection, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { pathFor } from '../../lib/pages';
@@ -20,9 +21,6 @@ interface AttemptRow {
   submittedAt: string | null;
   tabSwitchCount: number;
 }
-
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const HOUR_BUCKETS = ['12–4a', '4–8a', '8a–12p', '12–4p', '4–8p', '8p–12a'];
 
 function toIso(v: unknown): string | null {
   if (v instanceof Timestamp) return v.toDate().toISOString();
@@ -124,27 +122,17 @@ export default function AdminDashboard() {
     activeUsers: users.filter(u => u.status === 'Active').length,
   }), [users]);
 
-  // Real activity heatmap: attempts bucketed by weekday × 4-hour slot.
-  const heatmap = useMemo(() => {
-    const grid: number[][] = DAYS.map(() => HOUR_BUCKETS.map(() => 0));
-    let max = 0;
+  // Daily submission counts for the contribution calendar.
+  const submissionsByDay = useMemo(() => {
+    const map: Record<string, number> = {};
     attempts.forEach(a => {
       if (!a.submittedAt) return;
       const d = new Date(a.submittedAt);
-      const day = (d.getDay() + 6) % 7;                 // Mon = 0
-      const bucket = Math.floor(d.getHours() / 4);
-      grid[day][bucket] += 1;
-      max = Math.max(max, grid[day][bucket]);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      map[key] = (map[key] ?? 0) + 1;
     });
-    return { grid, max };
+    return map;
   }, [attempts]);
-
-  const HEAT = ['rgba(236,72,153,0.06)', 'rgba(236,72,153,0.20)', 'rgba(236,72,153,0.40)', 'rgba(236,72,153,0.65)', 'rgba(236,72,153,0.90)'];
-  const heatColor = (v: number) => {
-    if (heatmap.max === 0) return HEAT[0];
-    const idx = Math.min(4, Math.ceil((v / heatmap.max) * 4));
-    return HEAT[idx];
-  };
 
   const metrics = [
     { label: 'Total Users', value: users.length, sub: `${counts.activeUsers} active`, icon: 'group', color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
@@ -207,51 +195,14 @@ export default function AdminDashboard() {
         {/* Activity heatmap + AI system status */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <Card
-            title="Platform Activity Heatmap"
-            subtitle="Test submissions by weekday and time of day"
-            action={
-              <div className="flex items-center gap-1.5">
-                <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>Low</span>
-                {HEAT.slice(1).map((c, i) => (
-                  <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: c }} />
-                ))}
-                <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>High</span>
-              </div>
-            }
+            title="Platform Activity"
+            subtitle="Test submissions per day over the last 6 months"
             className="lg:col-span-2"
           >
             {loading ? (
               <div className="flex items-center justify-center py-10"><Spinner size={22} color="#EC4899" /></div>
             ) : (
-              <div className="max-w-md">
-                <div className="grid gap-1" style={{ gridTemplateColumns: `56px repeat(${HOUR_BUCKETS.length}, minmax(0, 1fr))` }}>
-                  <div />
-                  {HOUR_BUCKETS.map(h => (
-                    <div key={h} className="text-[10px] text-center pb-1" style={{ color: 'var(--text-faint)' }}>{h}</div>
-                  ))}
-                  {DAYS.map((day, di) => (
-                    <Fragment key={day}>
-                      <div className="text-[11px] font-semibold flex items-center" style={{ color: 'var(--text-muted)' }}>{day}</div>
-                      {HOUR_BUCKETS.map((_, hi) => {
-                        const v = heatmap.grid[di][hi];
-                        return (
-                          <div
-                            key={`${day}-${hi}`}
-                            className="h-6 rounded-sm transition-transform hover:scale-105 cursor-default"
-                            style={{ backgroundColor: heatColor(v) }}
-                            title={`${day} · ${HOUR_BUCKETS[hi]}: ${v} submission${v === 1 ? '' : 's'}`}
-                          />
-                        );
-                      })}
-                    </Fragment>
-                  ))}
-                </div>
-                <p className="text-label-sm mt-3" style={{ color: 'var(--text-faint)' }}>
-                  {attempts.length === 0
-                    ? 'No test submissions yet — the map fills in as students attempt tests.'
-                    : `${attempts.length} total submissions plotted.`}
-                </p>
-              </div>
+              <ActivityHeatmap data={submissionsByDay} colorBase="#10B981" unit="submission" />
             )}
           </Card>
 

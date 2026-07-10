@@ -11,7 +11,7 @@ import {
   type ExamMeta,
 } from '../../mocks/student';
 import { getQuestionsForChapter, getQuestionsByIds, type ExamQuestion as FirestoreQuestion } from '../../lib/questions';
-import { getTest, saveTestAttempt, type LockMode } from '../../lib/tests';
+import { getTest, saveTestAttempt, type LockMode, type AttemptType } from '../../lib/tests';
 import { updateWeakTopics } from '../../lib/weakTopics';
 import { getChapterFormulas, getSubjectHighlights, generateFormulasAI, type FormulaGroup } from '../../lib/formulas';
 import { hasAI } from '../../lib/ai';
@@ -49,6 +49,10 @@ export default function ExamInterface() {
   const [chapter, setChapter]             = useState(stateChapter);
   const [testSubjects, setTestSubjects]   = useState<string[]>([]);
   const [testChapters, setTestChapters]   = useState<string[]>([]);
+  // Which kind of test this is — drives the Test History category. Chapter-based
+  // launches (from Practice / Mock Tests) default to 'practice'; a real Test doc
+  // overrides this with its own type once loaded.
+  const [attemptType, setAttemptType]     = useState<AttemptType>(testId ? 'mock' : 'practice');
 
   const [exam, setExam]             = useState<ExamMeta>(fallbackMeta);
   const [questions, setQuestions]   = useState<FirestoreQuestion[]>([]);
@@ -58,7 +62,6 @@ export default function ExamInterface() {
   const [answers, setAnswers]       = useState<Record<number, ExamOptionType['key']>>({});
   const [marked, setMarked]         = useState<Set<number>>(new Set());
   const [sessionId, setSessionId]   = useState<string | null>(null);
-  const [monitorOpacity, setMonitorOpacity] = useState(0.5);
   const [paletteState, setPaletteState] = useState<Record<number, PaletteState>>({});
 
   // Feature 1 — important formulas shown on the pre-test synopsis screen
@@ -210,17 +213,6 @@ export default function ExamInterface() {
     return () => { bc?.close(); };
   }, [started, lockMode, testId]);
 
-  // Monitor opacity on mouse move
-  useEffect(() => {
-    let timeout: number | undefined;
-    const onMove = () => {
-      setMonitorOpacity(1);
-      if (timeout) window.clearTimeout(timeout);
-      timeout = window.setTimeout(() => setMonitorOpacity(0.5), 3000);
-    };
-    document.addEventListener('mousemove', onMove);
-    return () => { document.removeEventListener('mousemove', onMove); if (timeout) window.clearTimeout(timeout); };
-  }, []);
 
   // Load questions from Firestore — by testId or by subject/chapter
   useEffect(() => {
@@ -239,6 +231,8 @@ export default function ExamInterface() {
             if (!titleOverride) titleOverride = test.title;
             if (test.subjects.length > 0) { setTestSubjects(test.subjects); setSubject(test.subjects[0]); }
             if (test.chapters.length > 0) { setTestChapters(test.chapters); setChapter(test.chapters[0]); }
+            // Tag the attempt with the real test type (mock / custom / ai / assigned…)
+            setAttemptType(test.type as AttemptType);
             // Feature 2 — AI/custom tests are always open (logged only); faculty tests use their chosen mode.
             const isFacultyTest = test.type === 'faculty_batch' || test.type === 'faculty_coaching';
             const effMode: LockMode = isFacultyTest ? (test.lockMode ?? 'locked') : 'open';
@@ -494,9 +488,13 @@ export default function ExamInterface() {
         })));
       }
 
-      if (uid && testId) {
+      // Log EVERY attempt (mock, custom, ai, assigned, and chapter practice) so it
+      // shows up in Review Tests — not only faculty tests. Practice runs with no
+      // real Test doc get a synthetic id so answer review still works.
+      if (uid) {
+        const attemptTestId = testId ?? `practice:${subject}:${chapter || 'general'}`;
         void saveTestAttempt({
-          testId,
+          testId:        attemptTestId,
           studentId:     uid,
           answers:       Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
           score, correctCount, incorrectCount, skippedCount, accuracyPct,
@@ -504,6 +502,11 @@ export default function ExamInterface() {
           status:        'submitted',
           startedAt:     new Date().toISOString(),
           submittedAt:   new Date().toISOString(),
+          // Test History categorisation + labelling
+          testType:      attemptType,
+          testTitle:     exam.title,
+          subjects:      allSubjects,
+          questionIds:   questions.map(q => q.id),
           // Feature 2 — browser-lock telemetry
           tabSwitchCount:     tabSwitches.current,
           tabSwitchEvents:    tabEvents.current,
@@ -1070,14 +1073,23 @@ export default function ExamInterface() {
             </div>
           </div>
 
-          {/* AI Proctor */}
+          {/* AI Proctor — single monitoring status (also carries the live flag count) */}
           <div className="p-4 border-t" style={{ borderColor: 'var(--border)' }}>
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg" style={{ backgroundColor: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
               <span className="w-2 h-2 rounded-full animate-pulse shrink-0" style={{ backgroundColor: '#EF4444' }} />
-              <div>
-                <div className="text-label-sm font-semibold" style={{ color: '#DC2626' }}>AI Proctoring Active</div>
-                <div className="text-[10px]" style={{ color: '#EF4444' }}>Real-time monitoring enabled</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-label-sm font-semibold" style={{ color: '#DC2626' }}>You are being monitored</div>
+                <div className="text-[10px]" style={{ color: '#EF4444' }}>AI proctoring active · real-time</div>
               </div>
+              {violations > 0 && (
+                <span
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                  style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#DC2626' }}
+                  title="Integrity flags detected (tab switches / blocked actions)"
+                >
+                  {violations} flag{violations > 1 ? 's' : ''}
+                </span>
+              )}
             </div>
           </div>
         </aside>
@@ -1164,32 +1176,6 @@ export default function ExamInterface() {
         </div>
       )}
 
-      {/* Monitoring pill — bottom-LEFT so it never overlaps the right sidebar's
-          "AI Proctoring Active" box (5f). */}
-      <div
-        className="fixed bottom-6 left-6 flex items-center gap-2.5 px-4 py-2.5 rounded-xl pointer-events-none"
-        style={{
-          opacity: monitorOpacity,
-          transition: 'opacity 0.3s ease',
-          backgroundColor: '#111827',
-          color: '#F9FAFB',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.40)',
-          zIndex: 60,
-          backdropFilter: 'blur(8px)',
-        }}
-      >
-        <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#EF4444' }} />
-        <span className="text-sm font-semibold">You are being monitored</span>
-        {violations > 0 && (
-          <span
-            className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full"
-            style={{ backgroundColor: 'rgba(239,68,68,0.25)', color: '#FCA5A5' }}
-            title="Integrity violations detected (tab switches / blocked actions)"
-          >
-            {violations} flag{violations > 1 ? 's' : ''}
-          </span>
-        )}
-      </div>
     </div>
   );
 }

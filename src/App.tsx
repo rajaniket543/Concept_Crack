@@ -16,6 +16,7 @@ import AssignedTests from './pages/Student/AssignedTests';
 import CustomTest from './pages/Student/CustomTest';
 import AITest from './pages/Student/AITest';
 import Battle from './pages/Student/Battle';
+import MockTest from './pages/Student/MockTest';
 import TestLog from './pages/Student/TestLog';
 import ParentDashboard from './pages/Parent/ParentDashboard';
 import FacultyDashboard from './pages/Faculty/FacultyDashboard';
@@ -53,7 +54,7 @@ const studentNav = [
     label: 'Learn',
     items: [
       { key: 'practice' as PageKey,   label: 'Practice',    icon: 'edit_note' },
-      { key: 'exam' as PageKey,       label: 'Mock Tests',  icon: 'quiz' },
+      { key: 'mockTest' as PageKey,   label: 'Mock Test',   icon: 'quiz' },
     ],
   },
   {
@@ -234,6 +235,7 @@ export default function App() {
         <Route path="custom-test" element={<RequireAuth roles={['student']}><CustomTest /></RequireAuth>} />
         <Route path="ai-test" element={<RequireAuth roles={['student']}><AITest /></RequireAuth>} />
         <Route path="battle" element={<RequireAuth roles={['student']}><Battle /></RequireAuth>} />
+        <Route path="mock-test" element={<RequireAuth roles={['student']}><MockTest /></RequireAuth>} />
         <Route path="test-log" element={<RequireAuth roles={['student']}><TestLog /></RequireAuth>} />
       </Route>
 

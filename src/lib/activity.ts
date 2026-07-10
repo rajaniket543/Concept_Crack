@@ -171,6 +171,24 @@ export async function getActivitySummary(uid: string): Promise<ActivitySummary> 
   };
 }
 
+// Full per-day activity map (minutes) for the contribution calendar heatmap.
+export async function getDailyActivityMinutes(uid: string): Promise<Record<string, number>> {
+  if (!uid) return {};
+  try {
+    const snap = await getDoc(doc(db, 'studentActivity', uid));
+    if (!snap.exists()) return {};
+    const days = (snap.data().days ?? {}) as Record<string, DayDoc>;
+    const out: Record<string, number> = {};
+    Object.entries(days).forEach(([date, rec]) => {
+      const mins = Math.round((rec?.total ?? 0) / 60);
+      if (mins > 0) out[date] = mins;
+    });
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 // ── Formatting ────────────────────────────────────────────────────────────────
 
 export function formatDuration(seconds: number): string {

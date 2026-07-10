@@ -161,11 +161,15 @@ service cloud.firestore {
     // ── /tests/{id} ───────────────────────────────────────────────────────────
     // Any signed-in user can read (students see assigned/coaching tests; the exam
     // reads test config). Faculty and admins create/update — this also covers the
-    // approval workflow: admins forward/finalize and faculty verifiers record their
-    // decision (Feature 8). Admins delete any; faculty may delete their own.
+    // approval workflow. Students may create their OWN self-service tests
+    // (AI / custom / mock) so Custom Test, AI Test and Mock Test work.
+    // Admins delete any; faculty may delete their own.
     match /tests/{id} {
       allow read:   if isAuthenticated();
-      allow create: if isAdminOrFaculty();
+      allow create: if isAdminOrFaculty() ||
+        (isStudent() &&
+         request.resource.data.createdBy == request.auth.uid &&
+         request.resource.data.type in ['ai', 'custom', 'mock']);
       allow update: if isAdminOrFaculty();
       allow delete: if isAdmin() || (isFaculty() && resource.data.createdBy == request.auth.uid);
     }

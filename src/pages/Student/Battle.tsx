@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAuthSession } from '../../lib/auth';
 import { getStudentStream } from '../../lib/stream';
 import { updateStudentProgress } from '../../lib/db';
+import { saveTestAttempt } from '../../lib/tests';
 import {
   createBattle, joinBattle, startBattle, submitBattleResult,
   subscribeToBattle, configureBattle, inviteStudentToBattle,
@@ -324,6 +325,22 @@ export default function Battle() {
     const leaderboard = [...allParticipants].sort((a, b) => b.score - a.score);
     const myRank = leaderboard.findIndex(p => p.uid === uid) + 1;
     const examTitle = `Battle — ${battle.subjects.join(' / ') || 'Mixed'}`;
+
+    // Log the battle as an attempt so it appears in Review Tests, categorised as "Battle".
+    void saveTestAttempt({
+      testId:       `battle:${battle.id}`,
+      studentId:    uid,
+      answers:      Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
+      score, correctCount: correct, incorrectCount: incorrect,
+      skippedCount: skipped, accuracyPct: accuracy, timeSeconds: timeUsed,
+      status:       'submitted',
+      startedAt:    new Date().toISOString(),
+      submittedAt:  new Date().toISOString(),
+      testType:     'battle',
+      testTitle:    examTitle,
+      subjects:     battle.subjects.length ? battle.subjects : ['Mixed'],
+      questionIds:  questions.map(q => q.id),
+    });
 
     // Save to Firestore so Test Analysis has data
     void updateStudentProgress(uid, {
