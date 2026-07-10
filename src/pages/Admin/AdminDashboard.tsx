@@ -103,7 +103,7 @@ export default function AdminDashboard() {
     if (hasAI()) {
       void pingAI().then(s => { if (!cancelled) setAiStatus(s); });
     } else {
-      setAiStatus({ configured: false, reachable: false, latencyMs: null, model: 'gemini-2.5-flash', checkedAt: new Date().toISOString() });
+      setAiStatus({ configured: false, reachable: false, latencyMs: null, model: 'gemini-flash-lite-latest', checkedAt: new Date().toISOString() });
     }
 
     return () => { cancelled = true; };
@@ -271,7 +271,7 @@ export default function AdminDashboard() {
                 {
                   label: 'AI Service',
                   value: aiStatus?.configured ? 'Configured' : 'Not configured',
-                  detail: aiStatus?.model ?? 'gemini-2.5-flash',
+                  detail: aiStatus?.model ?? 'gemini-flash-lite-latest',
                   ok: aiStatus?.configured ?? false,
                 },
                 {

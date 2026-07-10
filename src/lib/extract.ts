@@ -5,8 +5,11 @@
 // chapter, topic, explanation) that faculty can then review and edit.
 
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-const MODEL = 'gemini-2.5-flash';
-const FALLBACK_MODEL = 'gemini-2.0-flash';
+// gemini-2.5-flash / gemini-2.0-flash are no longer available on free-tier
+// keys for new Google Cloud projects — gemini-flash-lite-latest is a rolling
+// alias Google keeps pointed at a currently-supported model.
+const MODEL = 'gemini-flash-lite-latest';
+const FALLBACK_MODEL = 'gemini-flash-lite-latest';
 const MAX_TOTAL_BYTES = 18 * 1024 * 1024; // stay under the ~20MB inline-request limit
 
 export interface ExtractedQuestion {

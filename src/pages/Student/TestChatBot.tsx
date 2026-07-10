@@ -76,13 +76,16 @@ Answer the student's question in 2-4 short sentences. Reference their ACTUAL res
 Student's question: ${userMessage}`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+    // gemini-2.5-flash is no longer available on free-tier keys for new
+    // Google Cloud projects — gemini-flash-lite-latest is a rolling alias
+    // Google keeps pointed at a currently-supported model.
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${GEMINI_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: systemPrompt }] }],
-        // thinkingBudget: 0 keeps 2.5-flash from spending the token budget on
+        // thinkingBudget: 0 keeps the model from spending the token budget on
         // internal reasoning (which returns an empty answer for short replies).
         generationConfig: { maxOutputTokens: 700, temperature: 0.6, thinkingConfig: { thinkingBudget: 0 } },
       }),

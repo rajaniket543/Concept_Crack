@@ -10,8 +10,12 @@ import { doc, setDoc, getDoc, serverTimestamp, increment } from 'firebase/firest
 import { db } from './firebase';
 
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-const MODEL = 'gemini-2.5-flash';
-const FALLBACK_MODEL = 'gemini-2.0-flash';
+// gemini-2.5-flash / gemini-2.0-flash are no longer available on free-tier
+// keys for new Google Cloud projects (404/0-quota as of July 2026).
+// gemini-flash-lite-latest is a rolling alias Google keeps pointed at a
+// currently-supported model, so it won't go stale the same way.
+const MODEL = 'gemini-flash-lite-latest';
+const FALLBACK_MODEL = 'gemini-flash-lite-latest';
 
 export function hasAI(): boolean {
   return Boolean(GEMINI_KEY);
