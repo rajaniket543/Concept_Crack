@@ -175,7 +175,8 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
           ))}
         </nav>
 
-        {/* Footer — Account section (Settings etc.) pinned to the bottom, then sign out */}
+        {/* Footer — Account section (Settings etc.), then sign out.
+            The light/dark toggle lives in the top bar and in Settings only. */}
         <div
           className="px-2 py-3 space-y-0.5 shrink-0"
           style={{ borderTop: '1px solid var(--sidebar-border)' }}

@@ -41,7 +41,7 @@ function showFor(set: (m: Msg | null) => void, msg: Msg, ms = 4000) {
 }
 
 export default function Settings() {
-  const { fontSize, setFontSize, accent, setAccent } = useTheme();
+  const { isDark, toggleTheme, fontSize, setFontSize, accent, setAccent } = useTheme();
   const toast = useToast();
   const session = getAuthSession();
   const [tab, setTab] = useState<SettingsTab>('Profile');
@@ -353,20 +353,35 @@ export default function Settings() {
           {tab === 'Appearance' && (
             <Card title="Appearance" subtitle="Customize the look and feel of the platform">
               <div className="space-y-5">
-                {/* Theme — single Light Mode */}
+                {/* Theme toggle */}
                 <div className="flex items-center justify-between p-4 rounded-xl" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(91,79,232,0.12)' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#5B4FE8' }}>light_mode</span>
+                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#5B4FE8' }}>{isDark ? 'dark_mode' : 'light_mode'}</span>
                     </div>
                     <div>
-                      <div className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>Light Mode</div>
+                      <div className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        {isDark ? 'Dark Mode' : 'Light Mode'}
+                      </div>
                       <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>
-                        Concept Crack uses a single, consistent light theme
+                        Switch between light and dark theme (also available in the top bar)
                       </div>
                     </div>
                   </div>
-                  <span className="badge badge-success">Active</span>
+                  <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+                    style={{ backgroundColor: isDark ? '#5B4FE8' : 'var(--border)' }}
+                    role="switch"
+                    aria-checked={isDark}
+                    aria-label="Toggle dark mode"
+                  >
+                    <span
+                      className="inline-block h-4 w-4 rounded-full bg-white transition-transform"
+                      style={{ transform: isDark ? 'translateX(22px)' : 'translateX(2px)' }}
+                    />
+                  </button>
                 </div>
 
                 {/* Font size */}

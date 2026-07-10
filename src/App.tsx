@@ -179,6 +179,22 @@ function AdminLayout() {
   return <Layout brand="Admin Portal" role="admin" nav={adminNav} />;
 }
 
+// Shared pages (Messages, Settings, Contact) render inside whichever portal the
+// signed-in user belongs to, so the sidebar stays visible instead of opening a
+// bare full-window page.
+const SHARED_LAYOUT: Record<string, { brand: string; nav: typeof studentNav }> = {
+  student: { brand: 'Student Portal', nav: studentNav },
+  parent:  { brand: 'Parent Portal',  nav: parentNav },
+  faculty: { brand: 'Faculty Portal', nav: facultyNav },
+  admin:   { brand: 'Admin Portal',   nav: adminNav },
+};
+function SharedLayout() {
+  const session = getAuthSession();
+  const role = (session?.user?.role ?? 'student') as 'student' | 'parent' | 'faculty' | 'admin';
+  const cfg = SHARED_LAYOUT[role] ?? SHARED_LAYOUT.student;
+  return <Layout brand={cfg.brand} role={role} nav={cfg.nav} />;
+}
+
 // ─── Auth guard ───────────────────────────────────────────────────────────────
 
 function RequireAuth({
@@ -250,9 +266,13 @@ export default function App() {
       </Route>
 
       <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
-      <Route path="/messages" element={<RequireAuth><Messages /></RequireAuth>} />
-      <Route path="/contact" element={<RequireAuth><ContactUs /></RequireAuth>} />
-      <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+
+      {/* Shared pages nested inside the role's portal shell (sidebar stays) */}
+      <Route element={<RequireAuth><SharedLayout /></RequireAuth>}>
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/contact" element={<ContactUs />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
 
       <Route path="*" element={<NotFound />} />
       </Routes>

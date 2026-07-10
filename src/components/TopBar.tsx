@@ -4,6 +4,7 @@ import { getAuthSession, logout } from '../lib/auth';
 import { pathFor } from '../lib/pages';
 import { getUserNotifications, markNotificationsRead, type AppNotification } from '../lib/db';
 import { useConfirm } from './ConfirmDialog';
+import { useTheme } from '../lib/theme';
 
 interface TopBarProps {
   title?: string;
@@ -37,6 +38,7 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
   const session = getAuthSession();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { isDark, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -136,6 +138,17 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
       {/* Right actions */}
       <div className="flex items-center gap-1">
         {actions}
+
+        {/* Light / dark toggle button */}
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="icon-btn icon-btn-md"
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label="Toggle light or dark mode"
+        >
+          <span className="material-symbols-outlined">{isDark ? 'light_mode' : 'dark_mode'}</span>
+        </button>
 
         {/* Notifications */}
         <div className="relative" ref={notifRef}>

@@ -103,7 +103,8 @@ export default function QuestionBankManagement() {
     const matchesSubject    = subject    === 'All' || (q.subject ?? '').trim() === subject;
     const matchesChapter    = chapter    === 'All' || (q.chapter ?? '').trim() === chapter;
     const matchesDifficulty = difficulty === 'All' || q.difficulty === difficulty;
-    const matchesOrigin     = origin     === 'All' || (q.origin ?? '') === origin;
+    // Case-insensitive so a stored "ALLEN" still matches a filter of "Allen" (etc.)
+    const matchesOrigin     = origin     === 'All' || (q.origin ?? '').trim().toLowerCase() === origin.trim().toLowerCase();
     const s = search.toLowerCase();
     const matchesSearch = !s ||
       (q.code ?? '').toLowerCase().includes(s) ||
@@ -125,6 +126,18 @@ export default function QuestionBankManagement() {
     });
     return [...set].sort();
   }, [all, subject]);
+
+  // Origin options are built from the ACTUAL origins in the bank (case-preserved),
+  // so the dropdown label always matches the stored value and filtering works —
+  // e.g. it shows "ALLEN" if that's how the data was saved, not a mismatched "Allen".
+  const originOptions = useMemo(() => {
+    const map = new Map<string, string>();  // lowercase key → display value
+    all.forEach(q => {
+      const o = (q.origin ?? '').trim();
+      if (o && !map.has(o.toLowerCase())) map.set(o.toLowerCase(), o);
+    });
+    return [...map.values()].sort((a, b) => a.localeCompare(b));
+  }, [all]);
 
   // Question viewing is paginated (3j) — reset to page 1 when filters change.
   useEffect(() => { setPage(1); }, [subject, chapter, difficulty, origin, search]);
@@ -336,7 +349,7 @@ export default function QuestionBankManagement() {
               <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Origin</label>
               <select value={origin} onChange={e => setOrigin(e.target.value)} className="input-field w-full"
                 style={{ backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                {['All', ...QUESTION_ORIGINS].map(o => <option key={o}>{o}</option>)}
+                {['All', ...originOptions].map(o => <option key={o}>{o}</option>)}
               </select>
             </div>
           </div>
@@ -380,7 +393,9 @@ export default function QuestionBankManagement() {
                         <td><span className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{q.subject || '—'}</span></td>
                         <td>
                           <div className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{q.chapter || '—'}</div>
-                          {q.topic && <div className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{q.topic}</div>}
+                          {q.topic && q.topic.trim().toLowerCase() !== (q.chapter ?? '').trim().toLowerCase() && (
+                            <div className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{q.topic}</div>
+                          )}
                         </td>
                         <td><span className="text-label-sm font-bold px-2.5 py-0.5 rounded-full" style={{ backgroundColor: diffStyle.bg, color: diffStyle.color }}>{q.difficulty}</span></td>
                         <td><span className="text-body-md" style={{ color: 'var(--text-muted)' }}>{q.origin ?? '—'}</span></td>
@@ -463,7 +478,7 @@ export default function QuestionBankManagement() {
                 <h3 className="text-title-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Question Preview</h3>
                 <span className="text-label-sm font-mono" style={{ color: '#5B4FE8' }}>{previewQ.code ?? 'no code'}</span>
                 <span className="text-label-sm px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-muted)' }}>
-                  {previewQ.subject} · {previewQ.chapter}{previewQ.topic ? ` · ${previewQ.topic}` : ''}
+                  {previewQ.subject} · {previewQ.chapter}{previewQ.topic && previewQ.topic.trim().toLowerCase() !== (previewQ.chapter ?? '').trim().toLowerCase() ? ` · ${previewQ.topic}` : ''}
                 </span>
                 <span className="text-label-sm font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: (DIFFICULTY_COLOR[previewQ.difficulty] ?? DIFFICULTY_COLOR.Easy).bg, color: (DIFFICULTY_COLOR[previewQ.difficulty] ?? DIFFICULTY_COLOR.Easy).color }}>
                   {previewQ.difficulty}
