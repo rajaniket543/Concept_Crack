@@ -426,6 +426,7 @@ export default function ExamInterface() {
       // Per-chapter AND overall stats — uses question.subject/chapter from Firestore
       let correctCount = 0;
       let incorrectCount = 0;
+      let unscoredCount = 0; // questions with no verified correct answer on record
       const diffStats: Record<string, { correct: number; total: number }> = {};
       const chapterStats: Record<string, { subject: string; chapter: string; correct: number; incorrect: number; total: number }> = {};
 
@@ -436,13 +437,21 @@ export default function ExamInterface() {
         const qChapter = q.chapter || q.section || chapter || 'Unknown';
         const key      = `${qSubject}::${qChapter}`;
 
+        // A question with no correct answer on record can't be graded — never
+        // score the student's response against it (previously this silently
+        // marked every answer, including the correct one, as wrong).
+        if (!q.answer) {
+          unscoredCount++;
+          return;
+        }
+
         if (!diffStats[diff]) diffStats[diff] = { correct: 0, total: 0 };
         diffStats[diff].total++;
         if (!chapterStats[key]) chapterStats[key] = { subject: qSubject, chapter: qChapter, correct: 0, incorrect: 0, total: 0 };
         chapterStats[key].total++;
 
         if (answers[qNum] !== undefined) {
-          if (q.answer && answers[qNum] === q.answer) {
+          if (answers[qNum] === q.answer) {
             correctCount++;
             diffStats[diff].correct++;
             chapterStats[key].correct++;
@@ -452,6 +461,10 @@ export default function ExamInterface() {
           }
         }
       });
+
+      if (unscoredCount > 0) {
+        toast(`${unscoredCount} question${unscoredCount === 1 ? '' : 's'} in this test could not be graded (missing answer key) and were excluded from scoring.`, 'info');
+      }
 
       const skippedCount = exam.totalQuestions - correctCount - incorrectCount;
       const accuracyPct  = exam.totalQuestions > 0 ? Math.round((correctCount / exam.totalQuestions) * 100) : 0;

@@ -269,20 +269,30 @@ export default function Battle() {
     setSubmitted(true);
     window.clearInterval(timerRef.current);
 
-    let correct = 0, incorrect = 0;
+    let correct = 0, incorrect = 0, unscored = 0;
     const chapterStats: Record<string, { subject: string; chapter: string; correct: number; total: number }> = {};
     questions.forEach((qs, i) => {
       const ans     = answers[i + 1];
       const subj    = qs.subject  || battle.subjects[0] || 'Unknown';
       const chap    = qs.chapter  || qs.section         || 'Unknown';
       const key     = `${subj}::${chap}`;
+
+      // A question with no correct answer on record can't be graded — never
+      // score a response against it (previously this silently marked every
+      // answer, including the correct one, as wrong).
+      if (!qs.answer) { unscored++; return; }
+
       if (!chapterStats[key]) chapterStats[key] = { subject: subj, chapter: chap, correct: 0, total: 0 };
       chapterStats[key].total++;
       if (ans !== undefined) {
-        if (qs.answer && ans === qs.answer) { correct++; chapterStats[key].correct++; }
+        if (ans === qs.answer) { correct++; chapterStats[key].correct++; }
         else incorrect++;
       }
     });
+
+    if (unscored > 0) {
+      toast(`${unscored} question${unscored === 1 ? '' : 's'} in this battle could not be graded (missing answer key) and were excluded from scoring.`, 'info');
+    }
 
     const skipped    = questions.length - correct - incorrect;
     const accuracy   = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
