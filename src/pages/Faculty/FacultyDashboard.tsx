@@ -3,24 +3,29 @@ import Spinner from '../../components/Spinner';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
-import { apiRequest } from '../../lib/api';
-import { facultyAlerts, facultyMetrics, facultyStudents, facultyTrend } from '../../mocks/portal';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { facultyTrend } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
 import { getAuthSession } from '../../lib/auth';
 import { getAssignedStudentsData, type MockStudentProfile } from '../../lib/db';
 
+interface RealMetric { label: string; value: string; }
+
 export default function FacultyDashboard() {
   const session = getAuthSession();
 
-  const [data, setData] = useState<any>({
-    metrics: facultyMetrics,
-    trend: facultyTrend,
-    alerts: facultyAlerts,
-    students: facultyStudents,
-    curriculumGap: {
-      headline: '64% of students are struggling with Asymptotic Complexity.',
-      focusAreas: ['Algebra', 'Complexity', 'Probability'],
-    },
+  const [metrics, setMetrics] = useState<RealMetric[]>([
+    { label: 'My Students',      value: '—' },
+    { label: 'My Tests',         value: '—' },
+    { label: 'Questions Added',  value: '—' },
+    { label: 'Avg Accuracy',     value: '—' },
+  ]);
+  const [trend] = useState(facultyTrend);
+  const [alerts, setAlerts] = useState<Array<{ name: string; initials: string; message: string; severity: string }>>([]);
+  const [curriculumGap, setCurriculumGap] = useState<{ headline: string; focusAreas: string[] }>({
+    headline: 'Attempt data will surface the chapters your students struggle with most.',
+    focusAreas: [],
   });
   const [assignedStudents, setAssignedStudents] = useState<MockStudentProfile[]>([]);
   const [loadingStudents,  setLoadingStudents]  = useState(true);
@@ -28,30 +33,87 @@ export default function FacultyDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    apiRequest('/api/faculty/dashboard')
-      .then(payload => { if (!cancelled) setData(payload); })
-      .catch(() => undefined);
+    const uid = session?.user?.id;
+    if (!uid) { setLoadingStudents(false); return; }
 
-    if (session?.user?.id) {
-      getAssignedStudentsData(session.user.id)
-        .then(students => {
-          if (cancelled) return;
-          setAssignedStudents(students);
-          setLoadingStudents(false);
-          if (students.length > 0) setBatchStream(students[0].stream);
-        })
-        .catch(() => { if (!cancelled) setLoadingStudents(false); });
-    } else {
-      setLoadingStudents(false);
-    }
+    // Real faculty metrics from Firestore
+    (async () => {
+      try {
+        const [testSnap, qSnap] = await Promise.all([
+          getDocs(query(collection(db, 'tests'), where('createdBy', '==', uid))),
+          getDocs(query(collection(db, 'questions'), where('uploadedBy', '==', uid))),
+        ]);
+        const testIds = new Set(testSnap.docs.map(d => d.id));
+        // Attempts on this faculty's tests
+        const attemptSnap = await getDocs(collection(db, 'testAttempts'));
+        const myAttempts = attemptSnap.docs.map(d => d.data()).filter(a => testIds.has(a.testId as string));
+        const accs = myAttempts.map(a => (a.accuracyPct as number) ?? 0);
+        const avg = accs.length > 0 ? Math.round(accs.reduce((s, v) => s + v, 0) / accs.length) : 0;
+
+        // Weakest chapters across this faculty's tests
+        const chapterAvg = new Map<string, { total: number; count: number }>();
+        myAttempts.forEach(a => {
+          const test = testSnap.docs.find(t => t.id === (a.testId as string));
+          ((test?.data().chapters as string[]) ?? []).forEach(ch => {
+            const cur = chapterAvg.get(ch) ?? { total: 0, count: 0 };
+            cur.total += (a.accuracyPct as number) ?? 0;
+            cur.count += 1;
+            chapterAvg.set(ch, cur);
+          });
+        });
+        const focus = [...chapterAvg.entries()]
+          .map(([ch, { total, count }]) => ({ ch, avg: total / count }))
+          .sort((a, b) => a.avg - b.avg)
+          .slice(0, 3);
+
+        if (cancelled) return;
+        setMetrics([
+          { label: 'My Tests',        value: String(testSnap.size) },
+          { label: 'Questions Added', value: String(qSnap.size) },
+          { label: 'Attempts',        value: String(myAttempts.length) },
+          { label: 'Avg Accuracy',    value: `${avg}%` },
+        ]);
+        if (focus.length > 0) {
+          setCurriculumGap({
+            headline: `${focus[0].ch} has the lowest average accuracy (${Math.round(focus[0].avg)}%) across your tests.`,
+            focusAreas: focus.map(f => f.ch),
+          });
+        }
+      } catch (e) {
+        console.error('faculty metrics load failed', e);
+      }
+    })();
+
+    getAssignedStudentsData(uid)
+      .then(students => {
+        if (cancelled) return;
+        setAssignedStudents(students);
+        setLoadingStudents(false);
+        if (students.length > 0) setBatchStream(students[0].stream);
+        // Real "students needing attention" — lowest scorers
+        const weak = [...students]
+          .filter(s => (s.progress?.latestTestResult?.accuracyPct ?? s.accuracy ?? 100) < 60)
+          .sort((a, b) => (a.progress?.latestTestResult?.accuracyPct ?? a.accuracy) - (b.progress?.latestTestResult?.accuracyPct ?? b.accuracy))
+          .slice(0, 5)
+          .map(s => ({
+            name: s.name,
+            initials: s.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
+            message: `Accuracy ${s.progress?.latestTestResult?.accuracyPct ?? s.accuracy}% — may need support`,
+            severity: (s.progress?.latestTestResult?.accuracyPct ?? s.accuracy) < 40 ? 'critical' : 'warning',
+          }));
+        setAlerts(weak);
+      })
+      .catch(() => { if (!cancelled) setLoadingStudents(false); });
+
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const metricMeta = [
-    { icon: 'group',        color: '#14B8A6', bg: 'rgba(20,184,166,0.12)' },
-    { icon: 'trending_up',  color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
-    { icon: 'quiz',         color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-    { icon: 'star',         color: '#14B8A6', bg: 'rgba(20,184,166,0.12)' },
+    { icon: 'quiz',         color: '#14B8A6', bg: 'rgba(20,184,166,0.12)' },
+    { icon: 'library_books',color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+    { icon: 'assignment_turned_in', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+    { icon: 'target',       color: '#14B8A6', bg: 'rgba(20,184,166,0.12)' },
   ];
 
   return (
@@ -82,13 +144,7 @@ export default function FacultyDashboard() {
 
         {/* Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-          {(assignedStudents.length > 0
-            ? [
-                { label: 'My Students',      value: String(assignedStudents.length), delta: `${batchStream} stream`, icon: 'group', tone: 'primary' },
-                ...data.metrics.slice(1),
-              ]
-            : data.metrics
-          ).map((m: any, i: number) => {
+          {metrics.map((m, i) => {
             const meta = metricMeta[i] ?? metricMeta[0];
             return (
               <div key={m.label} className="card">
@@ -106,7 +162,7 @@ export default function FacultyDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Batch trend */}
           <Card title="Batch Performance Trend" subtitle="Average score over last 8 weeks" className="lg:col-span-2">
-            <BatchTrendChart data={data.trend} />
+            <BatchTrendChart data={trend} />
           </Card>
 
           {/* Curriculum gap */}
@@ -119,11 +175,14 @@ export default function FacultyDashboard() {
                 <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#EF4444' }}>warning</span>
                 <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Gap Identified</span>
               </div>
-              <p className="text-body-sm" style={{ color: 'var(--text-secondary)' }}>{data.curriculumGap.headline}</p>
+              <p className="text-body-sm" style={{ color: 'var(--text-secondary)' }}>{curriculumGap.headline}</p>
             </div>
             <div className="space-y-2">
               <p className="text-label-sm font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-faint)' }}>Focus Areas</p>
-              {data.curriculumGap.focusAreas.map((area: string, i: number) => {
+              {curriculumGap.focusAreas.length === 0 && (
+                <p className="text-body-sm" style={{ color: 'var(--text-faint)' }}>No weak chapters yet — they'll appear as students attempt your tests.</p>
+              )}
+              {curriculumGap.focusAreas.map((area: string, i: number) => {
                 const colors = ['#EF4444', '#F59E0B', '#14B8A6'];
                 return (
                   <div key={area} className="flex items-center gap-3 p-3 rounded-lg" style={{ backgroundColor: 'var(--surface-muted)' }}>
@@ -140,9 +199,12 @@ export default function FacultyDashboard() {
         {/* Alerts + student table */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Student alerts */}
-          <Card title="Student Alerts" subtitle="Students needing attention" action={<span className="badge badge-danger">{data.alerts?.length ?? 0} alerts</span>}>
+          <Card title="Student Alerts" subtitle="Students needing attention" action={<span className="badge badge-danger">{alerts.length} alerts</span>}>
             <div className="space-y-3">
-              {data.alerts?.slice(0, 5).map((alert: any, i: number) => (
+              {alerts.length === 0 && (
+                <p className="text-body-sm py-6 text-center" style={{ color: 'var(--text-faint)' }}>No students flagged — everyone's above 60% accuracy.</p>
+              )}
+              {alerts.slice(0, 5).map((alert, i: number) => (
                 <div
                   key={i}
                   className="flex items-start gap-3 p-3.5 rounded-xl"
@@ -153,7 +215,7 @@ export default function FacultyDashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-body-md font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{alert.name}</div>
-                    <div className="text-body-sm truncate" style={{ color: 'var(--text-muted)' }}>{alert.message ?? alert.reason ?? 'Performance dip detected'}</div>
+                    <div className="text-body-sm truncate" style={{ color: 'var(--text-muted)' }}>{alert.message ?? 'Performance dip detected'}</div>
                   </div>
                   <span
                     className="text-label-sm font-bold shrink-0"
@@ -180,7 +242,7 @@ export default function FacultyDashboard() {
             ) : assignedStudents.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 gap-2">
                 <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--text-faint)' }}>group_off</span>
-                <p className="text-body-sm" style={{ color: 'var(--text-muted)' }}>No students assigned yet. Run demo seed from login page.</p>
+                <p className="text-body-sm" style={{ color: 'var(--text-muted)' }}>No students assigned yet. An admin can assign students to your batch.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">

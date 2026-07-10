@@ -1,9 +1,9 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { PageKey, pathFor } from '../lib/pages';
 import { logout } from '../lib/auth';
-import { useTheme } from '../lib/theme';
 import { useState } from 'react';
 import AICompanion from './AICompanion';
+import { useConfirm } from './ConfirmDialog';
 
 interface NavSection {
   label?: string;
@@ -30,7 +30,7 @@ function isNavSection(x: NavItem | NavSection): x is NavSection {
 export default function Layout({ brand, role = 'student', nav, variant = 'default' }: LayoutProps) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { theme, toggleTheme, isDark } = useTheme();
+  const confirm = useConfirm();
   const [collapsed, setCollapsed] = useState(false);
 
   const roleAccent: Record<string, string> = {
@@ -52,10 +52,13 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
     );
   }
 
-  // Normalize nav to sections
+  // Normalize nav to sections. The "Account" section (Settings, Contact) is
+  // pinned to the bottom of the panel — common across all portals.
   const sections: NavSection[] = nav.every(isNavSection)
     ? (nav as NavSection[])
     : [{ items: nav as NavItem[] }];
+  const mainSections    = sections.filter(s => s.label !== 'Account');
+  const accountSections = sections.filter(s => s.label === 'Account');
 
   const sidebarWidth = collapsed ? '60px' : '260px';
 
@@ -68,6 +71,19 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
       const matches = pathname === t || pathname.startsWith(t + '/');
       return matches && t.length > best.len ? { key: it.key, len: t.length } : best;
     }, { key: '', len: -1 }).key;
+
+  async function handleSignOut() {
+    const ok = await confirm({
+      title: 'Sign out?',
+      message: 'You will be returned to the login page.',
+      confirmLabel: 'Sign out',
+      tone: 'danger',
+      icon: 'logout',
+    });
+    if (!ok) return;
+    await logout();
+    navigate(pathFor('login'));
+  }
 
   function renderNavItem(item: NavItem) {
     const target = pathFor(item.key);
@@ -101,17 +117,17 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
         {/* Logo */}
         <div
           className="flex items-center gap-3 px-4 shrink-0"
-          style={{ height: '64px', borderBottom: '1px solid var(--sidebar-border)' }}
+          style={{ height: '68px', borderBottom: '1px solid var(--sidebar-border)' }}
         >
           <Link to={homePath} className="flex items-center gap-3 min-w-0" title="Go to dashboard">
             <img
               src="/logo.png"
               alt="Concept Crack"
-              className="w-8 h-8 rounded-lg object-cover shrink-0"
+              className="w-10 h-10 rounded-xl object-cover shrink-0"
             />
             {!collapsed && (
               <div className="min-w-0">
-                <div className="font-headline font-bold text-white text-sm tracking-tight truncate">Concept Crack</div>
+                <div className="font-headline font-bold text-white text-[15px] tracking-tight truncate">Concept Crack</div>
                 <div className="text-[10px] uppercase tracking-widest truncate" style={{ color: 'var(--sidebar-text-muted)' }}>{brand}</div>
               </div>
             )}
@@ -144,7 +160,7 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
 
         {/* Navigation */}
         <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-0.5">
-          {sections.map((section, si) => (
+          {mainSections.map((section, si) => (
             <div key={si}>
               {section.label && !collapsed && (
                 <div
@@ -159,42 +175,16 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
           ))}
         </nav>
 
-        {/* Footer */}
+        {/* Footer — Account section (Settings etc.) pinned to the bottom, then sign out */}
         <div
           className="px-2 py-3 space-y-0.5 shrink-0"
           style={{ borderTop: '1px solid var(--sidebar-border)' }}
         >
-          <button
-            type="button"
-            onClick={toggleTheme}
-            title={collapsed ? (isDark ? 'Light mode' : 'Dark mode') : undefined}
-            className="sidebar-item w-full"
-          >
-            <span className="material-symbols-outlined item-icon">
-              {isDark ? 'light_mode' : 'dark_mode'}
-            </span>
-            {!collapsed && <span className="text-sm">{isDark ? 'Light mode' : 'Dark mode'}</span>}
-          </button>
-          <Link
-            to={pathFor('landing')}
-            title={collapsed ? 'Home' : undefined}
-            className="sidebar-item"
-          >
-            <span className="material-symbols-outlined item-icon">home</span>
-            {!collapsed && <span className="text-sm">Home</span>}
-          </Link>
-          <Link
-            to="/built-by-arcvion"
-            title={collapsed ? 'Built by Arcvion' : undefined}
-            className="sidebar-item"
-          >
-            <span className="material-symbols-outlined item-icon">code</span>
-            {!collapsed && <span className="text-sm">Built by Arcvion</span>}
-          </Link>
+          {accountSections.flatMap(s => s.items).map(renderNavItem)}
           <button
             type="button"
             title={collapsed ? 'Sign out' : undefined}
-            onClick={async () => { await logout(); navigate(pathFor('login')); }}
+            onClick={handleSignOut}
             className="sidebar-item w-full"
           >
             <span className="material-symbols-outlined item-icon">logout</span>

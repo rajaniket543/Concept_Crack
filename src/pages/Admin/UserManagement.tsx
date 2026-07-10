@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
+import Spinner from '../../components/Spinner';
 import { getDocs, collection, query, where, limit } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { adminCreateUser, adminResetPassword, adminSetUserStatus, type CreateUserInput } from '../../lib/accountManagement';
 import { useToast } from '../../components/Toast';
+import { useConfirm } from '../../components/ConfirmDialog';
 import type { AuthRole } from '../../lib/auth';
 
 const TABS = ['All', 'Students', 'Faculty', 'Parents', 'Admins'] as const;
@@ -28,9 +30,14 @@ type UserRow = {
   role: string;
   status: string;
   stream?: string;
+  examTarget?: string;
+  linkedStudentId?: string;
   mustChangePassword?: boolean;
   lastActive?: { seconds: number } | string | null;
 };
+
+// Exam Target = stream + target year (2l)
+const TARGET_YEARS = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() + i);
 
 const PAGE_SIZE = 15;
 
@@ -40,7 +47,9 @@ const EMPTY_FORM: CreateUserInput = {
 
 export default function UserManagement() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [tab, setTab]         = useState<(typeof TABS)[number]>('All');
+  const [targetYear, setTargetYear] = useState<string>(String(TARGET_YEARS[0]));
   const [search, setSearch]   = useState('');
   const [page, setPage]       = useState(1);
   const [users, setUsers]     = useState<UserRow[]>([]);
@@ -59,7 +68,6 @@ export default function UserManagement() {
       setUsers(
         snap.docs
           .map(d => ({ id: d.id, ...d.data() } as UserRow))
-          .filter(u => (u.email ?? '').endsWith('@conceptcrack.in'))
           .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')),
       );
     } catch {
@@ -109,19 +117,29 @@ export default function UserManagement() {
     e.preventDefault();
     setCreating(true);
     try {
-      let input: CreateUserInput = { ...form };
+      const input: CreateUserInput = { ...form };
+      // Exam target = stream + selected year (2l)
+      if (form.role === 'student' && form.stream) {
+        input.examTarget = `${form.stream} ${targetYear}`;
+      }
       // Resolve parent→student link by email
       if (form.role === 'parent' && linkedStudentEmail.trim()) {
         const q2 = query(collection(db, 'users'), where('email', '==', linkedStudentEmail.trim()), limit(1));
         const snap = await getDocs(q2);
-        if (!snap.empty) input.linkedStudentId = snap.docs[0].id;
+        if (snap.empty) {
+          toast('No student account found with that email — check the address.', 'error');
+          setCreating(false);
+          return;
+        }
+        input.linkedStudentId = snap.docs[0].id;
       }
       const { created } = await adminCreateUser(input);
-      if (created) {
-        toast(`Account created for ${form.name}. Temp password: Temp@1234`, 'success');
-      } else {
-        toast('Email already in use', 'error');
+      if (!created) {
+        toast('That email is already registered.', 'error');
+        setCreating(false);
+        return;
       }
+      toast(`Account created for ${form.name}. Temp password: Temp@1234`, 'success');
       setShowModal(false);
       setForm(EMPTY_FORM);
       setLinkedStudentEmail('');
@@ -149,6 +167,17 @@ export default function UserManagement() {
 
   async function handleToggleStatus(u: UserRow) {
     const next = u.status === 'Active' ? 'Inactive' : 'Active';
+    // Deactivation needs an explicit confirmation (2n)
+    if (next === 'Inactive') {
+      const ok = await confirm({
+        title: `Mark ${u.name} as Inactive?`,
+        message: `${u.name} will no longer be able to sign in until reactivated.`,
+        confirmLabel: 'Mark Inactive',
+        tone: 'danger',
+        icon: 'person_off',
+      });
+      if (!ok) return;
+    }
     try {
       await adminSetUserStatus(u.id, next as 'Active' | 'Inactive');
       setUsers(prev => prev.map(r => r.id === u.id ? { ...r, status: next } : r));
@@ -157,6 +186,15 @@ export default function UserManagement() {
       toast('Failed to update status', 'error');
     }
   }
+
+  // Parent name shown alongside each student (2o)
+  const parentByStudentId = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach(u => {
+      if (u.role === 'parent' && u.linkedStudentId) map.set(u.linkedStudentId, u.name);
+    });
+    return map;
+  }, [users]);
 
   function formatLastActive(val: UserRow['lastActive']): string {
     if (!val) return '—';
@@ -231,7 +269,7 @@ export default function UserManagement() {
 
           {loading ? (
             <div className="p-8 text-center" style={{ color: 'var(--text-faint)' }}>
-              <span className="material-symbols-outlined animate-spin block mx-auto mb-2" style={{ fontSize: '24px' }}>progress_activity</span>
+              <Spinner size={24} color="#EC4899" className="block mx-auto mb-2" />
               Loading users…
             </div>
           ) : (
@@ -270,6 +308,12 @@ export default function UserManagement() {
                                 )}
                               </div>
                               <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{u.email}</div>
+                              {u.role === 'student' && parentByStudentId.has(u.id) && (
+                                <div className="text-label-sm flex items-center gap-1" style={{ color: '#D97706' }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>family_restroom</span>
+                                  Parent: {parentByStudentId.get(u.id)}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -432,23 +476,20 @@ export default function UserManagement() {
                 </select>
               </FormField>
 
-              {/* Student fields */}
+              {/* Student fields — exam type is assigned here by the admin (5a) */}
               {form.role === 'student' && (
                 <>
-                  <FormField label="Stream">
-                    <select value={form.stream} onChange={e => setForm(f => ({ ...f, stream: e.target.value }))}>
+                  <FormField label="Stream (exam type)" required>
+                    <select value={form.stream} onChange={e => setForm(f => ({ ...f, stream: e.target.value }))} required>
                       <option value="">— Select —</option>
                       <option value="JEE">JEE</option>
                       <option value="NEET">NEET</option>
                     </select>
                   </FormField>
-                  <FormField label="Exam Target">
-                    <input
-                      type="text"
-                      value={form.examTarget}
-                      onChange={e => setForm(f => ({ ...f, examTarget: e.target.value }))}
-                      placeholder="e.g. JEE 2026"
-                    />
+                  <FormField label="Exam Target Year">
+                    <select value={targetYear} onChange={e => setTargetYear(e.target.value)}>
+                      {TARGET_YEARS.map(y => <option key={y} value={y}>{form.stream ? `${form.stream} ${y}` : y}</option>)}
+                    </select>
                   </FormField>
                 </>
               )}

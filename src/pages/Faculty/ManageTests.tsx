@@ -1,9 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthSession } from '../../lib/auth';
 import { getFacultyTests, updateTestStatus, type Test } from '../../lib/tests';
 import { pathFor } from '../../lib/pages';
 import { useToast } from '../../components/Toast';
+import { useConfirm } from '../../components/ConfirmDialog';
+
+// Status filters (3f)
+const FILTERS = ['All', 'Active', 'Pending', 'Approved', 'Rejected', 'Closed', 'Draft'] as const;
+type Filter = (typeof FILTERS)[number];
+
+const FILTER_STATUSES: Record<Filter, string[]> = {
+  All:      [],
+  Active:   ['active'],
+  Pending:  ['pending_approval'],
+  Approved: ['approved'],
+  Rejected: ['rejected', 'final_rejected'],
+  Closed:   ['closed'],
+  Draft:    ['draft'],
+};
 
 const STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
   draft:            { label: 'Draft',            bg: 'rgba(107,114,128,0.10)', color: '#6B7280' },
@@ -29,11 +44,13 @@ function formatDuration(secs: number) {
 export default function ManageTests() {
   const navigate = useNavigate();
   const toast    = useToast();
+  const confirm  = useConfirm();
   const uid      = getAuthSession()?.user?.id ?? '';
 
   const [tests, setTests]     = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState<string | null>(null);
+  const [filter, setFilter]   = useState<Filter>('All');
 
   useEffect(() => {
     if (!uid) return;
@@ -42,8 +59,25 @@ export default function ManageTests() {
       .finally(() => setLoading(false));
   }, [uid]);
 
+  const filteredTests = useMemo(() => {
+    const statuses = FILTER_STATUSES[filter];
+    return statuses.length === 0 ? tests : tests.filter(t => statuses.includes(t.status));
+  }, [tests, filter]);
+
+  const countFor = (f: Filter) => {
+    const statuses = FILTER_STATUSES[f];
+    return statuses.length === 0 ? tests.length : tests.filter(t => statuses.includes(t.status)).length;
+  };
+
   async function closeTest(testId: string) {
-    if (!window.confirm('Close this test? Students will no longer be able to access it.')) return;
+    const ok = await confirm({
+      title: 'Close this test?',
+      message: 'Students will no longer be able to access or attempt it. This cannot be undone.',
+      confirmLabel: 'Close test',
+      tone: 'danger',
+      icon: 'block',
+    });
+    if (!ok) return;
     setClosing(testId);
     try {
       await updateTestStatus(testId, 'closed');
@@ -89,6 +123,17 @@ export default function ManageTests() {
         </button>
       </div>
 
+      {/* Status filters (3f) */}
+      {tests.length > 0 && (
+        <div className="tab-pills flex-wrap">
+          {FILTERS.map(f => (
+            <button key={f} type="button" onClick={() => setFilter(f)} className={`tab-pill ${filter === f ? 'active' : ''}`}>
+              {f} ({countFor(f)})
+            </button>
+          ))}
+        </div>
+      )}
+
       {tests.length === 0 ? (
         <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: 'var(--surface)', border: '2px dashed var(--border)' }}>
           <span className="material-symbols-outlined text-6xl block mb-4" style={{ color: 'var(--text-faint)' }}>quiz</span>
@@ -102,9 +147,13 @@ export default function ManageTests() {
             Create your first test
           </button>
         </div>
+      ) : filteredTests.length === 0 ? (
+        <div className="rounded-2xl p-10 text-center" style={{ backgroundColor: 'var(--surface)', border: '2px dashed var(--border)' }}>
+          <p className="text-body-md" style={{ color: 'var(--text-muted)' }}>No {filter.toLowerCase()} tests.</p>
+        </div>
       ) : (
         <div className="space-y-3">
-          {tests.map(test => {
+          {filteredTests.map(test => {
             const sm = STATUS_META[test.status] ?? STATUS_META.draft;
             return (
               <div

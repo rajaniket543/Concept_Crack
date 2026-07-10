@@ -4,7 +4,6 @@ export type PageKey =
   | 'landing'
   | 'login'
   | 'student'
-  | 'streamSelect'
   | 'practice'
   | 'exam'
   | 'analysis'
@@ -15,6 +14,7 @@ export type PageKey =
   | 'customTest'
   | 'aiTest'
   | 'battle'
+  | 'testLog'
   | 'parent'
   | 'faculty'
   | 'questionBank'
@@ -27,10 +27,11 @@ export type PageKey =
   | 'manageTests'
   | 'admin'
   | 'users'
-  | 'institutes'
   | 'testApprovals'
+  | 'reviewReports'
   | 'facultyReports'
   | 'messages'
+  | 'contact'
   | 'settings';
 
 export type LoginRole = 'student' | 'parent' | 'faculty' | 'admin';
@@ -46,7 +47,6 @@ export const pages: PageDef[] = [
   { key: 'landing', label: 'Landing', group: 'Main', path: '/about' },
   { key: 'login', label: 'Login', group: 'Main', path: '/login' },
   { key: 'student', label: 'Student Dashboard', group: 'Student', path: '/student' },
-  { key: 'streamSelect', label: 'Select Stream', group: 'Student', path: '/student/select-stream' },
   { key: 'practice', label: 'Practice Module', group: 'Student', path: '/student/practice' },
   { key: 'exam', label: 'Exam Interface', group: 'Student', path: '/student/exam' },
   { key: 'analysis', label: 'Test Analysis', group: 'Student', path: '/student/analysis' },
@@ -57,6 +57,7 @@ export const pages: PageDef[] = [
   { key: 'customTest', label: 'Custom Test', group: 'Student', path: '/student/custom-test' },
   { key: 'aiTest', label: 'AI Test', group: 'Student', path: '/student/ai-test' },
   { key: 'battle', label: 'Battle', group: 'Student', path: '/student/battle' },
+  { key: 'testLog', label: 'Test Log', group: 'Student', path: '/student/test-log' },
   { key: 'parent', label: 'Parent Dashboard', group: 'Parent', path: '/parent' },
   { key: 'faculty', label: 'Faculty Dashboard', group: 'Faculty', path: '/faculty' },
   { key: 'questionBank', label: 'Question Bank', group: 'Faculty', path: '/faculty/questions' },
@@ -69,10 +70,11 @@ export const pages: PageDef[] = [
   { key: 'manageTests', label: 'Manage Tests', group: 'Faculty', path: '/faculty/tests' },
   { key: 'admin', label: 'Admin Dashboard', group: 'Admin', path: '/admin' },
   { key: 'users', label: 'User Management', group: 'Admin', path: '/admin/users' },
-  { key: 'institutes', label: 'Institute Management', group: 'Admin', path: '/admin/institutes' },
   { key: 'testApprovals', label: 'Test Approvals', group: 'Admin', path: '/admin/test-approvals' },
-  { key: 'facultyReports', label: 'Faculty Reports', group: 'Admin', path: '/admin/faculty-reports' },
+  { key: 'reviewReports', label: 'Review Reports', group: 'Admin', path: '/admin/review-reports' },
+  { key: 'facultyReports', label: 'Faculty AI Reports', group: 'Admin', path: '/admin/faculty-reports' },
   { key: 'messages', label: 'Messages', group: 'Main', path: '/messages' },
+  { key: 'contact', label: 'Contact Us', group: 'Main', path: '/contact' },
   { key: 'settings', label: 'Settings', group: 'Main', path: '/settings' },
 ];
 

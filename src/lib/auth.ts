@@ -2,17 +2,13 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
+  verifyPasswordResetCode,
+  confirmPasswordReset,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithPhoneNumber,
-  RecaptchaVerifier,
-  type ConfirmationResult,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { clearStudentStream } from './stream';
+import { clearStudentStream, saveStreamLocal, type StudentStream } from './stream';
 import { auth, db } from './firebase';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -110,6 +106,13 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
       permissions: data.permissions ?? [],
     };
 
+    // The exam stream (JEE / NEET) is assigned by the admin at registration —
+    // students never pick it themselves. Apply it to this device on login.
+    if (data.role === 'student') {
+      const stream = (data.stream === 'NEET' ? 'NEET' : 'JEE') as StudentStream;
+      saveStreamLocal(stream);
+    }
+
     // Update last-active timestamp (fire-and-forget)
     void setDoc(userRef, { lastActive: serverTimestamp() }, { merge: true });
   } else {
@@ -128,6 +131,7 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
       createdAt: serverTimestamp(),
       lastActive: serverTimestamp(),
     });
+    if (selectedRole === 'student') saveStreamLocal('JEE');
   }
 
   // Redirect to password-change page on first login
@@ -150,7 +154,6 @@ export async function login(payload: {
   identifier: string;
   password:   string;
   role:       AuthRole;
-  method:     'email' | 'mobile';
 }): Promise<AuthSession> {
   const credential = await signInWithEmailAndPassword(
     auth,
@@ -160,65 +163,32 @@ export async function login(payload: {
   return buildSession(credential.user.uid, payload.role);
 }
 
-export async function requestOtp(payload: { identifier: string; role: AuthRole }) {
-  const actionCodeSettings = {
-    url:            `${window.location.origin}/login?role=${payload.role}`,
-    handleCodeInApp: true,
-  };
-  await sendSignInLinkToEmail(auth, payload.identifier.trim(), actionCodeSettings);
-  window.localStorage.setItem('otp_email', payload.identifier.trim());
-  window.localStorage.setItem('otp_role',  payload.role);
-  return {
-    challengeId:      'email-link',
-    devCode:          '',
-    expiresInSeconds: 600,
-    message:          `A sign-in link has been sent to ${payload.identifier}. Click the link in your email to sign in.`,
-  };
-}
-
-export async function verifyOtp(payload: { challengeId: string; code: string }) {
-  if (!isSignInWithEmailLink(auth, window.location.href)) {
-    throw new Error('No valid sign-in link found. Please request a new OTP.');
-  }
-  const email = window.localStorage.getItem('otp_email') ?? payload.code;
-  const role  = (window.localStorage.getItem('otp_role') ?? 'student') as AuthRole;
-  const credential = await signInWithEmailLink(auth, email, window.location.href);
-  window.localStorage.removeItem('otp_email');
-  window.localStorage.removeItem('otp_role');
-  return buildSession(credential.user.uid, role);
-}
-
-let _recaptchaVerifier: RecaptchaVerifier | null = null;
-
-export async function sendPhoneOtp(phone: string, container: HTMLElement): Promise<ConfirmationResult> {
-  if (_recaptchaVerifier) {
-    _recaptchaVerifier.clear();
-    _recaptchaVerifier = null;
-  }
-  container.innerHTML = '';
-  _recaptchaVerifier = new RecaptchaVerifier(auth, container, { size: 'invisible' });
-  return signInWithPhoneNumber(auth, phone.trim(), _recaptchaVerifier);
-}
-
-export async function verifyPhoneOtp(
-  confirmation: ConfirmationResult,
-  code: string,
-  role: AuthRole
-): Promise<AuthSession> {
-  const credential = await confirmation.confirm(code.trim());
-  return buildSession(credential.user.uid, role);
-}
-
-export type { ConfirmationResult };
-
 export async function loginWithGoogle(role: AuthRole): Promise<AuthSession> {
   const provider = new GoogleAuthProvider();
   const credential = await signInWithPopup(auth, provider);
   return buildSession(credential.user.uid, role);
 }
 
+// ── Forgot password ──────────────────────────────────────────────────────────
+// Step 1: a secure one-time reset code is emailed to the user.
+// Step 2: if the link opens back in the app (?mode=resetPassword&oobCode=…),
+//         the new password is set right on the login page.
+
 export async function forgotPassword(email: string) {
-  await sendPasswordResetEmail(auth, email.trim());
+  await sendPasswordResetEmail(auth, email.trim(), {
+    url: `${window.location.origin}/login`,
+    handleCodeInApp: false,
+  });
+}
+
+/** Validates the emailed reset code and returns the account email it belongs to. */
+export async function verifyResetCode(oobCode: string): Promise<string> {
+  return verifyPasswordResetCode(auth, oobCode);
+}
+
+/** Completes the reset: sets the new password for the code's account. */
+export async function completePasswordReset(oobCode: string, newPassword: string): Promise<void> {
+  await confirmPasswordReset(auth, oobCode, newPassword);
 }
 
 export async function logout() {

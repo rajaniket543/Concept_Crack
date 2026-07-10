@@ -17,6 +17,7 @@ import { getChapterFormulas, getSubjectHighlights, generateFormulasAI, type Form
 import { hasAI } from '../../lib/ai';
 import { pathFor } from '../../lib/pages';
 import { useToast } from '../../components/Toast';
+import { useConfirm } from '../../components/ConfirmDialog';
 
 const fallbackMeta = examMeta;
 
@@ -39,6 +40,7 @@ export default function ExamInterface() {
   const navigate  = useNavigate();
   const location  = useLocation();
   const toast     = useToast();
+  const confirm   = useConfirm();
 
   // State from PracticeModule (subject/chapter) or test-based (testId)
   const { subject: stateSubject = 'Physics', chapter: stateChapter = '', testId = null, examTitle: stateTitle = '' } =
@@ -66,8 +68,14 @@ export default function ExamInterface() {
   // Pre-test instructions screen + 1-minute countdown
   const [started, setStarted]         = useState(false);
   const [preCountdown, setPreCountdown] = useState(60);
+  // Feature 5d — student must stay on the instructions/formula screen for a
+  // mandatory 30 seconds before the Start button unlocks.
+  const MANDATORY_HOLD = 30;
+  const [holdRemaining, setHoldRemaining] = useState(MANDATORY_HOLD);
   // Anti-cheat violations (tab switches, blocked copy/paste, etc.)
   const [violations, setViolations]   = useState(0);
+  // Feature 5g — a clearly visible "flagged for tab switching" banner in-exam.
+  const [tabFlash, setTabFlash]       = useState(false);
   // Tab-switch enforcement (locked mode): warn, then auto-submit after N leaves
   const [showTabWarning, setShowTabWarning] = useState(false);
   const [multiTabBlocked, setMultiTabBlocked] = useState(false);
@@ -99,6 +107,13 @@ export default function ExamInterface() {
     return () => window.clearInterval(id);
   }, [preCountdown, started, loading]);
 
+  // Feature 5d — count down the mandatory 30-second hold on the instructions screen.
+  useEffect(() => {
+    if (started || loading || holdRemaining <= 0) return;
+    const id = window.setInterval(() => setHoldRemaining(s => (s > 0 ? s - 1 : 0)), 1000);
+    return () => window.clearInterval(id);
+  }, [holdRemaining, started, loading]);
+
   // Feature 2 — browser-lock policy depends on the test type/mode:
   //   • open   (AI, Practice, custom, or faculty "Allow Tab Switching"): switches are
   //             RECORDED and flagged, but nothing is blocked and there is no auto-submit.
@@ -123,6 +138,10 @@ export default function ExamInterface() {
       tabEvents.current.push({ at: new Date().toISOString(), awaySeconds: away });
       timeOutsideRef.current += away;
       setViolations(v => v + 1);
+
+      // Feature 5g — always surface a clearly visible flag banner in-exam.
+      setTabFlash(true);
+      window.setTimeout(() => setTabFlash(false), 6000);
 
       if (lockMode === 'locked') {
         if (autoSubmitAfter > 0 && tabSwitches.current >= autoSubmitAfter) {
@@ -615,6 +634,20 @@ export default function ExamInterface() {
               ))}
             </div>
 
+            {/* Lock Mode banner — enlarged, prominent message (5e) */}
+            {lockMode === 'locked' && (
+              <div className="rounded-xl px-4 py-3.5 flex items-start gap-3" style={{ backgroundColor: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                <span className="material-symbols-outlined shrink-0" style={{ fontSize: '26px', color: '#DC2626' }}>lock</span>
+                <div>
+                  <div className="text-base font-bold" style={{ color: '#DC2626' }}>Complete Lock Mode is ON</div>
+                  <p className="text-sm mt-0.5 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    Copy, paste, right-click and dev-tools are disabled. Leaving the exam window is recorded
+                    {autoSubmitAfter > 0 ? ` and the test auto-submits after ${autoSubmitAfter} leave${autoSubmitAfter === 1 ? '' : 's'}.` : ' and flagged for your faculty.'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Rules */}
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -685,16 +718,35 @@ export default function ExamInterface() {
               </div>
             )}
 
+            {/* Mandatory 30-second hold (5d) */}
+            {holdRemaining > 0 && (
+              <div className="rounded-xl px-4 py-3 flex items-center gap-3" style={{ backgroundColor: 'rgba(91,79,232,0.06)', border: '1px solid rgba(91,79,232,0.20)' }}>
+                <div className="relative w-9 h-9 shrink-0">
+                  <svg viewBox="0 0 36 36" className="w-9 h-9 -rotate-90">
+                    <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" strokeWidth="4" />
+                    <circle cx="18" cy="18" r="15" fill="none" stroke="#5B4FE8" strokeWidth="4" strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 15}
+                      strokeDashoffset={2 * Math.PI * 15 * (holdRemaining / MANDATORY_HOLD)} />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold" style={{ color: '#5B4FE8' }}>{holdRemaining}</span>
+                </div>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  Please read the instructions and formulas. You can start in <strong>{holdRemaining}s</strong>.
+                </p>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setStarted(true)}
-                className="btn-primary btn-md w-full sm:flex-1 justify-center"
+                disabled={holdRemaining > 0}
+                className="btn-primary btn-md w-full sm:flex-1 justify-center disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>play_arrow</span>
-                Start Test Now
+                {holdRemaining > 0 ? `Start Test (${holdRemaining}s)` : 'Start Test Now'}
               </button>
               <button
                 type="button"
@@ -705,7 +757,7 @@ export default function ExamInterface() {
               </button>
             </div>
             <p className="text-center text-xs" style={{ color: 'var(--text-faint)' }}>
-              The test will start automatically when the countdown reaches zero.
+              The test starts automatically when the countdown reaches zero — after the mandatory {MANDATORY_HOLD}-second review.
             </p>
           </div>
         </div>
@@ -758,8 +810,19 @@ export default function ExamInterface() {
           {/* Submit */}
           <button
             type="button"
-            onClick={() => {
-              if (window.confirm('Submit exam? This action cannot be undone.')) void submitExam();
+            onClick={async () => {
+              const remaining = exam.totalQuestions - answered;
+              const ok = await confirm({
+                title: 'Submit your exam?',
+                message: remaining > 0
+                  ? `You have answered ${answered} of ${exam.totalQuestions} questions. ${remaining} unanswered question${remaining === 1 ? '' : 's'} will be marked as skipped. This cannot be undone.`
+                  : `All ${exam.totalQuestions} questions answered. Submit your final answers? This cannot be undone.`,
+                confirmLabel: 'Submit exam',
+                cancelLabel: 'Keep working',
+                tone: remaining > 0 ? 'warning' : 'success',
+                icon: 'send',
+              });
+              if (ok) void submitExam();
             }}
             className="btn-primary btn-md"
             style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
@@ -1067,9 +1130,31 @@ export default function ExamInterface() {
         </div>
       )}
 
-      {/* Monitoring pill */}
+      {/* Feature 5g — clearly visible "flagged for tab switching" banner */}
+      {tabFlash && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-5 py-3 rounded-xl"
+          style={{
+            top: '76px',
+            backgroundColor: '#DC2626',
+            color: '#fff',
+            boxShadow: '0 10px 40px rgba(220,38,38,0.45)',
+            zIndex: 75,
+          }}
+          role="alert"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>flag</span>
+          <div>
+            <div className="text-sm font-bold">Flagged for Tab Switching</div>
+            <div className="text-xs text-white/85">This has been recorded and reported to your faculty ({tabSwitches.current} total).</div>
+          </div>
+        </div>
+      )}
+
+      {/* Monitoring pill — bottom-LEFT so it never overlaps the right sidebar's
+          "AI Proctoring Active" box (5f). */}
       <div
-        className="fixed bottom-6 right-6 flex items-center gap-2.5 px-4 py-2.5 rounded-xl pointer-events-none"
+        className="fixed bottom-6 left-6 flex items-center gap-2.5 px-4 py-2.5 rounded-xl pointer-events-none"
         style={{
           opacity: monitorOpacity,
           transition: 'opacity 0.3s ease',

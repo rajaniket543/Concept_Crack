@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { pathFor } from '../lib/pages';
-import { features, stats, testimonials } from '../mocks';
-import { useTheme } from '../lib/theme';
+import { features, stats } from '../mocks';
 
 const faqItems = [
   { q: 'Which exams does Concept Crack cover?', a: 'Concept Crack currently supports JEE (Main + Advanced), NEET UG, UPSC Prelims, and CAT. More exams are added regularly.' },
@@ -13,7 +12,7 @@ const faqItems = [
 
 export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const { toggleTheme, isDark } = useTheme();
+  const isDark = false; // platform ships light-mode only
 
   return (
     <div
@@ -52,15 +51,6 @@ export default function Landing() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
-            style={{ backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6', color: isDark ? '#9CA3AF' : '#6B7280' }}
-            aria-label="Toggle theme"
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{isDark ? 'light_mode' : 'dark_mode'}</span>
-          </button>
           <Link
             to={pathFor('login')}
             className="h-9 px-4 rounded-lg text-sm font-semibold flex items-center transition-colors"
@@ -154,10 +144,6 @@ export default function Landing() {
               </div>
               <span>2M+ students</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              {[1,2,3,4,5].map(i => <span key={i} className="material-symbols-outlined filled text-amber-400" style={{ fontSize: '16px' }}>star</span>)}
-              <span>4.9/5 rating</span>
-            </div>
             <span>JEE · NEET · UPSC · CAT</span>
           </div>
         </div>
@@ -220,54 +206,6 @@ export default function Landing() {
           })}
         </div>
       </section>
-
-      {/* ── Testimonials ── */}
-      <section
-        id="testimonials"
-        className="py-24"
-        style={{ backgroundColor: isDark ? '#1A1929' : '#F9FAFB' }}
-      >
-        <div className="max-w-6xl mx-auto px-6 lg:px-10">
-          <div className="text-center mb-16">
-            <div className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4" style={{ color: '#10B981', backgroundColor: 'rgba(16,185,129,0.10)' }}>
-              Student Stories
-            </div>
-            <h2 className="text-4xl font-headline font-bold tracking-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-              Trusted by toppers across India
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {testimonials.map(t => (
-              <figure
-                key={t.name}
-                className="rounded-xl p-6 flex flex-col"
-                style={{
-                  backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF',
-                  border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
-                  boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
-                }}
-              >
-                <div className="flex mb-4 gap-0.5">
-                  {[1,2,3,4,5].map(i => <span key={i} className="material-symbols-outlined filled text-amber-400" style={{ fontSize: '16px' }}>star</span>)}
-                </div>
-                <blockquote className="flex-1 text-sm leading-relaxed mb-5" style={{ color: isDark ? '#D1D5DB' : '#374151' }}>
-                  "{t.quote}"
-                </blockquote>
-                <figcaption className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
-                    {t.initials}
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold" style={{ color: isDark ? '#F9FAFB' : '#111827' }}>{t.name}</div>
-                    <div className="text-xs" style={{ color: isDark ? '#6B7280' : '#9CA3AF' }}>{t.role}</div>
-                  </div>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </div>
-      </section>
-
 
       {/* ── FAQ ── */}
       <section
@@ -339,20 +277,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Collab strip ── */}
-      <div className="py-6 text-center" style={{ borderTop: `1px solid ${isDark ? '#1E1D2E' : '#E5E7EB'}` }}>
-        <p className="text-sm" style={{ color: isDark ? '#6B7280' : '#9CA3AF' }}>
-          Have a project in mind?{' '}
-          <a
-            href="mailto:mishrasatarupa360@gmail.com"
-            className="font-semibold hover:underline transition-colors"
-            style={{ color: '#5B4FE8' }}
-          >
-            Contact us for collaborations.
-          </a>
-        </p>
-      </div>
-
       {/* ── Footer ── */}
       <footer
         className="py-10 px-6 lg:px-10"
@@ -379,7 +303,6 @@ export default function Landing() {
               { title: 'Company', links: [
                 { label: 'About', href: '#stats' },
                 { label: 'Why Concept Crack', href: '#stats' },
-                { label: 'Built by Arcvion', href: '/built-by-arcvion' },
                 { label: 'Careers', href: 'mailto:careers@conceptcrack.app' },
                 { label: 'Contact', href: 'mailto:support@conceptcrack.app' },
               ] },

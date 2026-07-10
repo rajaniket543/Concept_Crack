@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import Layout from './components/Layout';
 import RouteProgress from './components/RouteProgress';
-import ArcvionBadge from './components/ArcvionBadge';
 import ActivityTracker from './components/ActivityTracker';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -17,6 +16,7 @@ import AssignedTests from './pages/Student/AssignedTests';
 import CustomTest from './pages/Student/CustomTest';
 import AITest from './pages/Student/AITest';
 import Battle from './pages/Student/Battle';
+import TestLog from './pages/Student/TestLog';
 import ParentDashboard from './pages/Parent/ParentDashboard';
 import FacultyDashboard from './pages/Faculty/FacultyDashboard';
 import QuestionBankManagement from './pages/Faculty/QuestionBankManagement';
@@ -27,21 +27,21 @@ import AIGenerateTest from './pages/Faculty/AIGenerateTest';
 import ManualTestBuilder from './pages/Faculty/ManualTestBuilder';
 import TestVerification from './pages/Faculty/TestVerification';
 import ManageTests from './pages/Faculty/ManageTests';
-import StreamSelect from './pages/StreamSelect';
 import TestChatBot from './pages/Student/TestChatBot';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import UserManagement from './pages/Admin/UserManagement';
-import InstituteManagement from './pages/Admin/InstituteManagement';
 import TestApprovals from './pages/Admin/TestApprovals';
+import ReviewReports from './pages/Admin/ReviewReports';
 import FacultyReports from './pages/Admin/FacultyReports';
 import Messages from './pages/Messages';
-import Arcvion from './pages/Arcvion';
+import ContactUs from './pages/ContactUs';
 import Settings from './pages/Settings';
 import ChangePassword from './pages/ChangePassword';
 import { getAuthSession } from './lib/auth';
 import { PageKey } from './lib/pages';
 
 // ─── Nav definitions using sectioned format ─────────────────────────────────
+// The "Account" section is pinned to the bottom of the sidebar in every portal.
 
 const studentNav = [
   {
@@ -69,13 +69,21 @@ const studentNav = [
     label: 'Analyse',
     items: [
       { key: 'analysis' as PageKey,   label: 'Test Analysis', icon: 'analytics' },
+      { key: 'testLog' as PageKey,    label: 'Review Tests',  icon: 'history_edu' },
       { key: 'insights' as PageKey,   label: 'AI Insights',   icon: 'psychology' },
       { key: 'leaderboard' as PageKey,label: 'Leaderboard',   icon: 'leaderboard' },
     ],
   },
   {
+    label: 'Connect',
+    items: [
+      { key: 'messages' as PageKey,   label: 'Messages',      icon: 'chat' },
+    ],
+  },
+  {
     label: 'Account',
     items: [
+      { key: 'contact' as PageKey,    label: 'Contact Us',    icon: 'support_agent' },
       { key: 'settings' as PageKey,   label: 'Settings',      icon: 'settings' },
     ],
   },
@@ -91,6 +99,7 @@ const parentNav = [
   {
     label: 'Account',
     items: [
+      { key: 'contact' as PageKey,  label: 'Contact Us',    icon: 'support_agent' },
       { key: 'settings' as PageKey, label: 'Settings',      icon: 'settings' },
     ],
   },
@@ -106,8 +115,6 @@ const facultyNav = [
     label: 'Tests',
     items: [
       { key: 'createTest' as PageKey,   label: 'Create Test',      icon: 'add_circle' },
-      { key: 'aiGenerate' as PageKey,   label: 'AI Generator',     icon: 'auto_awesome' },
-      { key: 'buildTest' as PageKey,    label: 'Build a Test',     icon: 'construction' },
       { key: 'manageTests' as PageKey,  label: 'My Tests',         icon: 'quiz' },
     ],
   },
@@ -123,6 +130,7 @@ const facultyNav = [
   {
     label: 'Account',
     items: [
+      { key: 'contact' as PageKey,      label: 'Contact Us',     icon: 'support_agent' },
       { key: 'settings' as PageKey,     label: 'Settings',       icon: 'settings' },
     ],
   },
@@ -137,16 +145,17 @@ const adminNav = [
   {
     label: 'Manage',
     items: [
-      { key: 'users' as PageKey,        label: 'Users',           icon: 'group' },
-      { key: 'institutes' as PageKey,   label: 'Institutes',      icon: 'apartment' },
-      { key: 'faculty' as PageKey,      label: 'Faculty',         icon: 'co_present' },
-      { key: 'testApprovals' as PageKey,label: 'Test Approvals',  icon: 'verified' },
-      { key: 'facultyReports' as PageKey, label: 'Faculty Reports', icon: 'summarize' },
+      { key: 'users' as PageKey,          label: 'Users',              icon: 'group' },
+      { key: 'testApprovals' as PageKey,  label: 'Test Approvals',     icon: 'verified' },
+      { key: 'reviewReports' as PageKey,  label: 'Review Reports',     icon: 'fact_check' },
+      { key: 'facultyReports' as PageKey, label: 'Faculty AI Reports', icon: 'summarize' },
+      { key: 'messages' as PageKey,       label: 'Messages',           icon: 'chat' },
     ],
   },
   {
     label: 'Account',
     items: [
+      { key: 'contact' as PageKey,      label: 'Contact Us',      icon: 'support_agent' },
       { key: 'settings' as PageKey,     label: 'Settings',        icon: 'settings' },
     ],
   },
@@ -196,9 +205,7 @@ export default function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/about" element={<Landing />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/built-by-arcvion" element={<Arcvion />} />
 
-      <Route path="/student/select-stream" element={<RequireAuth roles={['student']}><StreamSelect /></RequireAuth>} />
       <Route path="/student/chatbot" element={<RequireAuth roles={['student']}><TestChatBot /></RequireAuth>} />
 
       <Route path="/student" element={<StudentLayout />}>
@@ -211,6 +218,7 @@ export default function App() {
         <Route path="custom-test" element={<RequireAuth roles={['student']}><CustomTest /></RequireAuth>} />
         <Route path="ai-test" element={<RequireAuth roles={['student']}><AITest /></RequireAuth>} />
         <Route path="battle" element={<RequireAuth roles={['student']}><Battle /></RequireAuth>} />
+        <Route path="test-log" element={<RequireAuth roles={['student']}><TestLog /></RequireAuth>} />
       </Route>
 
       <Route path="/student/exam" element={<ExamLayout />}>
@@ -236,18 +244,18 @@ export default function App() {
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<RequireAuth roles={['admin']}><AdminDashboard /></RequireAuth>} />
         <Route path="users" element={<RequireAuth roles={['admin']}><UserManagement /></RequireAuth>} />
-        <Route path="institutes" element={<RequireAuth roles={['admin']}><InstituteManagement /></RequireAuth>} />
         <Route path="test-approvals" element={<RequireAuth roles={['admin']}><TestApprovals /></RequireAuth>} />
+        <Route path="review-reports" element={<RequireAuth roles={['admin']}><ReviewReports /></RequireAuth>} />
         <Route path="faculty-reports" element={<RequireAuth roles={['admin']}><FacultyReports /></RequireAuth>} />
       </Route>
 
       <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
-      <Route path="/messages" element={<RequireAuth roles={['parent', 'faculty', 'admin']}><Messages /></RequireAuth>} />
+      <Route path="/messages" element={<RequireAuth><Messages /></RequireAuth>} />
+      <Route path="/contact" element={<RequireAuth><ContactUs /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
 
       <Route path="*" element={<NotFound />} />
       </Routes>
-      <ArcvionBadge />
     </>
   );
 }

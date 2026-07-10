@@ -13,11 +13,13 @@ interface AIRecommendation {
   durationMins: number;
 }
 
+// Distinct hues per subject — Physics (blue) and Chemistry (orange) are kept far
+// apart on the colour wheel so they never read as the same (5c).
 const SUBJECT_META: Record<string, { color: string; bg: string; icon: string; gradient: string }> = {
-  Physics:     { color: '#5B4FE8', bg: 'rgba(91,79,232,0.10)',   icon: 'electric_bolt', gradient: 'linear-gradient(135deg, #5B4FE8, #818CF8)' },
-  Chemistry:   { color: '#8B5CF6', bg: 'rgba(139,92,246,0.10)',  icon: 'science',       gradient: 'linear-gradient(135deg, #7C3AED, #8B5CF6)' },
+  Physics:     { color: '#2563EB', bg: 'rgba(37,99,235,0.10)',   icon: 'electric_bolt', gradient: 'linear-gradient(135deg, #2563EB, #3B82F6)' },
+  Chemistry:   { color: '#F97316', bg: 'rgba(249,115,22,0.10)',  icon: 'science',       gradient: 'linear-gradient(135deg, #EA580C, #F97316)' },
   Mathematics: { color: '#10B981', bg: 'rgba(16,185,129,0.10)',  icon: 'calculate',     gradient: 'linear-gradient(135deg, #059669, #10B981)' },
-  Biology:     { color: '#14B8A6', bg: 'rgba(20,184,166,0.10)',  icon: 'biotech',       gradient: 'linear-gradient(135deg, #0D9488, #14B8A6)' },
+  Biology:     { color: '#8B5CF6', bg: 'rgba(139,92,246,0.10)',  icon: 'biotech',       gradient: 'linear-gradient(135deg, #7C3AED, #8B5CF6)' },
 };
 
 const SUBJECT_DESC: Record<string, string> = {
