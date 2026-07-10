@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import TopBar from '../../components/TopBar';
 import Card from '../../components/Card';
 import Spinner from '../../components/Spinner';
@@ -41,6 +41,7 @@ export default function TestLog() {
 
   const [attempts, setAttempts] = useState<AttemptView[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [openId, setOpenId]     = useState<string | null>(null);
   const [review, setReview]     = useState<Record<string, ReviewQuestion[]>>({});
   const [reviewLoading, setReviewLoading] = useState<string | null>(null);
@@ -57,32 +58,50 @@ export default function TestLog() {
     return 'custom';
   }
 
-  useEffect(() => {
-    if (!uid) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const raw = await getStudentAttempts(uid);
-        const enriched = await Promise.all(raw.map(async a => {
-          // Prefer the denormalised fields; only fetch the Test doc for old attempts.
-          let testTitle = a.testTitle ?? '';
-          let subjects = a.subjects ?? [];
-          if (!testTitle || subjects.length === 0) {
-            const test = await getTest(a.testId).catch(() => null);
-            testTitle = testTitle || test?.title || 'Test';
-            subjects = subjects.length ? subjects : (test?.subjects ?? []);
-          }
-          return { ...a, testTitle, subjects, type: inferType(a) } as AttemptView;
-        }));
-        if (!cancelled) setAttempts(enriched);
-      } catch (e) {
-        console.error('test log load failed', e);
-      } finally {
-        if (!cancelled) setLoading(false);
+  async function enrichAttempts(raw: TestAttempt[]): Promise<AttemptView[]> {
+    return Promise.all(raw.map(async a => {
+      // Prefer the denormalised fields; only fetch the Test doc for old attempts.
+      let testTitle = a.testTitle ?? '';
+      let subjects = a.subjects ?? [];
+      if (!testTitle || subjects.length === 0) {
+        const test = await getTest(a.testId).catch(() => null);
+        testTitle = testTitle || test?.title || 'Test';
+        subjects = subjects.length ? subjects : (test?.subjects ?? []);
       }
-    })();
-    return () => { cancelled = true; };
+      return { ...a, testTitle, subjects, type: inferType(a) } as AttemptView;
+    }));
+  }
+
+  const loadAttempts = useCallback(async (signal: { cancelled: boolean }) => {
+    if (!uid) return;
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const enriched = await enrichAttempts(await getStudentAttempts(uid));
+      if (!signal.cancelled) setAttempts(enriched);
+    } catch {
+      // One retry — Firestore reads can fail transiently (network blip,
+      // brief quota burst). Don't tell the student their history is empty
+      // when the read itself might just have failed.
+      try {
+        await new Promise(r => setTimeout(r, 800));
+        const enriched = await enrichAttempts(await getStudentAttempts(uid));
+        if (!signal.cancelled) setAttempts(enriched);
+      } catch (e2) {
+        console.error('test log load failed after retry', e2);
+        if (!signal.cancelled) setLoadError(true);
+      }
+    } finally {
+      if (!signal.cancelled) setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
+
+  useEffect(() => {
+    const signal = { cancelled: false };
+    void loadAttempts(signal);
+    return () => { signal.cancelled = true; };
+  }, [loadAttempts]);
 
   async function toggleReview(a: AttemptView) {
     if (openId === a.id) { setOpenId(null); return; }
@@ -276,6 +295,22 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
 
         {loading ? (
           <div className="flex items-center justify-center py-16"><Spinner size={24} color="#5B4FE8" /></div>
+        ) : loadError ? (
+          <Card>
+            <div className="py-12 text-center" style={{ color: 'var(--text-faint)' }}>
+              <span className="material-symbols-outlined block mx-auto mb-2" style={{ fontSize: '32px', color: '#DC2626' }}>cloud_off</span>
+              <p className="text-body-md font-semibold" style={{ color: 'var(--text-secondary)' }}>Couldn't load your test history</p>
+              <p className="text-body-sm mt-1">This is a connection issue, not necessarily missing data — your results may still be saved.</p>
+              <button
+                type="button"
+                onClick={() => void loadAttempts({ cancelled: false })}
+                className="btn-primary btn-sm mt-4"
+                style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+              >
+                Retry
+              </button>
+            </div>
+          </Card>
         ) : attempts.length === 0 ? (
           <Card>
             <div className="py-12 text-center" style={{ color: 'var(--text-faint)' }}>

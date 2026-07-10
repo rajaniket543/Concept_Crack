@@ -340,22 +340,21 @@ export async function saveTestAttempt(attempt: Omit<TestAttempt, 'id'>): Promise
   return ref.id;
 }
 
+// Throws on failure — deliberately NOT swallowed here. A caller that treats a
+// failed read the same as "genuinely zero attempts" tells a student their
+// saved test history is empty when it's actually just a transient read error.
+// Let the caller distinguish the two and offer a retry.
 export async function getStudentAttempts(studentUid: string): Promise<TestAttempt[]> {
-  try {
-    // Single where clause — no composite index needed
-    const q = query(
-      collection(db, 'testAttempts'),
-      where('studentId', '==', studentUid),
-    );
-    const snap = await getDocs(q);
-    return snap.docs
-      .map(d => ({ id: d.id, ...(d.data() as Omit<TestAttempt, 'id'>) }))
-      .filter(a => a.status === 'submitted')
-      .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
-  } catch (e) {
-    console.error('getStudentAttempts error:', e);
-    return [];
-  }
+  // Single where clause — no composite index needed
+  const q = query(
+    collection(db, 'testAttempts'),
+    where('studentId', '==', studentUid),
+  );
+  const snap = await getDocs(q);
+  return snap.docs
+    .map(d => ({ id: d.id, ...(d.data() as Omit<TestAttempt, 'id'>) }))
+    .filter(a => a.status === 'submitted')
+    .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
 }
 
 export async function getStudentAttemptCount(studentUid: string): Promise<number> {
