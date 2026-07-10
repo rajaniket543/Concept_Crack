@@ -1,20 +1,37 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   verifyBeforeUpdateEmail,
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
 } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import Card from '../components/Card';
 import TopBar from '../components/TopBar';
 import { useTheme } from '../lib/theme';
 import { getAuthSession, setAuthSession } from '../lib/auth';
 import { auth, db } from '../lib/firebase';
 import { Col } from '../lib/db';
+import { useToast } from '../components/Toast';
 
-const TABS = ['Profile', 'Appearance', 'Notifications', 'Security', 'Integrations'] as const;
+const TABS = ['Profile', 'Appearance', 'Notifications', 'Security'] as const;
 type SettingsTab = (typeof TABS)[number];
+
+type NotificationPrefs = {
+  examReminders: boolean;
+  aiInsights: boolean;
+  batchAlerts: boolean;
+  weeklyDigest: boolean;
+  pushEnabled: boolean;
+};
+
+const DEFAULT_PREFS: NotificationPrefs = {
+  examReminders: true,
+  aiInsights:    true,
+  batchAlerts:   false,
+  weeklyDigest:  true,
+  pushEnabled:   false,
+};
 
 type Msg = { type: 'success' | 'error'; text: string };
 
@@ -24,7 +41,8 @@ function showFor(set: (m: Msg | null) => void, msg: Msg, ms = 4000) {
 }
 
 export default function Settings() {
-  const { isDark, toggleTheme, fontSize, setFontSize, accent, setAccent } = useTheme();
+  const { fontSize, setFontSize, accent, setAccent } = useTheme();
+  const toast = useToast();
   const session = getAuthSession();
   const [tab, setTab] = useState<SettingsTab>('Profile');
 
@@ -41,6 +59,27 @@ export default function Settings() {
   const [profileMsg,    setProfileMsg]    = useState<Msg | null>(null);
 
   const emailChanged = profile.email.trim() !== originalEmail;
+
+  // Prefill phone/bio and notification prefs from the user's Firestore profile.
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) return;
+    let cancelled = false;
+    getDoc(doc(db, Col.users, uid)).then(snap => {
+      if (cancelled || !snap.exists()) return;
+      const d = snap.data();
+      setProfile(p => ({
+        ...p,
+        phone: (d.phone as string) ?? (d.mobile as string) ?? '',
+        bio:   (d.bio as string) ?? '',
+      }));
+      if (d.notificationPrefs) {
+        setNotifications({ ...DEFAULT_PREFS, ...(d.notificationPrefs as Partial<NotificationPrefs>) });
+      }
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSaveProfile() {
     const uid = session?.user?.id;
@@ -98,14 +137,20 @@ export default function Settings() {
     }
   }
 
-  // ── Notifications tab ────────────────────────────────────────────────────────
-  const [notifications, setNotifications] = useState({
-    examReminders: true,
-    aiInsights:    true,
-    batchAlerts:   false,
-    weeklyDigest:  true,
-    pushEnabled:   false,
-  });
+  // ── Notifications tab — persisted on the user's profile ─────────────────────
+  const [notifications, setNotifications] = useState<NotificationPrefs>(DEFAULT_PREFS);
+
+  function toggleNotification(key: keyof NotificationPrefs) {
+    setNotifications(n => {
+      const next = { ...n, [key]: !n[key] };
+      const uid = session?.user?.id;
+      if (uid) {
+        setDoc(doc(db, Col.users, uid), { notificationPrefs: next }, { merge: true })
+          .catch(() => toast('Could not save the preference — try again.', 'error'));
+      }
+      return next;
+    });
+  }
 
   // ── Security tab ─────────────────────────────────────────────────────────────
   const [security, setSecurity] = useState({
@@ -201,9 +246,6 @@ export default function Settings() {
                   <div>
                     <div className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>{profile.name || 'Your Name'}</div>
                     <div className="text-body-sm capitalize" style={{ color: 'var(--text-muted)' }}>{session?.user?.role ?? 'User'}</div>
-                    <button type="button" className="text-label-sm mt-1 font-semibold hover:underline" style={{ color: '#5B4FE8' }}>
-                      Change avatar
-                    </button>
                   </div>
                 </div>
 
@@ -311,34 +353,20 @@ export default function Settings() {
           {tab === 'Appearance' && (
             <Card title="Appearance" subtitle="Customize the look and feel of the platform">
               <div className="space-y-5">
-                {/* Theme toggle */}
+                {/* Theme — single Light Mode */}
                 <div className="flex items-center justify-between p-4 rounded-xl" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(91,79,232,0.12)' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#5B4FE8' }}>{isDark ? 'dark_mode' : 'light_mode'}</span>
+                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#5B4FE8' }}>light_mode</span>
                     </div>
                     <div>
-                      <div className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        {isDark ? 'Dark Mode' : 'Light Mode'}
-                      </div>
+                      <div className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>Light Mode</div>
                       <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>
-                        Switch between light and dark theme
+                        Concept Crack uses a single, consistent light theme
                       </div>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={toggleTheme}
-                    className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                    style={{ backgroundColor: isDark ? '#5B4FE8' : 'var(--border)' }}
-                    role="switch"
-                    aria-checked={isDark}
-                  >
-                    <span
-                      className="inline-block h-4 w-4 rounded-full bg-white transition-transform"
-                      style={{ transform: isDark ? 'translateX(22px)' : 'translateX(2px)' }}
-                    />
-                  </button>
+                  <span className="badge badge-success">Active</span>
                 </div>
 
                 {/* Font size */}
@@ -421,7 +449,7 @@ export default function Settings() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setNotifications(n => ({ ...n, [key]: !n[key] }))}
+                      onClick={() => toggleNotification(key)}
                       className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0"
                       style={{ backgroundColor: notifications[key] ? '#5B4FE8' : 'var(--border)' }}
                       role="switch"
@@ -490,90 +518,7 @@ export default function Settings() {
                 </div>
               </Card>
 
-              <Card title="Two-Factor Authentication" subtitle="Add an extra layer of security to your account">
-                <div className="flex items-center justify-between p-4 rounded-xl" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(16,185,129,0.12)' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#10B981' }}>security</span>
-                    </div>
-                    <div>
-                      <div className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>Authenticator App</div>
-                      <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>Use Google Authenticator or Authy for 2FA</div>
-                    </div>
-                  </div>
-                  <button type="button" className="btn-outline btn-md">Enable</button>
-                </div>
-              </Card>
-
-              <Card title="Active Sessions" subtitle="Devices currently signed in to your account">
-                <div className="space-y-3">
-                  {[
-                    { device: 'Chrome on Windows 11', location: 'New Delhi, IN', current: true, time: 'Now' },
-                    { device: 'Safari on iPhone 15', location: 'Mumbai, IN', current: false, time: '2 days ago' },
-                  ].map((s, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-4 p-4 rounded-xl"
-                      style={{ backgroundColor: 'var(--surface-muted)', border: `1px solid ${s.current ? 'rgba(91,79,232,0.20)' : 'var(--border)'}` }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '22px', color: s.current ? '#5B4FE8' : 'var(--text-muted)' }}>
-                        {s.device.includes('iPhone') ? 'smartphone' : 'computer'}
-                      </span>
-                      <div className="flex-1">
-                        <div className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>{s.device}</div>
-                        <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{s.location} · {s.time}</div>
-                      </div>
-                      {s.current ? (
-                        <span className="badge badge-success text-label-sm">Current</span>
-                      ) : (
-                        <button type="button" className="text-label-sm font-semibold hover:underline" style={{ color: '#EF4444' }}>
-                          Revoke
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </Card>
             </div>
-          )}
-
-          {/* ── Integrations ── */}
-          {tab === 'Integrations' && (
-            <Card title="Connected Integrations" subtitle="Manage third-party service connections">
-              <div className="space-y-3">
-                {[
-                  { name: 'Google',     icon: 'account_circle', desc: 'Sign in with Google, calendar sync',    connected: true  },
-                  { name: 'Slack',      icon: 'forum',          desc: 'Receive notifications in Slack',        connected: false },
-                  { name: 'WhatsApp',   icon: 'chat',           desc: 'Send exam reminders via WhatsApp',      connected: false },
-                  { name: 'Zoom',       icon: 'videocam',       desc: 'Schedule doubt sessions with faculty',  connected: true  },
-                  { name: 'Google Drive', icon: 'folder',       desc: 'Backup reports and study materials',    connected: false },
-                ].map(({ name, icon, desc, connected }) => (
-                  <div
-                    key={name}
-                    className="flex items-center gap-4 p-4 rounded-xl"
-                    style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}
-                  >
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: connected ? 'rgba(16,185,129,0.12)' : 'rgba(107,114,128,0.10)' }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: connected ? '#10B981' : 'var(--text-muted)' }}>{icon}</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>{name}</div>
-                      <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{desc}</div>
-                    </div>
-                    <button
-                      type="button"
-                      className={connected ? 'btn-outline btn-sm' : 'btn-primary btn-sm'}
-                      style={!connected ? { background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' } : {}}
-                    >
-                      {connected ? 'Disconnect' : 'Connect'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </Card>
           )}
         </div>
       </div>

@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { getAuthSession } from '../../lib/auth';
 import { useToast } from '../../components/Toast';
+import { useConfirm } from '../../components/ConfirmDialog';
 import { getVerificationQueue, submitVerification, type Test } from '../../lib/tests';
 import { getQuestionsByIds, type ExamQuestion } from '../../lib/questions';
+import { notifyRole } from '../../lib/db';
 
 const REVIEW_POINTS = ['Questions', 'Difficulty', 'Errors', 'Syllabus coverage', 'Quality', 'Solutions'];
 
 export default function TestVerification() {
   const toast   = useToast();
+  const confirm = useConfirm();
   const session = getAuthSession();
   const uid     = session?.user?.id ?? '';
   const uname   = session?.user?.name ?? 'Faculty';
@@ -38,10 +41,21 @@ export default function TestVerification() {
   async function decide(test: Test, decision: 'verified' | 'rejected') {
     const note = (remarks[test.id] ?? '').trim();
     if (decision === 'rejected' && !note) { toast('Please add remarks explaining the rejection', 'error'); return; }
+    const ok = await confirm({
+      title: decision === 'verified' ? 'Verify this test?' : 'Reject this test?',
+      message: decision === 'verified'
+        ? `"${test.title}" will be sent back to the admin as verified, with your remarks.`
+        : `"${test.title}" will be sent back to the admin as rejected, with your remarks.`,
+      confirmLabel: decision === 'verified' ? 'Verify' : 'Reject',
+      tone: decision === 'verified' ? 'success' : 'danger',
+      icon: decision === 'verified' ? 'verified' : 'close',
+    });
+    if (!ok) return;
     setActing(test.id);
     try {
       await submitVerification(test.id, decision, note, { id: uid, name: uname });
       setTests(p => p.filter(t => t.id !== test.id));
+      void notifyRole('admin', `Review ${decision}`, `${uname} ${decision} "${test.title}". It's back in Test Approvals for your final decision.`, 'approval');
       toast(decision === 'verified' ? 'Verified and sent back to admin' : 'Rejected and sent back to admin', 'success');
     } catch { toast('Failed to submit your decision', 'error'); }
     finally { setActing(null); }

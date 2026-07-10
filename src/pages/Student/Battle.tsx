@@ -11,6 +11,7 @@ import {
 } from '../../lib/battles';
 import { getQuestionsForCustomTest, type ExamQuestion } from '../../lib/questions';
 import { useToast } from '../../components/Toast';
+import { useConfirm } from '../../components/ConfirmDialog';
 import { pathFor } from '../../lib/pages';
 
 type Screen = 'home' | 'lobby' | 'exam';
@@ -30,6 +31,7 @@ function formatTime(s: number) {
 export default function Battle() {
   const navigate  = useNavigate();
   const toast     = useToast();
+  const confirm   = useConfirm();
   const session   = getAuthSession();
   const uid       = session?.user?.id ?? '';
   const name      = session?.user?.name ?? 'Student';
@@ -671,7 +673,16 @@ export default function Battle() {
               {formatTime(seconds)}
             </span>
             <button type="button"
-              onClick={() => { if (window.confirm('Submit and end your exam?')) void handleSubmit(); }}
+              onClick={async () => {
+                const ok = await confirm({
+                  title: 'Submit and end your battle?',
+                  message: 'Your answers will be locked in and scored against your opponents. This cannot be undone.',
+                  confirmLabel: 'Submit',
+                  tone: 'warning',
+                  icon: 'send',
+                });
+                if (ok) void handleSubmit();
+              }}
               disabled={submitted}
               className="btn-primary btn-sm"
               style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>

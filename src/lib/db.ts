@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, collection, getDocs, query, where, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import {
   currentStudent,
@@ -407,17 +407,79 @@ export async function getAssignedStudentsData(facultyUid: string): Promise<MockS
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────────
-export async function getUserNotifications(uid: string) {
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  type: string;          // 'test' | 'approval' | 'message' | 'battle' | 'account' | 'system'
+  read: boolean;
+  createdAt: string | null;
+}
+
+function toNotifDate(v: unknown): string | null {
+  if (v instanceof Timestamp) return v.toDate().toISOString();
+  if (typeof v === 'string') return v;
+  return null;
+}
+
+/** Create a notification for a user. Fire-and-forget safe — never throws. */
+export async function notify(userId: string, title: string, body: string, type = 'system'): Promise<void> {
   try {
+    await addDoc(collection(db, Col.notifications), {
+      userId, title, body, type,
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error('notify failed', e);
+  }
+}
+
+/** Notify every user with a given role (e.g. all admins). Best-effort. */
+export async function notifyRole(role: string, title: string, body: string, type = 'system'): Promise<void> {
+  try {
+    const snap = await getDocs(query(collection(db, Col.users), where('role', '==', role)));
+    await Promise.all(snap.docs.map(d => notify(d.id, title, body, type)));
+  } catch (e) {
+    console.error('notifyRole failed', e);
+  }
+}
+
+export async function getUserNotifications(uid: string): Promise<AppNotification[]> {
+  try {
+    // Single where clause — no composite index needed; sort client-side.
     const q = query(
       collection(db, Col.notifications),
       where('userId', '==', uid),
-      orderBy('createdAt', 'desc'),
-      limit(20)
+      limit(50)
     );
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return snap.docs
+      .map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          userId: (data.userId as string) ?? '',
+          title: (data.title as string) ?? 'Notification',
+          body: (data.body as string) ?? (data.message as string) ?? '',
+          type: (data.type as string) ?? 'system',
+          read: (data.read as boolean) ?? false,
+          createdAt: toNotifDate(data.createdAt),
+        };
+      })
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+      .slice(0, 20);
   } catch {
     return [];
+  }
+}
+
+export async function markNotificationsRead(ids: string[]): Promise<void> {
+  try {
+    await Promise.all(ids.map(id => setDoc(doc(db, Col.notifications, id), { read: true }, { merge: true })));
+  } catch (e) {
+    console.error('markNotificationsRead failed', e);
   }
 }

@@ -1,0 +1,299 @@
+import { useEffect, useMemo, useState } from 'react';
+import TopBar from '../../components/TopBar';
+import Card from '../../components/Card';
+import Spinner from '../../components/Spinner';
+import { getAuthSession } from '../../lib/auth';
+import { getStudentAttempts, getTest, type TestAttempt } from '../../lib/tests';
+import { getQuestionsByIds, type ExamQuestion } from '../../lib/questions';
+import { askAI, hasAI } from '../../lib/ai';
+import { useToast } from '../../components/Toast';
+
+interface AttemptView extends TestAttempt {
+  testTitle: string;
+  subjects: string[];
+}
+
+interface ReviewQuestion {
+  index: number;
+  prompt: string;
+  options: Array<{ key: string; text: string }>;
+  correct: string | null;
+  chosen: string | null;
+  status: 'correct' | 'incorrect' | 'skipped';
+}
+
+export default function TestLog() {
+  const toast = useToast();
+  const uid = getAuthSession()?.user?.id ?? '';
+
+  const [attempts, setAttempts] = useState<AttemptView[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [openId, setOpenId]     = useState<string | null>(null);
+  const [review, setReview]     = useState<Record<string, ReviewQuestion[]>>({});
+  const [reviewLoading, setReviewLoading] = useState<string | null>(null);
+  const [filter, setFilter]     = useState<'all' | 'correct' | 'incorrect' | 'skipped'>('all');
+  const [analysis, setAnalysis] = useState<Record<string, string>>({});
+  const [analysing, setAnalysing] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await getStudentAttempts(uid);
+        // Enrich with the test title / subjects.
+        const enriched = await Promise.all(raw.map(async a => {
+          const test = await getTest(a.testId).catch(() => null);
+          return { ...a, testTitle: test?.title ?? 'Test', subjects: test?.subjects ?? [] } as AttemptView;
+        }));
+        if (!cancelled) setAttempts(enriched);
+      } catch (e) {
+        console.error('test log load failed', e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [uid]);
+
+  async function toggleReview(a: AttemptView) {
+    if (openId === a.id) { setOpenId(null); return; }
+    setOpenId(a.id);
+    setFilter('all');
+    if (review[a.id]) return;
+    setReviewLoading(a.id);
+    try {
+      const test = await getTest(a.testId);
+      const questions = test ? await getQuestionsByIds(test.questionIds) : [];
+      const rows: ReviewQuestion[] = questions.map((q: ExamQuestion, i) => {
+        const chosen = a.answers[String(i + 1)] ?? null;
+        const correct = q.answer;
+        const status: ReviewQuestion['status'] = !chosen ? 'skipped' : chosen === correct ? 'correct' : 'incorrect';
+        return { index: i + 1, prompt: q.prompt, options: q.options, correct, chosen, status };
+      });
+      setReview(prev => ({ ...prev, [a.id]: rows }));
+    } catch (e) {
+      console.error(e);
+      toast('Could not load the answer review for this test.', 'error');
+    } finally {
+      setReviewLoading(null);
+    }
+  }
+
+  async function runAnalysis(a: AttemptView) {
+    const rows = review[a.id];
+    if (!rows) return;
+    setAnalysing(a.id);
+    const wrong = rows.filter(r => r.status === 'incorrect');
+    const skipped = rows.filter(r => r.status === 'skipped');
+    const prompt = `You are an encouraging JEE/NEET tutor. A student just reviewed a past test. Give a short performance analysis (4-6 sentences) and a focused revision plan.
+
+Test: ${a.testTitle}
+Subjects: ${a.subjects.join(', ') || 'Mixed'}
+Score: ${a.score} · Accuracy: ${a.accuracyPct}%
+Correct: ${a.correctCount} · Incorrect: ${a.incorrectCount} · Skipped: ${a.skippedCount}
+Questions they got wrong (first 8):
+${wrong.slice(0, 8).map(r => `- Q${r.index}: ${r.prompt.slice(0, 100)}`).join('\n') || '- none'}
+Questions they skipped: ${skipped.length}
+
+Point out the likely weak concepts, what to revise first, and one habit to fix. Be specific and motivating.`;
+    let text: string;
+    try {
+      text = hasAI()
+        ? await askAI(prompt, { maxTokens: 500 })
+        : 'AI analysis needs a Gemini API key. Your accuracy on this test was ' + a.accuracyPct + '% — focus revision on the questions marked incorrect above.';
+    } catch {
+      text = 'Could not generate the analysis right now — please try again shortly.';
+    }
+    setAnalysis(prev => ({ ...prev, [a.id]: text }));
+    setAnalysing(null);
+  }
+
+  const summary = useMemo(() => {
+    if (attempts.length === 0) return null;
+    const avgAcc = Math.round(attempts.reduce((s, a) => s + a.accuracyPct, 0) / attempts.length);
+    const best = Math.max(...attempts.map(a => a.accuracyPct));
+    return { count: attempts.length, avgAcc, best };
+  }, [attempts]);
+
+  const fmtDate = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  const STATUS_META = {
+    correct:   { color: '#059669', bg: 'rgba(16,185,129,0.10)', label: 'Correct', icon: 'check_circle' },
+    incorrect: { color: '#DC2626', bg: 'rgba(239,68,68,0.10)',  label: 'Incorrect', icon: 'cancel' },
+    skipped:   { color: '#B45309', bg: 'rgba(245,158,11,0.10)', label: 'Skipped', icon: 'remove_circle' },
+  } as const;
+
+  return (
+    <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <TopBar breadcrumb={[{ label: 'Review Tests' }]} />
+
+      <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">
+        <div>
+          <h1 className="text-display-sm font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+            Review Tests
+          </h1>
+          <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
+            Every test you've attempted — revisit your answers, see what you got wrong, and get AI analysis.
+          </p>
+        </div>
+
+        {summary && (
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: 'Tests Attempted', value: summary.count, icon: 'history_edu', color: '#5B4FE8' },
+              { label: 'Average Accuracy', value: `${summary.avgAcc}%`, icon: 'target', color: '#10B981' },
+              { label: 'Best Accuracy', value: `${summary.best}%`, icon: 'trophy', color: '#F59E0B' },
+            ].map(s => (
+              <div key={s.label} className="card">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}1A` }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: s.color }}>{s.icon}</span>
+                </div>
+                <div className="text-2xl font-bold font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>{s.value}</div>
+                <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16"><Spinner size={24} color="#5B4FE8" /></div>
+        ) : attempts.length === 0 ? (
+          <Card>
+            <div className="py-12 text-center" style={{ color: 'var(--text-faint)' }}>
+              <span className="material-symbols-outlined block mx-auto mb-2" style={{ fontSize: '32px' }}>history_edu</span>
+              <p className="text-body-md font-semibold" style={{ color: 'var(--text-secondary)' }}>No tests attempted yet</p>
+              <p className="text-body-sm mt-1">Complete a test and it will show up here for review.</p>
+            </div>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {attempts.map(a => {
+              const isOpen = openId === a.id;
+              const rows = review[a.id];
+              const filtered = rows ? (filter === 'all' ? rows : rows.filter(r => r.status === filter)) : [];
+              const accColor = a.accuracyPct >= 70 ? '#059669' : a.accuracyPct >= 40 ? '#B45309' : '#DC2626';
+              return (
+                <div key={a.id} className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  {/* Summary row */}
+                  <button type="button" onClick={() => void toggleReview(a)} className="w-full flex items-center gap-4 p-5 text-left">
+                    <div className="w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0" style={{ backgroundColor: `${accColor}1A` }}>
+                      <span className="text-base font-bold leading-none" style={{ color: accColor }}>{a.accuracyPct}%</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-body-md font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{a.testTitle}</div>
+                      <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>
+                        {a.subjects.join(', ') || 'Mixed'} · {fmtDate(a.submittedAt)}
+                      </div>
+                    </div>
+                    <div className="hidden sm:flex items-center gap-3 shrink-0">
+                      <Stat label="Score" value={a.score} color="var(--text-primary)" />
+                      <Stat label="Correct" value={a.correctCount} color="#059669" />
+                      <Stat label="Wrong" value={a.incorrectCount} color="#DC2626" />
+                      <Stat label="Skipped" value={a.skippedCount} color="#B45309" />
+                    </div>
+                    <span className="material-symbols-outlined shrink-0" style={{ color: 'var(--text-muted)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>expand_more</span>
+                  </button>
+
+                  {/* Expanded review */}
+                  {isOpen && (
+                    <div className="border-t px-5 py-4 space-y-4" style={{ borderColor: 'var(--border)' }}>
+                      {reviewLoading === a.id ? (
+                        <div className="flex items-center justify-center py-8"><Spinner size={20} color="#5B4FE8" /></div>
+                      ) : rows && rows.length > 0 ? (
+                        <>
+                          {/* AI analysis */}
+                          {analysis[a.id] ? (
+                            <div className="rounded-xl p-4 text-sm leading-relaxed whitespace-pre-wrap" style={{ backgroundColor: 'rgba(91,79,232,0.05)', border: '1px solid rgba(91,79,232,0.18)', color: 'var(--text-secondary)' }}>
+                              <div className="flex items-center gap-2 mb-1.5 text-label-sm font-bold uppercase tracking-widest" style={{ color: '#5B4FE8' }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>auto_awesome</span> AI Analysis
+                              </div>
+                              {analysis[a.id]}
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => void runAnalysis(a)} disabled={analysing === a.id} className="btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                              {analysing === a.id ? <Spinner size={14} color="#fff" /> : <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>auto_awesome</span>}
+                              {analysing === a.id ? 'Analysing…' : 'Get AI Analysis'}
+                            </button>
+                          )}
+
+                          {/* Filter pills */}
+                          <div className="tab-pills flex-wrap">
+                            {(['all', 'incorrect', 'skipped', 'correct'] as const).map(f => (
+                              <button key={f} type="button" onClick={() => setFilter(f)} className={`tab-pill ${filter === f ? 'active' : ''}`}>
+                                {f === 'all' ? `All (${rows.length})` : `${f[0].toUpperCase()}${f.slice(1)} (${rows.filter(r => r.status === f).length})`}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Questions */}
+                          <div className="space-y-3">
+                            {filtered.map(r => {
+                              const meta = STATUS_META[r.status];
+                              return (
+                                <div key={r.index} className="rounded-xl p-4" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+                                  <div className="flex items-start justify-between gap-3 mb-2">
+                                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{r.index}. {r.prompt}</p>
+                                    <span className="text-label-sm font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0" style={{ backgroundColor: meta.bg, color: meta.color }}>
+                                      <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>{meta.icon}</span>
+                                      {meta.label}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                    {r.options.map(o => {
+                                      const isCorrect = o.key === r.correct;
+                                      const isChosen = o.key === r.chosen;
+                                      return (
+                                        <div key={o.key} className="text-xs flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
+                                          style={{
+                                            backgroundColor: isCorrect ? 'rgba(16,185,129,0.10)' : isChosen ? 'rgba(239,68,68,0.10)' : 'var(--surface)',
+                                            border: `1px solid ${isCorrect ? 'rgba(16,185,129,0.30)' : isChosen ? 'rgba(239,68,68,0.30)' : 'var(--border)'}`,
+                                            color: isCorrect ? '#059669' : isChosen ? '#DC2626' : 'var(--text-muted)',
+                                          }}>
+                                          <span className="font-bold">{o.key}.</span>
+                                          <span className="flex-1">{o.text}</span>
+                                          {isCorrect && <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check_circle</span>}
+                                          {isChosen && !isCorrect && <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  {r.status === 'incorrect' && (
+                                    <div className="text-[11px] mt-2" style={{ color: 'var(--text-faint)' }}>
+                                      You chose <strong style={{ color: '#DC2626' }}>{r.chosen}</strong> · Correct answer is <strong style={{ color: '#059669' }}>{r.correct ?? '—'}</strong>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {filtered.length === 0 && (
+                              <p className="text-center text-body-sm py-4" style={{ color: 'var(--text-faint)' }}>No {filter} questions in this test.</p>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-center text-body-sm py-6" style={{ color: 'var(--text-faint)' }}>
+                          Answer review isn't available for this attempt.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="text-center">
+      <div className="text-base font-bold" style={{ color }}>{value}</div>
+      <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>{label}</div>
+    </div>
+  );
+}

@@ -65,99 +65,143 @@ Student: ${trimmed}`;
     setBusy(false);
   }
 
+  function resetChat() {
+    setMessages([{
+      id: nextId.current++,
+      role: 'ai',
+      text: `Hi ${firstName}! I'm your Concept Crack AI companion. Ask me to explain a concept, plan your revision, or clear a doubt for ${exam}.`,
+    }]);
+  }
+
   return (
     <>
       {/* Floating button */}
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105"
-        style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', zIndex: 70 }}
+        className="fixed bottom-6 right-6 flex items-center justify-center rounded-full shadow-lg transition-all hover:scale-105"
+        style={{
+          width: 58, height: 58,
+          background: open ? 'var(--surface)' : 'linear-gradient(135deg, #5B4FE8, #7C3AED)',
+          border: open ? '1px solid var(--border)' : 'none',
+          zIndex: 70,
+          boxShadow: '0 8px 28px rgba(91,79,232,0.40)',
+        }}
         aria-label="AI Companion"
         title="AI Companion"
       >
-        <span className="material-symbols-outlined filled text-white" style={{ fontSize: '26px' }}>
-          {open ? 'close' : 'auto_awesome'}
-        </span>
+        {open ? (
+          <span className="material-symbols-outlined" style={{ fontSize: '26px', color: 'var(--text-muted)' }}>close</span>
+        ) : (
+          <>
+            <span className="material-symbols-outlined filled text-white" style={{ fontSize: '26px' }}>auto_awesome</span>
+            <span className="absolute top-1 right-1 w-3 h-3 rounded-full border-2" style={{ backgroundColor: '#10B981', borderColor: '#fff' }} />
+          </>
+        )}
       </button>
 
       {/* Chat panel */}
       {open && (
         <div
-          className="fixed bottom-24 right-6 flex flex-col rounded-2xl overflow-hidden"
+          className="fixed bottom-24 right-6 flex flex-col rounded-3xl overflow-hidden"
           style={{
-            width: 'min(380px, calc(100vw - 3rem))',
-            height: 'min(540px, calc(100vh - 8rem))',
+            width: 'min(400px, calc(100vw - 3rem))',
+            height: 'min(580px, calc(100vh - 8rem))',
             backgroundColor: 'var(--surface)',
             border: '1px solid var(--border)',
-            boxShadow: '0 16px 48px rgba(0,0,0,0.24)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.28)',
             zIndex: 70,
           }}
         >
           {/* Header */}
-          <div className="px-4 py-3 flex items-center gap-2.5" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
-            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-              <span className="material-symbols-outlined filled text-white" style={{ fontSize: '18px' }}>auto_awesome</span>
+          <div className="px-4 py-3.5 flex items-center gap-3 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+            <div className="absolute -right-6 -top-8 w-28 h-28 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, #fff, transparent)' }} aria-hidden="true" />
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0 relative">
+              <span className="material-symbols-outlined filled text-white" style={{ fontSize: '20px' }}>auto_awesome</span>
             </div>
-            <div className="flex-1">
-              <div className="text-white font-semibold text-sm">AI Companion</div>
-              <div className="text-white/70 text-[11px]">Always here to help you learn</div>
+            <div className="flex-1 min-w-0 relative">
+              <div className="text-white font-bold text-sm">AI Companion</div>
+              <div className="text-white/80 text-[11px] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: '#4ADE80' }} />
+                Online · here to help you learn
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={resetChat}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/15 relative"
+              title="New chat"
+              aria-label="New chat"
+            >
+              <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>ink_eraser</span>
+            </button>
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3" style={{ backgroundColor: 'var(--bg)' }}>
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3" style={{ backgroundColor: 'var(--bg)' }}>
             {messages.map(m => (
-              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div key={m.id} className={`flex items-end gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {m.role === 'ai' && (
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mb-0.5" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                    <span className="material-symbols-outlined filled text-white" style={{ fontSize: '15px' }}>auto_awesome</span>
+                  </div>
+                )}
                 <div
-                  className="max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap"
+                  className="max-w-[80%] px-3.5 py-2.5 text-sm whitespace-pre-wrap leading-relaxed"
                   style={m.role === 'user'
-                    ? { background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', color: '#fff' }
-                    : { backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }
+                    ? { background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', color: '#fff', borderRadius: '16px 16px 4px 16px' }
+                    : { backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '16px 16px 16px 4px' }
                   }
                 >
-                  {m.typing ? <span className="inline-flex gap-1"><Dot /><Dot d={0.2} /><Dot d={0.4} /></span> : m.text}
+                  {m.typing ? <span className="inline-flex gap-1 py-1"><Dot /><Dot d={0.2} /><Dot d={0.4} /></span> : m.text}
                 </div>
               </div>
             ))}
 
             {messages.length <= 1 && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {SUGGESTIONS.map(s => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => void send(s)}
-                    className="text-[12px] px-2.5 py-1.5 rounded-full transition-colors"
-                    style={{ backgroundColor: 'rgba(91,79,232,0.08)', color: '#5B4FE8', border: '1px solid rgba(91,79,232,0.20)' }}
-                  >
-                    {s}
-                  </button>
-                ))}
+              <div className="pt-2">
+                <div className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-faint)' }}>Try asking</div>
+                <div className="flex flex-col gap-2">
+                  {SUGGESTIONS.map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => void send(s)}
+                      className="text-left text-[13px] px-3 py-2 rounded-xl transition-all hover:-translate-y-px flex items-center gap-2"
+                      style={{ backgroundColor: 'var(--surface)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#5B4FE8' }}>bolt</span>
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
           {/* Input */}
-          <div className="p-3 flex items-center gap-2" style={{ borderTop: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}>
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(input); } }}
-              placeholder="Ask anything about your studies…"
-              className="flex-1 bg-transparent outline-none text-sm"
-              style={{ color: 'var(--text-primary)' }}
-            />
-            <button
-              type="button"
-              onClick={() => void send(input)}
-              disabled={!input.trim() || busy}
-              className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 disabled:opacity-40"
-              style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
-              aria-label="Send"
-            >
-              <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>send</span>
-            </button>
+          <div className="p-3" style={{ borderTop: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}>
+            <div className="flex items-center gap-2 rounded-full px-4 py-1.5" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+              <input
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(input); } }}
+                placeholder="Ask anything about your studies…"
+                className="flex-1 bg-transparent outline-none text-sm"
+                style={{ color: 'var(--text-primary)' }}
+              />
+              <button
+                type="button"
+                onClick={() => void send(input)}
+                disabled={!input.trim() || busy}
+                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                aria-label="Send"
+              >
+                <span className="material-symbols-outlined text-white" style={{ fontSize: '17px' }}>send</span>
+              </button>
+            </div>
+            <div className="text-[10px] text-center mt-1.5" style={{ color: 'var(--text-faint)' }}>AI can make mistakes — verify important facts.</div>
           </div>
         </div>
       )}

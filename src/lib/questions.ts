@@ -61,6 +61,23 @@ export async function getQuestionsByIds(ids: string[]): Promise<ExamQuestion[]> 
   return ids.map(id => byId.get(id)).filter(Boolean) as ExamQuestion[];
 }
 
+// Normalised fingerprint of a question's text — used to keep near-identical
+// questions (repeated uploads, same stem) from appearing twice in one test (5h).
+function questionFingerprint(prompt: string): string {
+  return prompt.toLowerCase().replace(/\s+/g, ' ').replace(/[^\w ]/g, '').trim();
+}
+
+/** Remove duplicate/same-text questions, keeping the first occurrence. */
+export function dedupeQuestions(list: ExamQuestion[]): ExamQuestion[] {
+  const seen = new Set<string>();
+  return list.filter(q => {
+    const fp = questionFingerprint(q.prompt);
+    if (!fp || seen.has(fp)) return false;
+    seen.add(fp);
+    return true;
+  });
+}
+
 export async function getQuestionsForCustomTest(config: {
   subject: string;
   chapters: string[];
@@ -82,6 +99,9 @@ export async function getQuestionsForCustomTest(config: {
     const snap = await getDocs(q);
     snap.docs.forEach(doc => {
       const d = doc.data();
+      // Defensive subject check so mislabelled documents can never leak another
+      // subject's questions into this paper (3g).
+      if (((d.subject as string) ?? '').trim() !== subject.trim()) return;
       const opts = (d.options ?? {}) as Record<string, string>;
       all.push({
         id: doc.id,
@@ -96,12 +116,13 @@ export async function getQuestionsForCustomTest(config: {
     });
   }));
 
-  // shuffle and take count
-  for (let i = all.length - 1; i > 0; i--) {
+  // Drop same-text duplicates, then shuffle and take count (5h)
+  const unique = dedupeQuestions(all);
+  for (let i = unique.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [all[i], all[j]] = [all[j], all[i]];
+    [unique[i], unique[j]] = [unique[j], unique[i]];
   }
-  const selected = all.slice(0, count);
+  const selected = unique.slice(0, count);
   return { questions: selected, questionIds: selected.map(q => q.id) };
 }
 
@@ -117,21 +138,24 @@ export async function getQuestionsForChapter(
     limit(maxQuestions)
   );
   const snap = await getDocs(q);
-  return snap.docs.map(doc => {
-    const d = doc.data();
-    const opts = (d.options ?? {}) as Record<string, string>;
-    return {
-      id: doc.id,
-      prompt: (d.question as string) ?? '',
-      options: (['A', 'B', 'C', 'D'] as const).map(k => ({
-        key: k,
-        text: opts[k] ?? '',
-      })),
-      difficulty: (d.difficulty as string) ?? 'Medium',
-      section: chapter,
-      answer: (d.answer as string | null) ?? null,
-      subject,
-      chapter,
-    };
-  });
+  const list = snap.docs
+    .filter(doc => ((doc.data().subject as string) ?? '').trim() === subject.trim())
+    .map(doc => {
+      const d = doc.data();
+      const opts = (d.options ?? {}) as Record<string, string>;
+      return {
+        id: doc.id,
+        prompt: (d.question as string) ?? '',
+        options: (['A', 'B', 'C', 'D'] as const).map(k => ({
+          key: k,
+          text: opts[k] ?? '',
+        })),
+        difficulty: (d.difficulty as string) ?? 'Medium',
+        section: chapter,
+        answer: (d.answer as string | null) ?? null,
+        subject,
+        chapter,
+      };
+    });
+  return dedupeQuestions(list);
 }
