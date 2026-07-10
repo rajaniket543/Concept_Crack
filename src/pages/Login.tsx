@@ -197,7 +197,7 @@ export default function Login() {
             Your path to the<br />top rank starts here
           </h2>
           <p className="text-sm xl:text-base mb-9" style={{ color: '#B4B7C4' }}>
-            AI-powered preparation for JEE, NEET, UPSC, and CAT.
+            AI-powered preparation for JEE and NEET.
           </p>
           <div className="space-y-4">
             {leftPanelFeatures.map(feat => (

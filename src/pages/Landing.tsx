@@ -1,14 +1,14 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { pathFor } from '../lib/pages';
-import { features, stats } from '../mocks';
+import { features } from '../mocks';
 import { useTheme } from '../lib/theme';
 
 const faqItems = [
-  { q: 'Which exams does Concept Crack cover?', a: 'Concept Crack currently supports JEE (Main + Advanced), NEET UG, UPSC Prelims, and CAT. More exams are added regularly.' },
+  { q: 'Which exams does Concept Crack cover?', a: 'Concept Crack supports JEE (Main + Advanced) and NEET UG, with subjects, chapters and mock-test patterns tailored to each.' },
   { q: 'How does the AI adaptive engine work?', a: 'Our AI analyzes every answer you give — time spent, accuracy pattern, error type — and builds a real-time model of your strengths and gaps to recommend exactly what to practice next.' },
-  { q: 'Can I use Concept Crack on mobile?', a: 'Yes. The web app is fully responsive and works on all modern browsers. Dedicated iOS and Android apps are in development.' },
-  { q: 'Is there a free trial for Pro?', a: 'Yes — all new accounts get a 14-day free Pro trial with no credit card required.' },
+  { q: 'Can I use Concept Crack on mobile?', a: 'Yes. The web app is fully responsive and works on all modern browsers.' },
+  { q: 'How are mock tests created?', a: 'Full-length mock tests are assembled fresh from the question bank following the real JEE/NEET pattern, with no repeated questions in a paper.' },
 ];
 
 export default function Landing() {
@@ -47,7 +47,6 @@ export default function Landing() {
 
         <nav className="hidden lg:flex items-center gap-8 text-sm font-medium" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
           <a href="#features" className="hover:text-[#5B4FE8] transition-colors">Features</a>
-          <a href="#stats" className="hover:text-[#5B4FE8] transition-colors">Why Concept Crack</a>
           <a href="#faq" className="hover:text-[#5B4FE8] transition-colors">FAQ</a>
         </nav>
 
@@ -120,7 +119,7 @@ export default function Landing() {
             className="text-lg leading-relaxed mb-10 max-w-2xl mx-auto"
             style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}
           >
-            Concept Crack adapts to your unique learning style, identifies knowledge gaps in real-time, and creates a personalized path to your dream rank. Used by 2M+ students across JEE, NEET, UPSC, and CAT.
+            Concept Crack adapts to your unique learning style, identifies knowledge gaps in real-time, and creates a personalized path to your dream rank — built for JEE and NEET aspirants.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3">
@@ -142,37 +141,14 @@ export default function Landing() {
             </Link>
           </div>
 
-          {/* Social proof */}
-          <div className="flex flex-wrap items-center justify-center gap-6 mt-12 text-sm" style={{ color: isDark ? '#6B7280' : '#9CA3AF' }}>
-            <div className="flex items-center gap-2">
-              <div className="flex -space-x-2">
-                {['A', 'R', 'P'].map((l, i) => (
-                  <div key={i} className="w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold text-white"
-                    style={{ borderColor: isDark ? '#0F0E17' : '#fff', background: `hsl(${240 + i * 40}, 70%, 55%)` }}>
-                    {l}
-                  </div>
-                ))}
-              </div>
-              <span>2M+ students</span>
-            </div>
-            <span>JEE · NEET · UPSC · CAT</span>
+          {/* Exam focus */}
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-12 text-sm">
+            {['JEE Main + Advanced', 'NEET UG'].map(x => (
+              <span key={x} className="px-4 py-1.5 rounded-full font-semibold" style={{ backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8', border: '1px solid rgba(91,79,232,0.25)' }}>
+                {x}
+              </span>
+            ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── Stats Band ── */}
-      <section
-        id="stats"
-        className="py-6 border-y"
-        style={{ backgroundColor: isDark ? '#1E1D2E' : '#F9FAFB', borderColor: isDark ? '#2D2B42' : '#E5E7EB' }}
-      >
-        <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {stats.map(s => (
-            <div key={s.label}>
-              <div className="text-2xl font-headline font-bold mb-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: '#5B4FE8' }}>{s.value}</div>
-              <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: isDark ? '#6B7280' : '#9CA3AF' }}>{s.label}</div>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -275,7 +251,7 @@ export default function Landing() {
             Ready to crack your exam?
           </h2>
           <p className="text-lg mb-10 max-w-lg mx-auto" style={{ color: 'rgba(255,255,255,0.75)' }}>
-            Join 2M+ students who are already using AI-powered preparation to reach their dream rank.
+            Start your AI-powered JEE &amp; NEET preparation and reach your dream rank.
           </p>
           <Link
             to={pathFor('login')}
@@ -301,7 +277,7 @@ export default function Landing() {
                 <span className="font-headline font-bold text-white text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
               </div>
               <p className="text-sm leading-relaxed mb-4" style={{ color: '#9CA3AF' }}>
-                AI-powered exam preparation platform for JEE, NEET, UPSC, and CAT.
+                AI-powered exam preparation platform for JEE and NEET.
               </p>
             </div>
             {[
@@ -312,8 +288,8 @@ export default function Landing() {
                 { label: 'AI Insights', href: '#features' },
               ] },
               { title: 'Company', links: [
-                { label: 'About', href: '#stats' },
-                { label: 'Why Concept Crack', href: '#stats' },
+                { label: 'About', href: '#features' },
+                { label: 'FAQ', href: '#faq' },
                 { label: 'Careers', href: 'mailto:careers@conceptcrack.app' },
                 { label: 'Contact', href: 'mailto:support@conceptcrack.app' },
               ] },
