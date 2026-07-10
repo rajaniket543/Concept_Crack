@@ -6,6 +6,7 @@ export type PageKey =
   | 'student'
   | 'practice'
   | 'exam'
+  | 'mockTest'
   | 'analysis'
   | 'chatbot'
   | 'insights'
@@ -49,6 +50,7 @@ export const pages: PageDef[] = [
   { key: 'student', label: 'Student Dashboard', group: 'Student', path: '/student' },
   { key: 'practice', label: 'Practice Module', group: 'Student', path: '/student/practice' },
   { key: 'exam', label: 'Exam Interface', group: 'Student', path: '/student/exam' },
+  { key: 'mockTest', label: 'Mock Test', group: 'Student', path: '/student/mock-test' },
   { key: 'analysis', label: 'Test Analysis', group: 'Student', path: '/student/analysis' },
   { key: 'chatbot', label: 'AI Tutor Chat', group: 'Student', path: '/student/chatbot' },
   { key: 'insights', label: 'AI Insights', group: 'Student', path: '/student/insights' },

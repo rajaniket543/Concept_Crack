@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
+import ActivityHeatmap from '../../components/ActivityHeatmap';
 import { parentActivity, parentGrowth, parentMastery, parentMetrics, parentReports } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
 import { getAuthSession } from '../../lib/auth';
 import { getLinkedStudentData, getStudentDashboard } from '../../lib/db';
-import { getActivitySummary, formatDuration, ACTIVITY_META, UPCOMING_ACTIVITIES, type ActivitySummary, type ActivityCategory } from '../../lib/activity';
+import { getActivitySummary, getDailyActivityMinutes, formatDuration, ACTIVITY_META, UPCOMING_ACTIVITIES, type ActivitySummary, type ActivityCategory } from '../../lib/activity';
 
 export default function ParentDashboard() {
   const session = getAuthSession();
@@ -21,6 +22,7 @@ export default function ParentDashboard() {
   });
   const [linkedStudent, setLinkedStudent] = useState<any>(null);
   const [activity, setActivity] = useState<ActivitySummary | null>(null);
+  const [activityMap, setActivityMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +35,7 @@ export default function ParentDashboard() {
 
       // Website-activity summary (Feature 4)
       getActivitySummary(stu.id).then(a => { if (!cancelled) setActivity(a); }).catch(() => undefined);
+      getDailyActivityMinutes(stu.id).then(m => { if (!cancelled) setActivityMap(m); }).catch(() => undefined);
 
       // Fetch the exact same dashboard data the student sees
       const dash = await getStudentDashboard(stu.id).catch(() => null);
@@ -173,6 +176,11 @@ export default function ParentDashboard() {
             );
           })}
         </div>
+
+        {/* Study activity calendar (LeetCode-style) */}
+        <Card title="Study Activity" subtitle="Your child's daily study time over the last 6 months">
+          <ActivityHeatmap data={activityMap} colorBase="#F97316" unit="min" />
+        </Card>
 
         {/* Website Activity (Feature 4) */}
         {activity && (

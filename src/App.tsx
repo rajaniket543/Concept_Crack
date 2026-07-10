@@ -16,6 +16,7 @@ import AssignedTests from './pages/Student/AssignedTests';
 import CustomTest from './pages/Student/CustomTest';
 import AITest from './pages/Student/AITest';
 import Battle from './pages/Student/Battle';
+import MockTest from './pages/Student/MockTest';
 import TestLog from './pages/Student/TestLog';
 import ParentDashboard from './pages/Parent/ParentDashboard';
 import FacultyDashboard from './pages/Faculty/FacultyDashboard';
@@ -53,7 +54,7 @@ const studentNav = [
     label: 'Learn',
     items: [
       { key: 'practice' as PageKey,   label: 'Practice',    icon: 'edit_note' },
-      { key: 'exam' as PageKey,       label: 'Mock Tests',  icon: 'quiz' },
+      { key: 'mockTest' as PageKey,   label: 'Mock Test',   icon: 'quiz' },
     ],
   },
   {
@@ -179,6 +180,22 @@ function AdminLayout() {
   return <Layout brand="Admin Portal" role="admin" nav={adminNav} />;
 }
 
+// Shared pages (Messages, Settings, Contact) render inside whichever portal the
+// signed-in user belongs to, so the sidebar stays visible instead of opening a
+// bare full-window page.
+const SHARED_LAYOUT: Record<string, { brand: string; nav: typeof studentNav }> = {
+  student: { brand: 'Student Portal', nav: studentNav },
+  parent:  { brand: 'Parent Portal',  nav: parentNav },
+  faculty: { brand: 'Faculty Portal', nav: facultyNav },
+  admin:   { brand: 'Admin Portal',   nav: adminNav },
+};
+function SharedLayout() {
+  const session = getAuthSession();
+  const role = (session?.user?.role ?? 'student') as 'student' | 'parent' | 'faculty' | 'admin';
+  const cfg = SHARED_LAYOUT[role] ?? SHARED_LAYOUT.student;
+  return <Layout brand={cfg.brand} role={role} nav={cfg.nav} />;
+}
+
 // ─── Auth guard ───────────────────────────────────────────────────────────────
 
 function RequireAuth({
@@ -218,6 +235,7 @@ export default function App() {
         <Route path="custom-test" element={<RequireAuth roles={['student']}><CustomTest /></RequireAuth>} />
         <Route path="ai-test" element={<RequireAuth roles={['student']}><AITest /></RequireAuth>} />
         <Route path="battle" element={<RequireAuth roles={['student']}><Battle /></RequireAuth>} />
+        <Route path="mock-test" element={<RequireAuth roles={['student']}><MockTest /></RequireAuth>} />
         <Route path="test-log" element={<RequireAuth roles={['student']}><TestLog /></RequireAuth>} />
       </Route>
 
@@ -250,9 +268,13 @@ export default function App() {
       </Route>
 
       <Route path="/change-password" element={<RequireAuth><ChangePassword /></RequireAuth>} />
-      <Route path="/messages" element={<RequireAuth><Messages /></RequireAuth>} />
-      <Route path="/contact" element={<RequireAuth><ContactUs /></RequireAuth>} />
-      <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+
+      {/* Shared pages nested inside the role's portal shell (sidebar stays) */}
+      <Route element={<RequireAuth><SharedLayout /></RequireAuth>}>
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/contact" element={<ContactUs />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
 
       <Route path="*" element={<NotFound />} />
       </Routes>

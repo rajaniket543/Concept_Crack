@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { askAI, hasAI } from '../lib/ai';
 import { getAuthSession } from '../lib/auth';
 import { getStudentStream, STREAM_EXAM } from '../lib/stream';
 
@@ -10,6 +9,44 @@ const SUGGESTIONS = [
   'Give me a 7-day revision plan',
   'How do I stop silly mistakes?',
 ];
+
+const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+const MODEL = 'gemini-2.5-flash';
+const FALLBACK_MODEL = 'gemini-2.0-flash';
+
+async function callGemini(prompt: string): Promise<string> {
+  if (!GEMINI_KEY) throw new Error('No API key');
+
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      maxOutputTokens: 800,
+      temperature: 0.6,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  };
+
+  let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok && [404, 429, 500, 503].includes(res.status)) {
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${FALLBACK_MODEL}:generateContent?key=${GEMINI_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  if (!res.ok) throw new Error(`Gemini error ${res.status}`);
+
+  const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Empty response');
+  return text.trim();
+}
 
 export default function AICompanion() {
   const [open, setOpen]         = useState(false);
@@ -54,11 +91,10 @@ Student: ${trimmed}`;
 
     let reply: string;
     try {
-      reply = hasAI()
-        ? await askAI(prompt, { maxTokens: 800 })
-        : 'The AI companion needs an API key to answer. Add VITE_GEMINI_API_KEY in your environment to enable it.';
-    } catch {
-      reply = 'Sorry — I could not reach the AI service just now. Please try again in a moment.';
+      reply = await callGemini(prompt);
+    } catch (error) {
+      console.error('AI Companion Gemini error:', error);
+      reply = 'The AI companion could not reach Gemini right now. Please try again in a moment.';
     }
 
     setMessages(prev => prev.map(m => (m.typing ? { ...m, text: reply, typing: false } : m)));

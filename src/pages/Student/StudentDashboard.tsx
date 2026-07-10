@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
+import ActivityHeatmap from '../../components/ActivityHeatmap';
+import { getDailyActivityMinutes } from '../../lib/activity';
 import { getStudentDashboard, getStudentProgressData, type ProgressRecord } from '../../lib/db';
 import { getAuthSession } from '../../lib/auth';
 import { getStudentStream, STREAM_COLORS, STREAM_BG, STREAM_EXAM } from '../../lib/stream';
@@ -37,6 +39,7 @@ export default function StudentDashboard() {
   });
   const [loading,  setLoading]  = useState(false);
   const [progress, setProgress] = useState<ProgressRecord | null>(null);
+  const [activityMap, setActivityMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +51,9 @@ export default function StudentDashboard() {
     if (session?.user?.id) {
       getStudentProgressData(session.user.id)
         .then(p => { if (!cancelled) setProgress(p); })
+        .catch(() => undefined);
+      getDailyActivityMinutes(session.user.id)
+        .then(m => { if (!cancelled) setActivityMap(m); })
         .catch(() => undefined);
     }
     return () => { cancelled = true; };
@@ -222,22 +228,13 @@ export default function StudentDashboard() {
 
         {/* ── Bottom row ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Topic heatmap */}
+          {/* Study activity calendar (LeetCode-style) */}
           <Card
-            title="Topic Mastery Heatmap"
-            subtitle="Daily proficiency growth across all topics"
-            action={
-              <div className="flex items-center gap-1.5">
-                <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>Low</span>
-                {[0.15, 0.35, 0.60, 1].map((o, i) => (
-                  <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: `rgba(91,79,232,${o})` }} />
-                ))}
-                <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>High</span>
-              </div>
-            }
+            title="Study Activity"
+            subtitle="Your daily study time over the last 6 months"
             className="lg:col-span-2"
           >
-            <HeatmapGrid cells={data.heatmapCells} cols={12} />
+            <ActivityHeatmap data={activityMap} colorBase="#5B4FE8" unit="min" />
           </Card>
 
           {/* Weak areas */}
@@ -427,35 +424,3 @@ function WeeklyAreaChart({ data }: { data: any[] }) {
   );
 }
 
-// ── HeatmapGrid (inline) ─────────────────────────────────────────────────────
-function HeatmapGrid({ cells, cols = 12 }: { cells: any[]; cols?: number }) {
-  const INTENSITIES = [
-    'rgba(91,79,232,0.08)',
-    'rgba(91,79,232,0.20)',
-    'rgba(91,79,232,0.40)',
-    'rgba(91,79,232,0.65)',
-    'rgba(91,79,232,0.90)',
-  ];
-
-  return (
-    <div
-      className="grid gap-1 mt-2"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-      role="img"
-      aria-label="Topic mastery heatmap"
-    >
-      {cells.map((cell: any, i: number) => {
-        const pct = cell.percent ?? cell.pct ?? 50;
-        const idx = Math.min(Math.floor(pct / 20), 4);
-        return (
-          <div
-            key={i}
-            className="aspect-square rounded-sm transition-all duration-200 hover:scale-110 cursor-default"
-            style={{ backgroundColor: INTENSITIES[idx] }}
-            title={cell.tooltip ?? cell.topic ?? `Topic ${i + 1}: ${pct}%`}
-          />
-        );
-      })}
-    </div>
-  );
-}

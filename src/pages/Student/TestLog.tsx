@@ -3,7 +3,7 @@ import TopBar from '../../components/TopBar';
 import Card from '../../components/Card';
 import Spinner from '../../components/Spinner';
 import { getAuthSession } from '../../lib/auth';
-import { getStudentAttempts, getTest, type TestAttempt } from '../../lib/tests';
+import { getStudentAttempts, getTest, ATTEMPT_TYPE_META, type TestAttempt, type AttemptType } from '../../lib/tests';
 import { getQuestionsByIds, type ExamQuestion } from '../../lib/questions';
 import { askAI, hasAI } from '../../lib/ai';
 import { useToast } from '../../components/Toast';
@@ -11,7 +11,20 @@ import { useToast } from '../../components/Toast';
 interface AttemptView extends TestAttempt {
   testTitle: string;
   subjects: string[];
+  type: AttemptType;
 }
+
+// Category filter tabs, in display order.
+const CATEGORIES: { key: string; label: string }[] = [
+  { key: 'all',              label: 'All' },
+  { key: 'mock',             label: 'Mock' },
+  { key: 'custom',           label: 'Custom' },
+  { key: 'ai',               label: 'AI' },
+  { key: 'battle',           label: 'Battle' },
+  { key: 'practice',         label: 'Practice' },
+  { key: 'faculty_batch',    label: 'Assigned' },
+  { key: 'faculty_coaching', label: 'Coaching' },
+];
 
 interface ReviewQuestion {
   index: number;
@@ -34,6 +47,15 @@ export default function TestLog() {
   const [filter, setFilter]     = useState<'all' | 'correct' | 'incorrect' | 'skipped'>('all');
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analysing, setAnalysing] = useState<string | null>(null);
+  const [category, setCategory] = useState<string>('all');
+
+  // Infer a category for older attempts saved before testType was stored.
+  function inferType(a: TestAttempt): AttemptType {
+    if (a.testType) return a.testType;
+    if (a.testId.startsWith('battle:')) return 'battle';
+    if (a.testId.startsWith('practice:')) return 'practice';
+    return 'custom';
+  }
 
   useEffect(() => {
     if (!uid) return;
@@ -41,10 +63,16 @@ export default function TestLog() {
     (async () => {
       try {
         const raw = await getStudentAttempts(uid);
-        // Enrich with the test title / subjects.
         const enriched = await Promise.all(raw.map(async a => {
-          const test = await getTest(a.testId).catch(() => null);
-          return { ...a, testTitle: test?.title ?? 'Test', subjects: test?.subjects ?? [] } as AttemptView;
+          // Prefer the denormalised fields; only fetch the Test doc for old attempts.
+          let testTitle = a.testTitle ?? '';
+          let subjects = a.subjects ?? [];
+          if (!testTitle || subjects.length === 0) {
+            const test = await getTest(a.testId).catch(() => null);
+            testTitle = testTitle || test?.title || 'Test';
+            subjects = subjects.length ? subjects : (test?.subjects ?? []);
+          }
+          return { ...a, testTitle, subjects, type: inferType(a) } as AttemptView;
         }));
         if (!cancelled) setAttempts(enriched);
       } catch (e) {
@@ -63,8 +91,13 @@ export default function TestLog() {
     if (review[a.id]) return;
     setReviewLoading(a.id);
     try {
-      const test = await getTest(a.testId);
-      const questions = test ? await getQuestionsByIds(test.questionIds) : [];
+      // Use the exact questions served for this attempt; fall back to the test doc.
+      let ids = a.questionIds ?? [];
+      if (ids.length === 0) {
+        const test = await getTest(a.testId).catch(() => null);
+        ids = test?.questionIds ?? [];
+      }
+      const questions = ids.length ? await getQuestionsByIds(ids) : [];
       const rows: ReviewQuestion[] = questions.map((q: ExamQuestion, i) => {
         const chosen = a.answers[String(i + 1)] ?? null;
         const correct = q.answer;
@@ -109,6 +142,36 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
     setAnalysing(null);
   }
 
+  // Category counts + filtered list.
+  const catCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    attempts.forEach(a => { c[a.type] = (c[a.type] ?? 0) + 1; });
+    return c;
+  }, [attempts]);
+
+  const categoryBreakdown = useMemo(() => {
+    const total = attempts.length || 1;
+    return CATEGORIES
+      .filter(c => c.key !== 'all')
+      .map(c => {
+        const count = catCounts[c.key] ?? 0;
+        const meta = ATTEMPT_TYPE_META[c.key as AttemptType] ?? ATTEMPT_TYPE_META.custom;
+        return {
+          key: c.key,
+          label: c.label,
+          count,
+          pct: Math.round((count / total) * 100),
+          meta,
+        };
+      })
+      .filter(item => item.count > 0);
+  }, [attempts.length, catCounts]);
+
+  const visibleAttempts = useMemo(
+    () => category === 'all' ? attempts : attempts.filter(a => a.type === category),
+    [attempts, category],
+  );
+
   const summary = useMemo(() => {
     if (attempts.length === 0) return null;
     const avgAcc = Math.round(attempts.reduce((s, a) => s + a.accuracyPct, 0) / attempts.length);
@@ -135,7 +198,7 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
             Review Tests
           </h1>
           <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
-            Every test you've attempted — revisit your answers, see what you got wrong, and get AI analysis.
+            Every test you've attempted — mock, custom, AI, battle and practice — with answer review and AI analysis.
           </p>
         </div>
 
@@ -157,6 +220,54 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
           </div>
         )}
 
+        {summary && categoryBreakdown.length > 0 && (
+          <Card title="Category Breakdown" subtitle="See how your attempts are distributed across test types">
+            <div className="space-y-3">
+              {categoryBreakdown.map(item => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setCategory(item.key)}
+                  className="rounded-xl p-4 text-left transition-all"
+                  style={{
+                    backgroundColor: category === item.key ? 'rgba(91,79,232,0.06)' : 'var(--surface-muted)',
+                    border: `1px solid ${category === item.key ? '#5B4FE8' : 'var(--border)'}`,
+                    boxShadow: category === item.key ? '0 0 0 1px rgba(91,79,232,0.08)' : 'none',
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-label-sm font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0" style={{ backgroundColor: item.meta.bg, color: item.meta.color }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>{item.meta.icon}</span>
+                        {item.meta.label}
+                      </span>
+                      <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{item.label}</span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{item.count}</div>
+                      <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>{item.pct}%</div>
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${item.pct}%`, backgroundColor: item.meta.color }} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Category filter tabs (only categories that actually have attempts) */}
+        {!loading && attempts.length > 0 && (
+          <div className="tab-pills flex-wrap">
+            {CATEGORIES.filter(c => c.key === 'all' || (catCounts[c.key] ?? 0) > 0).map(c => (
+              <button key={c.key} type="button" onClick={() => setCategory(c.key)} className={`tab-pill ${category === c.key ? 'active' : ''}`}>
+                {c.label} ({c.key === 'all' ? attempts.length : (catCounts[c.key] ?? 0)})
+              </button>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-16"><Spinner size={24} color="#5B4FE8" /></div>
         ) : attempts.length === 0 ? (
@@ -167,13 +278,16 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
               <p className="text-body-sm mt-1">Complete a test and it will show up here for review.</p>
             </div>
           </Card>
+        ) : visibleAttempts.length === 0 ? (
+          <Card><div className="py-10 text-center text-body-sm" style={{ color: 'var(--text-faint)' }}>No {category} tests yet.</div></Card>
         ) : (
           <div className="space-y-3">
-            {attempts.map(a => {
+            {visibleAttempts.map(a => {
               const isOpen = openId === a.id;
               const rows = review[a.id];
               const filtered = rows ? (filter === 'all' ? rows : rows.filter(r => r.status === filter)) : [];
               const accColor = a.accuracyPct >= 70 ? '#059669' : a.accuracyPct >= 40 ? '#B45309' : '#DC2626';
+              const typeMeta = ATTEMPT_TYPE_META[a.type] ?? ATTEMPT_TYPE_META.custom;
               return (
                 <div key={a.id} className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
                   {/* Summary row */}
@@ -182,7 +296,13 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
                       <span className="text-base font-bold leading-none" style={{ color: accColor }}>{a.accuracyPct}%</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-body-md font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{a.testTitle}</div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-label-sm font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0" style={{ backgroundColor: typeMeta.bg, color: typeMeta.color }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>{typeMeta.icon}</span>
+                          {typeMeta.label}
+                        </span>
+                        <span className="text-body-md font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{a.testTitle}</span>
+                      </div>
                       <div className="text-label-sm" style={{ color: 'var(--text-muted)' }}>
                         {a.subjects.join(', ') || 'Mixed'} · {fmtDate(a.submittedAt)}
                       </div>

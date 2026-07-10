@@ -3,7 +3,8 @@ import Spinner from '../../components/Spinner';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import ActivityHeatmap from '../../components/ActivityHeatmap';
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { facultyTrend } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
@@ -30,6 +31,7 @@ export default function FacultyDashboard() {
   const [assignedStudents, setAssignedStudents] = useState<MockStudentProfile[]>([]);
   const [loadingStudents,  setLoadingStudents]  = useState(true);
   const [batchStream,      setBatchStream]      = useState<string>('');
+  const [submissionsByDay, setSubmissionsByDay] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +51,17 @@ export default function FacultyDashboard() {
         const myAttempts = attemptSnap.docs.map(d => d.data()).filter(a => testIds.has(a.testId as string));
         const accs = myAttempts.map(a => (a.accuracyPct as number) ?? 0);
         const avg = accs.length > 0 ? Math.round(accs.reduce((s, v) => s + v, 0) / accs.length) : 0;
+
+        // Daily submission counts for the contribution calendar
+        const byDay: Record<string, number> = {};
+        myAttempts.forEach(a => {
+          const raw = a.submittedAt;
+          const d = raw instanceof Timestamp ? raw.toDate() : typeof raw === 'string' ? new Date(raw) : null;
+          if (!d || isNaN(d.getTime())) return;
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          byDay[key] = (byDay[key] ?? 0) + 1;
+        });
+        if (!cancelled) setSubmissionsByDay(byDay);
 
         // Weakest chapters across this faculty's tests
         const chapterAvg = new Map<string, { total: number; count: number }>();
@@ -157,6 +170,11 @@ export default function FacultyDashboard() {
             );
           })}
         </div>
+
+        {/* Submission activity calendar (LeetCode-style) */}
+        <Card title="Test Submission Activity" subtitle="Attempts on your tests per day over the last 6 months">
+          <ActivityHeatmap data={submissionsByDay} colorBase="#14B8A6" unit="submission" />
+        </Card>
 
         {/* Charts row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

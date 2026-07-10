@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { pathFor } from '../lib/pages';
 import { features, stats } from '../mocks';
+import { useTheme } from '../lib/theme';
 
 const faqItems = [
   { q: 'Which exams does Concept Crack cover?', a: 'Concept Crack currently supports JEE (Main + Advanced), NEET UG, UPSC Prelims, and CAT. More exams are added regularly.' },
@@ -12,7 +13,7 @@ const faqItems = [
 
 export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const isDark = false; // platform ships light-mode only
+  const { isDark, toggleTheme } = useTheme();
 
   return (
     <div
@@ -51,6 +52,16 @@ export default function Landing() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+            style={{ color: isDark ? '#9CA3AF' : '#6B7280', backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6' }}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label="Toggle theme"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{isDark ? 'light_mode' : 'dark_mode'}</span>
+          </button>
           <Link
             to={pathFor('login')}
             className="h-9 px-4 rounded-lg text-sm font-semibold flex items-center transition-colors"
