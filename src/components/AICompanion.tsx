@@ -11,6 +11,23 @@ const SUGGESTIONS = [
   'How do I stop silly mistakes?',
 ];
 
+function localFallback(input: string, exam: string): string {
+  const q = input.toLowerCase();
+  if (q.includes('mistake') || q.includes('silly')) {
+    return `To reduce silly mistakes in ${exam}, slow down on the last 10% of the question: reread the question, verify units/signs, and check if your answer matches what was actually asked. A 5-second review before submitting usually catches most avoidable errors.`;
+  }
+  if (q.includes('plan') || q.includes('revision') || q.includes('study')) {
+    return `For ${exam}, use a simple routine: 1) revise one weak topic, 2) solve 15 to 20 questions on it, 3) review every wrong answer, and 4) finish with one timed mixed set. Consistency beats long cramming sessions.`;
+  }
+  if (q.includes('newton') || q.includes('force') || q.includes('motion')) {
+    return `Newton's laws are easiest when you separate force and motion. First identify all forces on the body, then apply F = ma along each axis, and remember that action-reaction pairs act on different objects.`;
+  }
+  if (q.includes('how') || q.includes('what') || q.includes('why')) {
+    return `Try breaking the idea into three parts: definition, formula or rule, and one worked example. If you want, I can turn it into a short exam-style explanation for ${exam}.`;
+  }
+  return `I'm in offline helper mode right now, so I can't reach the live AI service. Still, I can help with ${exam} by explaining concepts, making revision plans, or giving step-by-step problem-solving tips.`;
+}
+
 export default function AICompanion() {
   const [open, setOpen]         = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -58,7 +75,7 @@ Student: ${trimmed}`;
         ? await askAI(prompt, { maxTokens: 800 })
         : 'The AI companion needs an API key to answer. Add VITE_GEMINI_API_KEY in your environment to enable it.';
     } catch {
-      reply = 'Sorry — I could not reach the AI service just now. Please try again in a moment.';
+      reply = localFallback(trimmed, exam);
     }
 
     setMessages(prev => prev.map(m => (m.typing ? { ...m, text: reply, typing: false } : m)));

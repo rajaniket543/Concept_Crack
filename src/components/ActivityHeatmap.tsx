@@ -70,8 +70,8 @@ export default function ActivityHeatmap({ data, weeks = 26, colorBase = '#10B981
     return hexToRgba(colorBase, alpha);
   }
 
-  const CELL = 13; // px, square side
-  const GAP = 3;   // px
+  const CELL = 16; // px, square side
+  const GAP = 4;   // px
 
   // Month labels: show a label above the first column whose first day starts a new month.
   const monthLabels = columns.map((col, i) => {
@@ -86,12 +86,12 @@ export default function ActivityHeatmap({ data, weeks = 26, colorBase = '#10B981
     <div className="overflow-x-auto">
       <div style={{ display: 'inline-block', minWidth: 'min-content' }}>
         {/* Month labels */}
-        <div style={{ display: 'grid', gridTemplateColumns: `28px repeat(${columns.length}, ${CELL}px)`, gap: GAP, marginBottom: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `30px repeat(${columns.length}, ${CELL}px)`, gap: GAP, marginBottom: 6 }}>
           <div />
           {columns.map((_, i) => {
             const m = monthLabels.find(l => l.i === i);
             return (
-              <div key={i} className="text-[10px]" style={{ color: 'var(--text-faint)', height: 12, whiteSpace: 'nowrap' }}>
+              <div key={i} className="text-[10px]" style={{ color: 'var(--text-faint)', height: 14, whiteSpace: 'nowrap' }}>
                 {m ? m.label : ''}
               </div>
             );
@@ -101,7 +101,7 @@ export default function ActivityHeatmap({ data, weeks = 26, colorBase = '#10B981
         {/* Grid: left day labels + 7 rows */}
         <div style={{ display: 'flex', gap: GAP }}>
           {/* Day labels column */}
-          <div style={{ display: 'grid', gridTemplateRows: `repeat(7, ${CELL}px)`, gap: GAP, width: 28 }}>
+          <div style={{ display: 'grid', gridTemplateRows: `repeat(7, ${CELL}px)`, gap: GAP, width: 30 }}>
             {DAY_LABELS.map((d, i) => (
               <div key={i} className="text-[9px] flex items-center" style={{ color: 'var(--text-faint)', height: CELL }}>{d}</div>
             ))}
@@ -130,7 +130,7 @@ export default function ActivityHeatmap({ data, weeks = 26, colorBase = '#10B981
         </div>
 
         {/* Footer: total + legend */}
-        <div className="flex items-center justify-between mt-3" style={{ paddingLeft: 31 }}>
+        <div className="flex items-center justify-between mt-3" style={{ paddingLeft: 34 }}>
           <span className="text-label-sm" style={{ color: 'var(--text-muted)' }}>
             {total} {unit}{total === 1 ? '' : 's'} over {activeDays} active day{activeDays === 1 ? '' : 's'}
           </span>

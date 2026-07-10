@@ -327,40 +327,40 @@ export default function Battle() {
     const examTitle = `Battle — ${battle.subjects.join(' / ') || 'Mixed'}`;
 
     // Log the battle as an attempt so it appears in Review Tests, categorised as "Battle".
-    void saveTestAttempt({
-      testId:       `battle:${battle.id}`,
-      studentId:    uid,
-      answers:      Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
-      score, correctCount: correct, incorrectCount: incorrect,
-      skippedCount: skipped, accuracyPct: accuracy, timeSeconds: timeUsed,
-      status:       'submitted',
-      startedAt:    new Date().toISOString(),
-      submittedAt:  new Date().toISOString(),
-      testType:     'battle',
-      testTitle:    examTitle,
-      subjects:     battle.subjects.length ? battle.subjects : ['Mixed'],
-      questionIds:  questions.map(q => q.id),
-    });
-
-    // Save to Firestore so Test Analysis has data
-    void updateStudentProgress(uid, {
-      lastActivity: { type: 'test', title: examTitle, score: accuracy, accuracy, completedAt: new Date().toISOString() },
-      completedTests: 1,
-      latestTestResult: {
-        testTitle: examTitle,
-        testDate:  new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        subject:   battle.subjects[0] ?? 'Mixed',
-        chapter:   battle.chapters[0] ?? '',
-        subjects:  battle.subjects.length ? battle.subjects : ['Mixed'],
-        chapters:  battle.chapters,
-        totalQuestions: questions.length,
-        correctCount: correct, incorrectCount: incorrect, skippedCount: skipped,
-        accuracyPct: accuracy, score,
-        timeMinutes: Math.max(1, Math.round(timeUsed / 60)),
-        easyPct:   0, mediumPct: 0, hardPct: 0,
-        topicAccuracy,
-      },
-    });
+    await Promise.all([
+      saveTestAttempt({
+        testId:       `battle:${battle.id}`,
+        studentId:    uid,
+        answers:      Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
+        score, correctCount: correct, incorrectCount: incorrect,
+        skippedCount: skipped, accuracyPct: accuracy, timeSeconds: timeUsed,
+        status:       'submitted',
+        startedAt:    new Date().toISOString(),
+        submittedAt:  new Date().toISOString(),
+        testType:     'battle',
+        testTitle:    examTitle,
+        subjects:     battle.subjects.length ? battle.subjects : ['Mixed'],
+        questionIds:  questions.map(q => q.id),
+      }),
+      updateStudentProgress(uid, {
+        lastActivity: { type: 'test', title: examTitle, score: accuracy, accuracy, completedAt: new Date().toISOString() },
+        completedTests: 1,
+        latestTestResult: {
+          testTitle: examTitle,
+          testDate:  new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          subject:   battle.subjects[0] ?? 'Mixed',
+          chapter:   battle.chapters[0] ?? '',
+          subjects:  battle.subjects.length ? battle.subjects : ['Mixed'],
+          chapters:  battle.chapters,
+          totalQuestions: questions.length,
+          correctCount: correct, incorrectCount: incorrect, skippedCount: skipped,
+          accuracyPct: accuracy, score,
+          timeMinutes: Math.max(1, Math.round(timeUsed / 60)),
+          easyPct:   0, mediumPct: 0, hardPct: 0,
+          topicAccuracy,
+        },
+      }),
+    ]);
 
     // Navigate to the same animated result + AI tutor page as regular tests
     navigate(pathFor('chatbot'), {

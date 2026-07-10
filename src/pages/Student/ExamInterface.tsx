@@ -493,58 +493,57 @@ export default function ExamInterface() {
       // real Test doc get a synthetic id so answer review still works.
       if (uid) {
         const attemptTestId = testId ?? `practice:${subject}:${chapter || 'general'}`;
-        void saveTestAttempt({
-          testId:        attemptTestId,
-          studentId:     uid,
-          answers:       Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
-          score, correctCount, incorrectCount, skippedCount, accuracyPct,
-          timeSeconds:   exam.durationSeconds - seconds,
-          status:        'submitted',
-          startedAt:     new Date().toISOString(),
-          submittedAt:   new Date().toISOString(),
-          // Test History categorisation + labelling
-          testType:      attemptType,
-          testTitle:     exam.title,
-          subjects:      allSubjects,
-          questionIds:   questions.map(q => q.id),
-          // Feature 2 — browser-lock telemetry
-          tabSwitchCount:     tabSwitches.current,
-          tabSwitchEvents:    tabEvents.current,
-          timeOutsideSeconds: timeOutsideRef.current,
-          lockViolations:     lockViolationsRef.current,
-        });
-      }
-
-      if (uid) {
-        void updateStudentProgress(uid, {
-          lastActivity: {
-            type:        'test',
-            title:       exam.title,
-            score:       accuracyPct,
-            accuracy:    accuracyPct,
-            completedAt: new Date().toISOString(),
-          },
-          completedTests: 1,
-          latestTestResult: {
-            testTitle:      exam.title,
-            testDate:       new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            subject,
-            chapter,
-            subjects:       allSubjects,
-            chapters:       allChapters,
-            totalQuestions: exam.totalQuestions,
-            correctCount,
-            incorrectCount,
-            skippedCount,
-            accuracyPct,
-            score,
-            timeMinutes,
-            easyPct:   safePct(diffStats['Easy']?.correct   ?? 0, diffStats['Easy']?.total   ?? 0),
-            mediumPct: safePct(diffStats['Medium']?.correct ?? 0, diffStats['Medium']?.total ?? 0),
-            hardPct:   safePct(diffStats['Hard']?.correct   ?? 0, diffStats['Hard']?.total   ?? 0),
-            topicAccuracy,
-          },
-        });
+        await Promise.all([
+          saveTestAttempt({
+            testId:        attemptTestId,
+            studentId:     uid,
+            answers:       Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
+            score, correctCount, incorrectCount, skippedCount, accuracyPct,
+            timeSeconds:   exam.durationSeconds - seconds,
+            status:        'submitted',
+            startedAt:     new Date().toISOString(),
+            submittedAt:   new Date().toISOString(),
+            // Test History categorisation + labelling
+            testType:      attemptType,
+            testTitle:     exam.title,
+            subjects:      allSubjects,
+            questionIds:   questions.map(q => q.id),
+            // Feature 2 — browser-lock telemetry
+            tabSwitchCount:     tabSwitches.current,
+            tabSwitchEvents:    tabEvents.current,
+            timeOutsideSeconds: timeOutsideRef.current,
+            lockViolations:     lockViolationsRef.current,
+          }),
+          updateStudentProgress(uid, {
+            lastActivity: {
+              type:        'test',
+              title:       exam.title,
+              score:       accuracyPct,
+              accuracy:    accuracyPct,
+              completedAt: new Date().toISOString(),
+            },
+            completedTests: 1,
+            latestTestResult: {
+              testTitle:      exam.title,
+              testDate:       new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              subject,
+              chapter,
+              subjects:       allSubjects,
+              chapters:       allChapters,
+              totalQuestions: exam.totalQuestions,
+              correctCount,
+              incorrectCount,
+              skippedCount,
+              accuracyPct,
+              score,
+              timeMinutes,
+              easyPct:   safePct(diffStats['Easy']?.correct   ?? 0, diffStats['Easy']?.total   ?? 0),
+              mediumPct: safePct(diffStats['Medium']?.correct ?? 0, diffStats['Medium']?.total ?? 0),
+              hardPct:   safePct(diffStats['Hard']?.correct   ?? 0, diffStats['Hard']?.total   ?? 0),
+              topicAccuracy,
+            },
+          }),
+        ]);
       }
 
       navigate(pathFor('chatbot'), {
