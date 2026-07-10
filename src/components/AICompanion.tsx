@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { askAI, hasAI } from '../lib/ai';
 import { getAuthSession } from '../lib/auth';
 import { getStudentStream, STREAM_EXAM } from '../lib/stream';
 
@@ -11,21 +10,42 @@ const SUGGESTIONS = [
   'How do I stop silly mistakes?',
 ];
 
-function localFallback(input: string, exam: string): string {
-  const q = input.toLowerCase();
-  if (q.includes('mistake') || q.includes('silly')) {
-    return `To reduce silly mistakes in ${exam}, slow down on the last 10% of the question: reread the question, verify units/signs, and check if your answer matches what was actually asked. A 5-second review before submitting usually catches most avoidable errors.`;
+const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+const MODEL = 'gemini-2.5-flash';
+const FALLBACK_MODEL = 'gemini-2.0-flash';
+
+async function callGemini(prompt: string): Promise<string> {
+  if (!GEMINI_KEY) throw new Error('No API key');
+
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      maxOutputTokens: 800,
+      temperature: 0.6,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  };
+
+  let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok && [404, 429, 500, 503].includes(res.status)) {
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${FALLBACK_MODEL}:generateContent?key=${GEMINI_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
   }
-  if (q.includes('plan') || q.includes('revision') || q.includes('study')) {
-    return `For ${exam}, use a simple routine: 1) revise one weak topic, 2) solve 15 to 20 questions on it, 3) review every wrong answer, and 4) finish with one timed mixed set. Consistency beats long cramming sessions.`;
-  }
-  if (q.includes('newton') || q.includes('force') || q.includes('motion')) {
-    return `Newton's laws are easiest when you separate force and motion. First identify all forces on the body, then apply F = ma along each axis, and remember that action-reaction pairs act on different objects.`;
-  }
-  if (q.includes('how') || q.includes('what') || q.includes('why')) {
-    return `Try breaking the idea into three parts: definition, formula or rule, and one worked example. If you want, I can turn it into a short exam-style explanation for ${exam}.`;
-  }
-  return `I'm in offline helper mode right now, so I can't reach the live AI service. Still, I can help with ${exam} by explaining concepts, making revision plans, or giving step-by-step problem-solving tips.`;
+
+  if (!res.ok) throw new Error(`Gemini error ${res.status}`);
+
+  const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Empty response');
+  return text.trim();
 }
 
 export default function AICompanion() {
@@ -71,11 +91,10 @@ Student: ${trimmed}`;
 
     let reply: string;
     try {
-      reply = hasAI()
-        ? await askAI(prompt, { maxTokens: 800 })
-        : 'The AI companion needs an API key to answer. Add VITE_GEMINI_API_KEY in your environment to enable it.';
-    } catch {
-      reply = localFallback(trimmed, exam);
+      reply = await callGemini(prompt);
+    } catch (error) {
+      console.error('AI Companion Gemini error:', error);
+      reply = 'The AI companion could not reach Gemini right now. Please try again in a moment.';
     }
 
     setMessages(prev => prev.map(m => (m.typing ? { ...m, text: reply, typing: false } : m)));
