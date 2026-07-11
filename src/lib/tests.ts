@@ -340,6 +340,21 @@ export async function saveTestAttempt(attempt: Omit<TestAttempt, 'id'>): Promise
   return ref.id;
 }
 
+// Some attempt docs predate the current save schema and have startedAt /
+// submittedAt stored as a Firestore Timestamp instead of the ISO string the
+// current saveTestAttempt() writes. Normalizing both shapes to a string here
+// (same pattern as docToTest above) means every downstream consumer —
+// including the sort below, which used to call .localeCompare() straight on
+// whatever came back and threw on a Timestamp — can trust it's always a string.
+function docToAttempt(id: string, data: Record<string, unknown>): TestAttempt {
+  return {
+    ...(data as Omit<TestAttempt, 'id' | 'startedAt' | 'submittedAt'>),
+    id,
+    startedAt:   toIso(data.startedAt) ?? '',
+    submittedAt: toIso(data.submittedAt),
+  };
+}
+
 // Throws on failure — deliberately NOT swallowed here. A caller that treats a
 // failed read the same as "genuinely zero attempts" tells a student their
 // saved test history is empty when it's actually just a transient read error.
@@ -352,7 +367,7 @@ export async function getStudentAttempts(studentUid: string): Promise<TestAttemp
   );
   const snap = await getDocs(q);
   return snap.docs
-    .map(d => ({ id: d.id, ...(d.data() as Omit<TestAttempt, 'id'>) }))
+    .map(d => docToAttempt(d.id, d.data() as Record<string, unknown>))
     .filter(a => a.status === 'submitted')
     .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
 }
