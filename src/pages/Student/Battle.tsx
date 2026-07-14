@@ -14,6 +14,7 @@ import { getQuestionsForCustomTest, type ExamQuestion } from '../../lib/question
 import { useToast } from '../../components/Toast';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { pathFor } from '../../lib/pages';
+import MathText from '../../components/MathText';
 
 type Screen = 'home' | 'lobby' | 'exam';
 type PaletteState = 'not-visited' | 'answered' | 'not-answered';
@@ -736,7 +737,10 @@ export default function Battle() {
             </div>
             <div className="rounded-xl p-5 mb-5 text-base leading-relaxed"
               style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
-              {q.prompt}
+              {q.imageUrl && (
+                <img src={q.imageUrl} alt="Question figure" className="rounded-lg max-h-72 mb-4 mx-auto" />
+              )}
+              <MathText text={q.prompt} />
             </div>
             <div className="space-y-3">
               {q.options.map(opt => {
@@ -754,7 +758,7 @@ export default function Battle() {
                       style={{ backgroundColor: sel ? '#5B4FE8' : 'var(--surface-muted)', color: sel ? '#fff' : 'var(--text-muted)' }}>
                       {opt.key}
                     </div>
-                    <span className="text-sm" style={{ color: sel ? '#5B4FE8' : 'var(--text-primary)' }}>{opt.text}</span>
+                    <span className="text-sm" style={{ color: sel ? '#5B4FE8' : 'var(--text-primary)' }}><MathText text={opt.text} /></span>
                   </button>
                 );
               })}

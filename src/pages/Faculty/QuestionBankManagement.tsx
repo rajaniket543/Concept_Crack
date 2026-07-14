@@ -16,6 +16,8 @@ import {
   type BankQuestion,
   type QuestionOrigin,
 } from '../../lib/questionBank';
+import MathText from '../../components/MathText';
+import { uploadQuestionImage } from '../../lib/storage';
 
 const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'] as const;
@@ -42,12 +44,13 @@ type Draft = {
   difficulty: 'Easy' | 'Medium' | 'Hard';
   origin: QuestionOrigin;
   explanation: string;
+  imageUrl: string;
 };
 
 const EMPTY_DRAFT: Draft = {
   question: '', A: '', B: '', C: '', D: '', answer: 'A',
   subject: 'Physics', chapter: '', topic: '', difficulty: 'Easy',
-  origin: 'Faculty Upload', explanation: '',
+  origin: 'Faculty Upload', explanation: '', imageUrl: '',
 };
 
 function fmtDate(iso?: string | null) {
@@ -166,6 +169,7 @@ export default function QuestionBankManagement() {
       difficulty: d.difficulty,
       origin: d.origin,
       explanation: d.explanation.trim(),
+      imageUrl: d.imageUrl,
     };
   }
 
@@ -199,7 +203,7 @@ export default function QuestionBankManagement() {
       answer: (q.answer ?? 'A') as Draft['answer'],
       subject: q.subject || 'Physics', chapter: q.chapter, topic: q.topic ?? '',
       difficulty: q.difficulty, origin: (q.origin as QuestionOrigin) ?? 'Custom',
-      explanation: q.explanation ?? '',
+      explanation: q.explanation ?? '', imageUrl: q.imageUrl ?? '',
     });
   }
 
@@ -457,7 +461,7 @@ export default function QuestionBankManagement() {
         {/* Add Question form */}
         {showAddForm && (
           <Card title="Add New Question" subtitle="A unique code is assigned automatically on save">
-            <QuestionForm draft={draft} setDraft={setDraft} />
+            <QuestionForm draft={draft} setDraft={setDraft} uid={uid} />
             <div className="flex gap-3 mt-4">
               <button type="button" onClick={addQuestion} disabled={busy} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>
                 {busy ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <span className="material-symbols-outlined" style={{ fontSize: 18 }}>save</span>}
@@ -491,11 +495,14 @@ export default function QuestionBankManagement() {
               <div className="space-y-4">
                 <div className="rounded-lg p-4 h-full min-h-[120px]" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
                   <div className="text-label-sm uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-faint)' }}>Question</div>
-                  <p className="text-base leading-relaxed" style={{ color: 'var(--text-primary)' }}>{previewQ.question || '—'}</p>
+                  {previewQ.imageUrl && (
+                    <img src={previewQ.imageUrl} alt="Question figure" className="rounded-lg max-h-56 mb-3" style={{ border: '1px solid var(--border)' }} />
+                  )}
+                  <p className="text-base leading-relaxed" style={{ color: 'var(--text-primary)' }}><MathText text={previewQ.question || '—'} /></p>
                   {previewQ.explanation && (
                     <div className="mt-4 pt-4" style={{ borderTop: '1px dashed var(--border)' }}>
                       <div className="text-label-sm uppercase tracking-widest mb-1" style={{ color: 'var(--text-faint)' }}>Explanation</div>
-                      <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{previewQ.explanation}</p>
+                      <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}><MathText text={previewQ.explanation} /></p>
                     </div>
                   )}
                 </div>
@@ -506,7 +513,7 @@ export default function QuestionBankManagement() {
                   {(['A', 'B', 'C', 'D'] as const).map(k => (
                     <div key={k} className="flex items-center gap-3 rounded-lg px-3 py-2.5" style={{ backgroundColor: previewQ.answer === k ? 'rgba(16,185,129,0.10)' : 'var(--surface-muted)', border: `1px solid ${previewQ.answer === k ? 'rgba(16,185,129,0.35)' : 'var(--border)'}` }}>
                       <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: previewQ.answer === k ? '#10B981' : 'var(--surface)', color: previewQ.answer === k ? '#fff' : 'var(--text-muted)' }}>{k}</span>
-                      <span className="text-body-md" style={{ color: 'var(--text-primary)' }}>{previewQ.options[k] || '—'}</span>
+                      <span className="text-body-md" style={{ color: 'var(--text-primary)' }}><MathText text={previewQ.options[k] || '—'} /></span>
                       {previewQ.answer === k && <span className="material-symbols-outlined ml-auto" style={{ fontSize: 18, color: '#10B981' }}>check_circle</span>}
                     </div>
                   ))}
@@ -549,7 +556,7 @@ export default function QuestionBankManagement() {
               <button type="button" onClick={() => setEditQ(null)} className="icon-btn icon-btn-sm"><span className="material-symbols-outlined">close</span></button>
             </div>
             <div className="p-6 max-h-[70vh] overflow-y-auto">
-              <QuestionForm draft={editDraft} setDraft={setEditDraft} />
+              <QuestionForm draft={editDraft} setDraft={setEditDraft} uid={uid} />
             </div>
             <div className="px-6 py-4 flex justify-end gap-2" style={{ borderTop: '1px solid var(--border)' }}>
               <button type="button" onClick={() => setEditQ(null)} className="btn-outline btn-md">Cancel</button>
@@ -564,15 +571,52 @@ export default function QuestionBankManagement() {
 
 // ── Shared question form ──────────────────────────────────────────────────────
 
-function QuestionForm({ draft, setDraft }: { draft: Draft; setDraft: Dispatch<SetStateAction<Draft>> }) {
+function QuestionForm({ draft, setDraft, uid }: { draft: Draft; setDraft: Dispatch<SetStateAction<Draft>>; uid: string }) {
+  const toast = useToast();
+  const [uploading, setUploading] = useState(false);
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft(d => ({ ...d, [k]: v }));
   const inputStyle = { backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' } as const;
+
+  async function attachImage(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const imageUrl = await uploadQuestionImage(file, uid);
+      set('imageUrl', imageUrl);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Image upload failed', 'error');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
       <div>
         <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Question</label>
         <textarea value={draft.question} onChange={e => set('question', e.target.value)} rows={2} placeholder="Enter the question text…" className="input-field w-full resize-none" style={inputStyle} />
+      </div>
+
+      <div>
+        <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Figure (optional)</label>
+        {draft.imageUrl ? (
+          <div className="relative inline-block">
+            <img src={draft.imageUrl} alt="Question figure" className="rounded-lg max-h-48" style={{ border: '1px solid var(--border)' }} />
+            <button type="button" onClick={() => set('imageUrl', '')}
+              className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: '#EF4444', color: '#fff' }} title="Remove figure">
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
+            </button>
+          </div>
+        ) : (
+          <label className="btn-outline btn-sm inline-flex items-center gap-1.5 cursor-pointer w-fit">
+            {uploading
+              ? <><span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Uploading…</>
+              : <><span className="material-symbols-outlined" style={{ fontSize: 16 }}>image</span> Attach figure</>}
+            <input type="file" accept="image/*" className="hidden" disabled={uploading}
+              onChange={e => { void attachImage(e.target.files?.[0]); e.target.value = ''; }} />
+          </label>
+        )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {(['A', 'B', 'C', 'D'] as const).map(k => (

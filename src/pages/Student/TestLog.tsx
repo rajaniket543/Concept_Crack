@@ -7,6 +7,7 @@ import { getStudentAttempts, getTest, ATTEMPT_TYPE_META, type TestAttempt, type 
 import { getQuestionsByIds, type ExamQuestion } from '../../lib/questions';
 import { askAI, hasAI } from '../../lib/ai';
 import { useToast } from '../../components/Toast';
+import MathText from '../../components/MathText';
 
 interface AttemptView extends TestAttempt {
   testTitle: string;
@@ -29,6 +30,7 @@ const CATEGORIES: { key: string; label: string }[] = [
 interface ReviewQuestion {
   index: number;
   prompt: string;
+  imageUrl?: string;
   options: Array<{ key: string; text: string }>;
   correct: string | null;
   chosen: string | null;
@@ -121,7 +123,7 @@ export default function TestLog() {
         const chosen = a.answers[String(i + 1)] ?? null;
         const correct = q.answer;
         const status: ReviewQuestion['status'] = !chosen ? 'skipped' : chosen === correct ? 'correct' : 'incorrect';
-        return { index: i + 1, prompt: q.prompt, options: q.options, correct, chosen, status };
+        return { index: i + 1, prompt: q.prompt, imageUrl: q.imageUrl, options: q.options, correct, chosen, status };
       });
       setReview(prev => ({ ...prev, [a.id]: rows }));
     } catch (e) {
@@ -397,8 +399,11 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
                               const meta = STATUS_META[r.status];
                               return (
                                 <div key={r.index} className="rounded-xl p-4" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+                                  {r.imageUrl && (
+                                    <img src={r.imageUrl} alt="Question figure" className="rounded-lg max-h-48 mb-2" style={{ border: '1px solid var(--border)' }} />
+                                  )}
                                   <div className="flex items-start justify-between gap-3 mb-2">
-                                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{r.index}. {r.prompt}</p>
+                                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{r.index}. <MathText text={r.prompt} /></p>
                                     <span className="text-label-sm font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0" style={{ backgroundColor: meta.bg, color: meta.color }}>
                                       <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>{meta.icon}</span>
                                       {meta.label}
@@ -416,7 +421,7 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
                                             color: isCorrect ? '#059669' : isChosen ? '#DC2626' : 'var(--text-muted)',
                                           }}>
                                           <span className="font-bold">{o.key}.</span>
-                                          <span className="flex-1">{o.text}</span>
+                                          <span className="flex-1"><MathText text={o.text} /></span>
                                           {isCorrect && <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check_circle</span>}
                                           {isChosen && !isCorrect && <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>}
                                         </div>

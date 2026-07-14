@@ -21,6 +21,7 @@ export interface ExtractedQuestion {
   chapter:     string;
   topic:       string;
   explanation: string;
+  imageUrl?:   string; // question figure, attached manually during review
 }
 
 export function extractionAvailable(): boolean {
@@ -120,8 +121,8 @@ export async function extractQuestionsFromFiles(
   const prompt =
     `You are an exam-question extraction engine for Indian JEE/NEET coaching material.\n` +
     `Extract EVERY multiple-choice question from the attached file(s). For each question output:\n` +
-    `- "question": full question text. Render equations as readable plain/unicode text; if a diagram/figure is essential, describe it briefly inside [square brackets].\n` +
-    `- "options": an object with keys A, B, C, D (exactly four; leave a value "" if the source truly has fewer).\n` +
+    `- "question": full question text. Write any mathematical/chemical formula as LaTeX wrapped in $...$ (inline) or $$...$$ (display) — e.g. $\\frac{v^2}{r}$, $\\int_0^1 x\\,dx$. If a diagram/figure is essential to the question, describe it briefly inside [square brackets].\n` +
+    `- "options": an object with keys A, B, C, D (exactly four; leave a value "" if the source truly has fewer). Use the same $...$ LaTeX convention for any formula in an option.\n` +
     `- "answer": the correct option letter (A/B/C/D) if the source indicates it, otherwise null.\n` +
     `- "difficulty": your best estimate — one of Easy, Medium, Hard.\n` +
     `- "subject": Physics, Chemistry, Mathematics, or Biology${hint?.subject ? ` (likely ${hint.subject})` : ''}.\n` +
@@ -178,8 +179,8 @@ export async function generateQuestionsAI(spec: GenerateSpec): Promise<Extracted
     `- ${spec.easy} Easy question(s)\n- ${spec.medium} Medium question(s)\n- ${spec.hard} Hard question(s)\n` +
     `Total = ${total}.\n\n` +
     `For each question output an object with:\n` +
-    `- "question": the question text (equations as plain/unicode text)\n` +
-    `- "options": an object with keys A, B, C, D — four distinct, plausible options\n` +
+    `- "question": the question text (write any formula as LaTeX in $...$ inline or $$...$$ display)\n` +
+    `- "options": an object with keys A, B, C, D — four distinct, plausible options (formulas as $...$ LaTeX)\n` +
     `- "answer": the correct option letter (A/B/C/D)\n` +
     `- "difficulty": "Easy" | "Medium" | "Hard" (matching the requested counts)\n` +
     `- "subject": "${spec.subject}"\n- "chapter": "${spec.chapter}"\n- "topic": ${spec.topic ? `"${spec.topic}"` : '"" or a specific sub-topic'}\n` +

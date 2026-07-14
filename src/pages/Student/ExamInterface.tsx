@@ -18,6 +18,7 @@ import { hasAI } from '../../lib/ai';
 import { pathFor } from '../../lib/pages';
 import { useToast } from '../../components/Toast';
 import { useConfirm } from '../../components/ConfirmDialog';
+import MathText from '../../components/MathText';
 
 const fallbackMeta = examMeta;
 
@@ -913,7 +914,10 @@ export default function ExamInterface() {
                 className="rounded-xl p-6 mb-6 text-base leading-relaxed"
                 style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '16px', lineHeight: '1.7' }}
               >
-                {question.prompt}
+                {question.imageUrl && (
+                  <img src={question.imageUrl} alt="Question figure" className="rounded-lg max-h-80 mb-4 mx-auto" />
+                )}
+                <MathText text={question.prompt} />
               </div>
 
               {/* Options */}
@@ -952,7 +956,7 @@ export default function ExamInterface() {
                         className="text-base"
                         style={{ color: isSelected ? '#5B4FE8' : 'var(--text-primary)', fontWeight: isSelected ? 500 : 400 }}
                       >
-                        {opt.text}
+                        <MathText text={opt.text} />
                       </span>
                     </button>
                   );

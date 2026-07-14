@@ -18,6 +18,7 @@ export interface ExamQuestion {
   answer: string | null;
   subject?: string;
   chapter?: string;
+  imageUrl?: string;
 }
 
 export async function getChaptersForSubject(subject: string): Promise<ChapterInfo[]> {
@@ -53,6 +54,7 @@ export async function getQuestionsByIds(ids: string[]): Promise<ExamQuestion[]> 
         answer: (d.answer as string | null) ?? null,
         subject: (d.subject as string) || undefined,
         chapter: (d.chapter as string) || undefined,
+        imageUrl: (d.imageUrl as string) || undefined,
       });
     });
   }
@@ -112,6 +114,7 @@ export async function getQuestionsForCustomTest(config: {
         answer: (d.answer as string | null) ?? null,
         subject,
         chapter,
+        imageUrl: (d.imageUrl as string) || undefined,
       });
     });
   }));
@@ -155,6 +158,7 @@ export async function getQuestionsForChapter(
         answer: (d.answer as string | null) ?? null,
         subject,
         chapter,
+        imageUrl: (d.imageUrl as string) || undefined,
       };
     });
   return dedupeQuestions(list);

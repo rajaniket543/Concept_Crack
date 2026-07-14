@@ -20,3 +20,9 @@ service-account.json
 scripts/progress/
 scripts/pdfs/
 
+scripts/.import-workspace/
+scripts/output/
+
+# Python bytecode cache
+__pycache__/
+*.pyc

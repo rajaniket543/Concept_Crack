@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// Cloud Storage rules for Concept Crack question figures.
+// Mirrors the role check in firestore.rules (users/{uid}.role), read cross-service
+// via firestore.get() since Storage rules cant query Firestore any other way.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userRole() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdminOrFaculty() {
+      return isSignedIn() && userRole() in ['admin', 'faculty'];
+    }
+
+    // Question figures — any signed-in user can view (needed for exams);
+    // only faculty/admin can upload or delete.
+    match /question-images/{uid}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isAdminOrFaculty()
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdminOrFaculty();
+    }
+
+    // Deny everything else by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
