@@ -24,6 +24,31 @@ const fallbackMeta = examMeta;
 
 type PaletteState = 'not-visited' | 'answered' | 'marked' | 'not-answered';
 
+type QType = 'single' | 'multiple' | 'numeric';
+
+// Sorted, de-spaced, uppercased letter set — so "C,A" and "a c" both become "A,C".
+function normChoice(s: string): string {
+  return (s || '')
+    .toUpperCase()
+    .replace(/[^A-D]/g, '')
+    .split('')
+    .filter((c, i, a) => a.indexOf(c) === i)
+    .sort()
+    .join(',');
+}
+
+// All-or-nothing grading. single/multiple compare the sorted letter set;
+// numeric compares parsed values with a small tolerance (fallback: trimmed text).
+function isAnswerCorrect(qType: QType, correct: string | null, given: string | undefined): boolean {
+  if (!correct || given == null || given === '') return false;
+  if (qType === 'numeric') {
+    const a = parseFloat(given), b = parseFloat(correct);
+    if (!Number.isNaN(a) && !Number.isNaN(b)) return Math.abs(a - b) < 1e-6;
+    return given.trim() === correct.trim();
+  }
+  return normChoice(given) === normChoice(correct);
+}
+
 function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
@@ -60,7 +85,9 @@ export default function ExamInterface() {
   const [loading, setLoading]       = useState(true);
   const [seconds, setSeconds]       = useState(fallbackMeta.durationSeconds);
   const [current, setCurrent]       = useState(1);
-  const [answers, setAnswers]       = useState<Record<number, ExamOptionType['key']>>({});
+  // Answer per question is a string: single => "A", multiple => sorted "A,C",
+  // numeric => the typed value. (Was a single option key before Advanced types.)
+  const [answers, setAnswers]       = useState<Record<number, string>>({});
   const [marked, setMarked]         = useState<Set<number>>(new Set());
   const [sessionId, setSessionId]   = useState<string | null>(null);
   const [paletteState, setPaletteState] = useState<Record<number, PaletteState>>({});
@@ -366,15 +393,31 @@ export default function ExamInterface() {
 
   const timerClass = seconds <= 300 ? 'danger' : seconds <= 600 ? 'warning' : '';
 
-  function onSelect(key: ExamOptionType['key']) {
-    setAnswers(prev => ({ ...prev, [current]: key }));
-    setPaletteState(prev => ({ ...prev, [current]: 'answered' }));
+  // Central setter — stores the answer string (or clears when blank) and syncs
+  // to the server (best-effort). Works for single, multiple and numeric.
+  function commitAnswer(value: string) {
+    const v = value.trim();
+    if (v === '') { clearResponse(); return; }
+    setAnswers(prev => ({ ...prev, [current]: v }));
+    setPaletteState(prev => ({ ...prev, [current]: marked.has(current) ? 'marked' : 'answered' }));
     if (sessionId) {
       void apiRequest(`/api/exams/sessions/${sessionId}/answer`, {
         method: 'PATCH',
-        body: JSON.stringify({ questionId: current, answer: key }),
+        body: JSON.stringify({ questionId: current, answer: v }),
       }).catch(() => undefined);
     }
+  }
+
+  // Single-correct: pick one option (replaces).
+  function onSelect(key: ExamOptionType['key']) {
+    commitAnswer(key);
+  }
+
+  // Multiple-correct: toggle an option in/out of the sorted set.
+  function onToggleMultiple(key: ExamOptionType['key']) {
+    const cur = new Set(normChoice(answers[current] ?? '').split(',').filter(Boolean));
+    if (cur.has(key)) cur.delete(key); else cur.add(key);
+    commitAnswer(Array.from(cur).sort().join(','));
   }
 
   function clearResponse() {
@@ -445,8 +488,10 @@ export default function ExamInterface() {
         if (!chapterStats[key]) chapterStats[key] = { subject: qSubject, chapter: qChapter, correct: 0, incorrect: 0, total: 0 };
         chapterStats[key].total++;
 
-        if (answers[qNum] !== undefined) {
-          if (answers[qNum] === q.answer) {
+        const given = answers[qNum];
+        if (given !== undefined && given !== '') {
+          const qType = (q.questionType ?? 'single') as QType;
+          if (isAnswerCorrect(qType, q.answer, given)) {
             correctCount++;
             diffStats[diff].correct++;
             chapterStats[key].correct++;
@@ -920,48 +965,81 @@ export default function ExamInterface() {
                 <MathText text={question.prompt} />
               </div>
 
-              {/* Options */}
-              <div className="space-y-3">
-                {question.options.map((opt: any) => {
-                  const isSelected = selectedKey === opt.key;
-                  return (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      onClick={() => onSelect(opt.key)}
-                      className="w-full text-left transition-all duration-150"
-                      style={{
-                        borderRadius: '10px',
-                        border: `1.5px solid ${isSelected ? '#5B4FE8' : 'var(--border)'}`,
-                        backgroundColor: isSelected ? 'rgba(91,79,232,0.06)' : 'var(--surface)',
-                        padding: '14px 16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        cursor: 'pointer',
-                        boxShadow: isSelected ? '0 0 0 3px rgba(91,79,232,0.12)' : 'var(--shadow-xs)',
-                      }}
-                    >
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold shrink-0"
+              {/* Answer-type hint for Advanced questions */}
+              {(question.questionType === 'multiple' || question.questionType === 'numeric') && (
+                <div className="mb-3">
+                  <span className="text-label-sm font-bold px-3 py-1 rounded-full"
+                    style={{ backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8' }}>
+                    {question.questionType === 'multiple' ? 'One or more correct' : 'Numeric answer'}
+                  </span>
+                </div>
+              )}
+
+              {question.questionType === 'numeric' ? (
+                /* Numeric-answer input */
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={answers[current] ?? ''}
+                  onChange={e => commitAnswer(e.target.value)}
+                  placeholder="Enter your answer"
+                  className="w-full text-base"
+                  style={{
+                    borderRadius: '10px',
+                    border: `1.5px solid ${answers[current] ? '#5B4FE8' : 'var(--border)'}`,
+                    backgroundColor: 'var(--surface)',
+                    color: 'var(--text-primary)',
+                    padding: '14px 16px',
+                  }}
+                />
+              ) : (
+                /* Single- or multiple-correct options */
+                <div className="space-y-3">
+                  {question.options.map((opt: any) => {
+                    const isMultiple = question.questionType === 'multiple';
+                    const chosen = normChoice(answers[current] ?? '').split(',').filter(Boolean);
+                    const isSelected = isMultiple ? chosen.includes(opt.key) : selectedKey === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => (isMultiple ? onToggleMultiple(opt.key) : onSelect(opt.key))}
+                        className="w-full text-left transition-all duration-150"
                         style={{
-                          backgroundColor: isSelected ? '#5B4FE8' : 'var(--surface-muted)',
-                          color: isSelected ? '#fff' : 'var(--text-muted)',
-                          border: isSelected ? 'none' : '1.5px solid var(--border)',
+                          borderRadius: '10px',
+                          border: `1.5px solid ${isSelected ? '#5B4FE8' : 'var(--border)'}`,
+                          backgroundColor: isSelected ? 'rgba(91,79,232,0.06)' : 'var(--surface)',
+                          padding: '14px 16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          cursor: 'pointer',
+                          boxShadow: isSelected ? '0 0 0 3px rgba(91,79,232,0.12)' : 'var(--shadow-xs)',
                         }}
                       >
-                        {opt.key}
-                      </div>
-                      <span
-                        className="text-base"
-                        style={{ color: isSelected ? '#5B4FE8' : 'var(--text-primary)', fontWeight: isSelected ? 500 : 400 }}
-                      >
-                        <MathText text={opt.text} />
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                        <div
+                          className="w-7 h-7 flex items-center justify-center text-sm font-bold shrink-0"
+                          style={{
+                            // square for multiple (checkbox), rounded for single (radio)
+                            borderRadius: isMultiple ? '6px' : '10px',
+                            backgroundColor: isSelected ? '#5B4FE8' : 'var(--surface-muted)',
+                            color: isSelected ? '#fff' : 'var(--text-muted)',
+                            border: isSelected ? 'none' : '1.5px solid var(--border)',
+                          }}
+                        >
+                          {isMultiple && isSelected ? '✓' : opt.key}
+                        </div>
+                        <span
+                          className="text-base"
+                          style={{ color: isSelected ? '#5B4FE8' : 'var(--text-primary)', fontWeight: isSelected ? 500 : 400 }}
+                        >
+                          <MathText text={opt.text} />
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
