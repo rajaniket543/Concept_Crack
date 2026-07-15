@@ -1,4 +1,7 @@
-import { sendPasswordResetEmail, updatePassword } from 'firebase/auth';
+import {
+  sendPasswordResetEmail, updatePassword,
+  EmailAuthProvider, reauthenticateWithCredential,
+} from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import type { AuthRole } from './auth';
@@ -77,10 +80,29 @@ export async function adminSetUserStatus(
   await setDoc(doc(db, 'users', uid), { status }, { merge: true });
 }
 
-// Called by the user on their first login forced-change screen
-export async function completePasswordChange(newPassword: string): Promise<void> {
+// Called by the user on their first-login forced-change screen. Re-verifies
+// the current (temporary) password via Firebase reauthentication before
+// updating — this is both the security requirement (never accept a new
+// password without proving the old one) and the correct fix for Firebase's
+// "recent login required" rule on updatePassword, rather than papering over
+// a stale-session error by bouncing the user back to the login screen.
+export async function completePasswordChange(currentPassword: string, newPassword: string): Promise<void> {
   const user = auth.currentUser;
-  if (!user) throw new Error('Not signed in');
+  if (!user || !user.email) throw new Error('Not signed in');
+
+  try {
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
+  } catch (err) {
+    const code = (err as { code?: string }).code ?? '';
+    if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+      throw new Error('Current password is incorrect.');
+    }
+    if (code === 'auth/too-many-requests') {
+      throw new Error('Too many attempts — please wait a moment and try again.');
+    }
+    throw new Error('Could not verify your current password. Please sign in again.');
+  }
+
   await updatePassword(user, newPassword);
   await setDoc(doc(db, 'users', user.uid), { mustChangePassword: false }, { merge: true });
 }

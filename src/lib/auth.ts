@@ -22,6 +22,10 @@ export interface AuthUser {
   email: string;
   mobile: string;
   permissions: string[];
+  // Set by an admin at account creation; forces the Change Password page on
+  // every route until cleared. Persisted on the session (not re-read from
+  // Firestore per navigation) so the route guard can check it synchronously.
+  mustChangePassword: boolean;
 }
 
 export interface AuthSession {
@@ -104,6 +108,7 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
       email:       data.email       ?? firebaseUser.email ?? '',
       mobile:      data.mobile      ?? '',
       permissions: data.permissions ?? [],
+      mustChangePassword: data.mustChangePassword === true,
     };
 
     // The exam stream (JEE / NEET) is assigned by the admin at registration —
@@ -124,6 +129,7 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
       email:       firebaseUser.email ?? '',
       mobile:      '',
       permissions: [],
+      mustChangePassword: false, // self-registered accounts never require this
     };
     await setDoc(userRef, {
       ...userData,
@@ -135,13 +141,11 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
   }
 
   // Redirect to password-change page on first login
-  const mustChange = userSnap.exists() && userSnap.data().mustChangePassword === true;
-
   const session: AuthSession = {
     token,
     expiresAt:  Date.now() + 60 * 60 * 1000, // 1 hour
     user:       userData,
-    redirectTo: mustChange ? '/change-password' : ROLE_PATH[selectedRole],
+    redirectTo: userData.mustChangePassword ? '/change-password' : ROLE_PATH[selectedRole],
   };
 
   setAuthSession(session);

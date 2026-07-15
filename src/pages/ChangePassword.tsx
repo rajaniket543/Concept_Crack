@@ -13,21 +13,48 @@ const ROLE_PATH: Record<string, string> = {
   admin:   '/admin',
 };
 
+interface Rule { ok: boolean; label: string; }
+
+function passwordRules(pw: string): Rule[] {
+  return [
+    { ok: pw.length >= 8,          label: '8+ characters' },
+    { ok: /[A-Z]/.test(pw),        label: 'Uppercase letter' },
+    { ok: /[a-z]/.test(pw),        label: 'Lowercase letter' },
+    { ok: /[0-9]/.test(pw),        label: 'Number' },
+    { ok: /[^A-Za-z0-9]/.test(pw), label: 'Special character' },
+  ];
+}
+
 export default function ChangePassword() {
   const navigate   = useNavigate();
   const toast      = useToast();
   const { isDark } = useTheme();
   const session    = getAuthSession();
 
-  const [newPw,     setNewPw]     = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
-  const [showNew,   setShowNew]   = useState(false);
-  const [showConf,  setShowConf]  = useState(false);
-  const [loading,   setLoading]   = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw,      setNewPw]     = useState('');
+  const [confirmPw,  setConfirmPw] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew,     setShowNew]     = useState(false);
+  const [showConf,    setShowConf]    = useState(false);
+  const [loading,     setLoading]     = useState(false);
+  const [formError,   setFormError]   = useState('');
 
-  const mismatch  = confirmPw.length > 0 && newPw !== confirmPw;
-  const tooShort  = newPw.length > 0 && newPw.length < 8;
-  const canSubmit = !loading && newPw.length >= 8 && newPw === confirmPw;
+  const rules       = passwordRules(newPw);
+  const allRulesMet = rules.every(r => r.ok);
+  const mismatch    = confirmPw.length > 0 && newPw !== confirmPw;
+  const sameAsOld   = newPw.length > 0 && currentPw.length > 0 && newPw === currentPw;
+
+  const strengthScore = rules.filter(r => r.ok).length; // 0-5
+  const strengthLabel = strengthScore <= 2 ? 'Weak' : strengthScore <= 4 ? 'Medium' : 'Strong';
+  const strengthColor = strengthScore <= 2 ? '#EF4444' : strengthScore <= 4 ? '#F59E0B' : '#10B981';
+
+  const canSubmit =
+    !loading &&
+    currentPw.length > 0 &&
+    allRulesMet &&
+    newPw === confirmPw &&
+    newPw !== currentPw;
 
   const bg    = isDark ? '#0F0E17' : '#FAFAFA';
   const card  = isDark ? '#1E1D2E' : '#FFFFFF';
@@ -55,27 +82,66 @@ export default function ChangePassword() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setFormError('');
     if (!canSubmit) return;
+
     setLoading(true);
     try {
-      await completePasswordChange(newPw);
+      await completePasswordChange(currentPw, newPw);
+
+      // Clear the flag on the LOCAL session immediately — the route guard
+      // reads this from localStorage, not Firestore, so without this the
+      // very next navigation would bounce the user right back here.
       if (session) {
+        session.user.mustChangePassword = false;
         session.redirectTo = ROLE_PATH[session.user.role] ?? '/login';
         setAuthSession(session);
       }
-      toast('Password set! Welcome to Concept Crack.', 'success');
+
+      toast('Password updated! Welcome to Concept Crack.', 'success');
       navigate(ROLE_PATH[session?.user?.role ?? 'student'] ?? '/login', { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to set password';
-      if (msg.includes('requires-recent-login') || msg.includes('CREDENTIAL_TOO_OLD')) {
+      if (msg.includes('sign in again')) {
         toast('Session expired — please sign in again.', 'error');
         navigate('/login', { replace: true });
       } else {
-        toast(msg, 'error');
+        setFormError(msg);
       }
     } finally {
       setLoading(false);
     }
+  }
+
+  function passwordField(opts: {
+    id: string; label: string; value: string; onChange: (v: string) => void;
+    show: boolean; onToggleShow: () => void; placeholder: string; error?: string;
+  }) {
+    return (
+      <div>
+        <label htmlFor={opts.id} className="block text-sm font-medium mb-1.5" style={{ color: lbl }}>
+          {opts.label}
+        </label>
+        <div style={fieldWrap} onFocusCapture={focusRing} onBlurCapture={blurRing}>
+          <span className="material-symbols-outlined shrink-0" style={{ fontSize: '18px', color: muted }}>lock</span>
+          <input
+            id={opts.id}
+            type={opts.show ? 'text' : 'password'}
+            value={opts.value}
+            onChange={e => opts.onChange(e.target.value)}
+            placeholder={opts.placeholder}
+            autoComplete={opts.id === 'current-pw' ? 'current-password' : 'new-password'}
+            style={{ flex: 1, background: 'transparent', outline: 'none', fontSize: 14, color: txt }}
+          />
+          <button type="button" tabIndex={-1} onClick={opts.onToggleShow} style={{ color: muted, lineHeight: 0 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+              {opts.show ? 'visibility_off' : 'visibility'}
+            </span>
+          </button>
+        </div>
+        {opts.error && <p className="text-xs mt-1.5" style={{ color: '#EF4444' }}>{opts.error}</p>}
+      </div>
+    );
   }
 
   return (
@@ -90,10 +156,10 @@ export default function ChangePassword() {
           </div>
           <div>
             <h1 className="text-xl font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: txt }}>
-              Set your password
+              Change your password
             </h1>
             <p className="text-sm" style={{ color: muted }}>
-              {session?.user?.name ? `Hi ${session.user.name.split(' ')[0]}! ` : ''}Choose a strong password to continue.
+              {session?.user?.name ? `Hi ${session.user.name.split(' ')[0]}! ` : ''}You must set a new password before continuing.
             </p>
           </div>
         </div>
@@ -103,70 +169,51 @@ export default function ChangePassword() {
           style={{ backgroundColor: 'rgba(91,79,232,0.08)', border: '1px solid rgba(91,79,232,0.20)' }}>
           <span className="material-symbols-outlined shrink-0" style={{ fontSize: '18px', color: '#5B4FE8', marginTop: 1 }}>info</span>
           <p className="text-sm" style={{ color: isDark ? '#C4B5FD' : '#5B4FE8' }}>
-            Your account was set up with a temporary password. Set a new one to proceed — you'll only see this once.
+            Your account was set up with a temporary password. This step is required and can't be skipped.
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
 
-          {/* New password */}
-          <div>
-            <label htmlFor="new-pw" className="block text-sm font-medium mb-1.5" style={{ color: lbl }}>
-              New Password
-            </label>
-            <div style={fieldWrap} onFocusCapture={focusRing} onBlurCapture={blurRing}>
-              <span className="material-symbols-outlined shrink-0" style={{ fontSize: '18px', color: muted }}>lock</span>
-              <input
-                id="new-pw"
-                type={showNew ? 'text' : 'password'}
-                value={newPw}
-                onChange={e => setNewPw(e.target.value)}
-                placeholder="Min 8 characters"
-                autoComplete="new-password"
-                style={{ flex: 1, background: 'transparent', outline: 'none', fontSize: 14, color: txt }}
-              />
-              <button type="button" tabIndex={-1} onClick={() => setShowNew(v => !v)} style={{ color: muted, lineHeight: 0 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-                  {showNew ? 'visibility_off' : 'visibility'}
-                </span>
-              </button>
-            </div>
-            {tooShort && <p className="text-xs mt-1.5" style={{ color: '#EF4444' }}>Password must be at least 8 characters</p>}
-          </div>
+          {passwordField({
+            id: 'current-pw', label: 'Current Password', value: currentPw,
+            onChange: setCurrentPw, show: showCurrent, onToggleShow: () => setShowCurrent(v => !v),
+            placeholder: 'Your temporary password',
+          })}
 
-          {/* Confirm password */}
-          <div>
-            <label htmlFor="conf-pw" className="block text-sm font-medium mb-1.5" style={{ color: lbl }}>
-              Confirm Password
-            </label>
-            <div style={fieldWrap} onFocusCapture={focusRing} onBlurCapture={blurRing}>
-              <span className="material-symbols-outlined shrink-0" style={{ fontSize: '18px', color: muted }}>lock</span>
-              <input
-                id="conf-pw"
-                type={showConf ? 'text' : 'password'}
-                value={confirmPw}
-                onChange={e => setConfirmPw(e.target.value)}
-                placeholder="Repeat your password"
-                autoComplete="new-password"
-                style={{ flex: 1, background: 'transparent', outline: 'none', fontSize: 14, color: txt }}
-              />
-              <button type="button" tabIndex={-1} onClick={() => setShowConf(v => !v)} style={{ color: muted, lineHeight: 0 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-                  {showConf ? 'visibility_off' : 'visibility'}
-                </span>
-              </button>
+          {passwordField({
+            id: 'new-pw', label: 'New Password', value: newPw,
+            onChange: setNewPw, show: showNew, onToggleShow: () => setShowNew(v => !v),
+            placeholder: 'Create a new password',
+            error: sameAsOld ? 'New password must be different from your current password.' : undefined,
+          })}
+
+          {passwordField({
+            id: 'conf-pw', label: 'Confirm New Password', value: confirmPw,
+            onChange: setConfirmPw, show: showConf, onToggleShow: () => setShowConf(v => !v),
+            placeholder: 'Repeat your new password',
+            error: mismatch ? 'Passwords do not match.' : undefined,
+          })}
+
+          {/* Strength bar */}
+          {newPw.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium" style={{ color: muted }}>Password strength</span>
+                <span className="text-xs font-semibold" style={{ color: strengthColor }}>{strengthLabel}</span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: bdr }}>
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${(strengthScore / 5) * 100}%`, backgroundColor: strengthColor }}
+                />
+              </div>
             </div>
-            {mismatch && <p className="text-xs mt-1.5" style={{ color: '#EF4444' }}>Passwords do not match</p>}
-          </div>
+          )}
 
           {/* Strength hints */}
           <div className="grid grid-cols-2 gap-2">
-            {[
-              { ok: newPw.length >= 8,          label: '8+ characters'    },
-              { ok: /[A-Z]/.test(newPw),        label: 'Uppercase letter' },
-              { ok: /[0-9]/.test(newPw),        label: 'Number'           },
-              { ok: /[^A-Za-z0-9]/.test(newPw), label: 'Special character'},
-            ].map(hint => (
+            {rules.map(hint => (
               <div key={hint.label} className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined"
                   style={{ fontSize: '14px', color: hint.ok ? '#10B981' : (isDark ? '#4B5563' : '#D1D5DB') }}>
@@ -177,6 +224,13 @@ export default function ChangePassword() {
             ))}
           </div>
 
+          {formError && (
+            <div className="flex items-start gap-2 rounded-xl p-3" style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.20)' }}>
+              <span className="material-symbols-outlined shrink-0" style={{ fontSize: '16px', color: '#EF4444', marginTop: 1 }}>error</span>
+              <p className="text-xs" style={{ color: '#EF4444' }}>{formError}</p>
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={!canSubmit}
@@ -185,7 +239,7 @@ export default function ChangePassword() {
           >
             {loading
               ? <><Spinner size={16} /> Saving…</>
-              : <><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span> Set Password &amp; Continue</>
+              : <><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span> Change Password &amp; Continue</>
             }
           </button>
         </form>

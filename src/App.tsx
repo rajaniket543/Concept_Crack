@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import Layout from './components/Layout';
 import RouteProgress from './components/RouteProgress';
@@ -205,8 +205,17 @@ function RequireAuth({
   children: ReactNode;
   roles?: Array<'student' | 'parent' | 'faculty' | 'admin'>;
 }) {
+  const location = useLocation();
   const session = getAuthSession();
   if (!session) return <Navigate to="/login" replace />;
+
+  // A forced password change blocks every protected page — regardless of role
+  // or which URL was typed in directly — until it's completed. The Change
+  // Password route itself is exempt so this can never become a redirect loop.
+  if (session.user.mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
+
   if (roles && !roles.includes(session.user.role)) return <Navigate to={session.redirectTo} replace />;
   return children;
 }
