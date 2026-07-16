@@ -12,9 +12,8 @@ import { useToast } from '../components/Toast';
 const CATEGORIES = ['General query', 'Technical issue', 'Test / exam problem', 'Account & login', 'Billing', 'Feedback'];
 
 const CONTACT_CHANNELS = [
-  { icon: 'mail',        label: 'Email',        value: 'support@conceptcrack.app', href: 'mailto:support@conceptcrack.app' },
-  { icon: 'call',        label: 'Phone',        value: '+91 98765 43210',          href: 'tel:+919876543210' },
-  { icon: 'schedule',    label: 'Support hours', value: 'Mon–Sat · 9 AM – 7 PM IST', href: null },
+  { icon: 'mail', label: 'Email', value: 'contact@arcvion.in',    href: 'mailto:contact@arcvion.in' },
+  { icon: 'call', label: 'Phone', value: '+91 93840 41978',       href: 'tel:+919384041978' },
 ];
 
 export default function ContactUs() {
@@ -86,7 +85,7 @@ export default function ContactUs() {
           </div>
 
           {/* Contact channels */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {CONTACT_CHANNELS.map(c => (
               <div key={c.label} className="card flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(91,79,232,0.10)' }}>
