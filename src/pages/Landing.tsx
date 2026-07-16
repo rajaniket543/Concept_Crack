@@ -290,8 +290,8 @@ export default function Landing() {
               { title: 'Company', links: [
                 { label: 'About', href: '#features' },
                 { label: 'FAQ', href: '#faq' },
-                { label: 'Careers', href: 'mailto:careers@conceptcrack.app' },
-                { label: 'Contact', href: 'mailto:support@conceptcrack.app' },
+                { label: 'Careers', href: 'mailto:contact@arcvion.in' },
+                { label: 'Contact', href: 'mailto:contact@arcvion.in' },
               ] },
               { title: 'Legal', links: [
                 { label: 'Privacy Policy', href: '#faq' },

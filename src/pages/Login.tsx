@@ -10,7 +10,7 @@ import { LoginRole, pathFor } from '../lib/pages';
 import Spinner from '../components/Spinner';
 import { useTheme } from '../lib/theme';
 
-const SUPPORT_EMAIL = 'support@conceptcrack.app';
+const SUPPORT_EMAIL = 'contact@arcvion.in';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type View = 'login' | 'forgot' | 'forgotSent' | 'reset' | 'resetDone';
