@@ -41,7 +41,7 @@ function showFor(set: (m: Msg | null) => void, msg: Msg, ms = 4000) {
 }
 
 export default function Settings() {
-  const { isDark, toggleTheme, fontSize, setFontSize, accent, setAccent } = useTheme();
+  const { isDark, toggleTheme, fontSize, setFontSize } = useTheme();
   const toast = useToast();
   const session = getAuthSession();
   const [tab, setTab] = useState<SettingsTab>('Profile');
@@ -403,35 +403,6 @@ export default function Settings() {
                         >
                           {size}
                         </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Accent color */}
-                <div>
-                  <label className="text-label-sm font-semibold mb-3 block" style={{ color: 'var(--text-muted)' }}>Accent Color</label>
-                  <div className="flex items-center gap-3">
-                    {[
-                      { name: 'Indigo', hex: '#5B4FE8' },
-                      { name: 'Violet', hex: '#8B5CF6' },
-                      { name: 'Emerald', hex: '#10B981' },
-                      { name: 'Rose', hex: '#F43F5E' },
-                      { name: 'Amber', hex: '#F59E0B' },
-                    ].map(({ name, hex }) => {
-                      const isActive = accent === hex;
-                      return (
-                        <button
-                          key={name}
-                          type="button"
-                          title={name}
-                          onClick={() => setAccent(hex)}
-                          className="w-8 h-8 rounded-full transition-all hover:scale-110"
-                          style={isActive
-                            ? { backgroundColor: hex, outline: `2px solid ${hex}`, outlineOffset: '2px' }
-                            : { backgroundColor: hex }
-                          }
-                        />
                       );
                     })}
                   </div>
