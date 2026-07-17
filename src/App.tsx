@@ -228,7 +228,7 @@ export default function App() {
       <RouteProgress />
       <ActivityTracker />
       <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Navigate to="/about" replace />} />
       <Route path="/about" element={<Landing />} />
       <Route path="/login" element={<Login />} />
 
