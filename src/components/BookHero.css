@@ -1,0 +1,286 @@
+/* ============================================================================
+   Hero section with background animation only
+   ============================================================================ */
+
+.book-hero {
+  position: relative;
+  width: 100%;
+  min-height: 88vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(91, 79, 232, 0.22) 0%, transparent 65%),
+    linear-gradient(180deg, #14121f 0%, #0f0e17 50%, #0c0b12 100%);
+  isolation: isolate;
+  color: #fff;
+}
+
+.bh-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bh-aurora {
+  position: absolute;
+  inset: -30%;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(91, 79, 232, 0.18),
+    rgba(139, 92, 246, 0.12),
+    rgba(6, 182, 212, 0.12),
+    rgba(124, 58, 237, 0.14),
+    rgba(91, 79, 232, 0.18)
+  );
+  filter: blur(80px);
+  opacity: 0.75;
+  animation: bhSpin 42s linear infinite;
+}
+
+.bh-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(91, 79, 232, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91, 79, 232, 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 36%, #000 24%, transparent 76%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 36%, #000 24%, transparent 76%);
+  animation: bhGridPan 24s linear infinite;
+}
+
+.bh-orb {
+  position: absolute;
+  width: 28vw;
+  height: 28vw;
+  min-width: 240px;
+  min-height: 240px;
+  border-radius: 999px;
+  filter: blur(36px);
+  opacity: 0.38;
+  animation: bhDrift 12s ease-in-out infinite;
+}
+
+.bh-orb-a {
+  left: 12%;
+  top: 14%;
+  background: radial-gradient(circle, rgba(91, 79, 232, 0.52), transparent 68%);
+}
+
+.bh-orb-b {
+  right: 10%;
+  top: 20%;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.32), transparent 68%);
+  animation-direction: reverse;
+}
+
+.bh-orb-c {
+  left: 50%;
+  bottom: -8%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(245, 214, 122, 0.20), transparent 70%);
+  animation-duration: 16s;
+}
+
+.bh-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(90% 70% at 50% 40%, transparent 45%, rgba(0, 0, 0, 0.58) 100%),
+    linear-gradient(180deg, transparent 0%, rgba(4, 6, 12, 0.24) 100%);
+}
+
+.bh-particle {
+  position: absolute;
+  bottom: -12px;
+  border-radius: 999px;
+  opacity: 0;
+  animation-name: bhRise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+.bh-content {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 960px);
+  padding: 96px 24px 88px;
+  text-align: center;
+}
+
+.bh-content > * {
+  animation: bhEnter 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.bh-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin-bottom: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(91, 79, 232, 0.25);
+  background: rgba(91, 79, 232, 0.12);
+  color: #8c86ff;
+  font-size: 14px;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+}
+
+.bh-title {
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(2.7rem, 6vw, 5.1rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+  text-wrap: balance;
+}
+
+.bh-grad {
+  background: linear-gradient(135deg, #5B4FE8, #8B5CF6, #06B6D4, #8B5CF6, #5B4FE8);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: bhShimmer 6s linear infinite;
+}
+
+.bh-subtitle {
+  max-width: 740px;
+  margin: 18px auto 0;
+  font-size: clamp(1rem, 1.7vw, 1.15rem);
+  line-height: 1.65;
+  color: #a9b2c9;
+}
+
+.bh-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 34px;
+}
+
+.bh-cta-primary,
+.bh-cta-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 208px;
+  height: 54px;
+  padding: 0 22px;
+  border-radius: 16px;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 700;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.bh-cta-primary {
+  color: #fff;
+  background: linear-gradient(135deg, #5B4FE8, #7C3AED);
+  box-shadow: 0 12px 30px rgba(91, 79, 232, 0.40);
+}
+
+.bh-cta-primary:hover,
+.bh-cta-ghost:hover {
+  transform: translateY(-2px);
+}
+
+.bh-cta-primary:hover {
+  box-shadow: 0 16px 38px rgba(91, 79, 232, 0.52);
+}
+
+.bh-cta-ghost {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.bh-filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 34px;
+}
+
+.bh-filters span {
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(91, 79, 232, 0.25);
+  background: rgba(91, 79, 232, 0.08);
+  color: #5B4FE8;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+@keyframes bhSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bhGridPan {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 56px 56px, 56px 56px; }
+}
+
+@keyframes bhDrift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(24px, -18px, 0) scale(1.05); }
+}
+
+@keyframes bhRise {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  10% { opacity: 0.85; }
+  100% { transform: translate3d(var(--cc-drift, 0), -92vh, 0); opacity: 0; }
+}
+
+@keyframes bhEnter {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bhShimmer {
+  to { background-position: 200% center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bh-aurora,
+  .bh-grid,
+  .bh-orb,
+  .bh-particle,
+  .bh-grad {
+    animation: none !important;
+  }
+
+  .bh-content > * {
+    opacity: 1;
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .book-hero {
+    min-height: 82vh;
+  }
+
+  .bh-content {
+    padding: 76px 18px 72px;
+  }
+
+  .bh-cta-primary,
+  .bh-cta-ghost {
+    width: 100%;
+  }
+
+  .bh-filters {
+    gap: 10px;
+  }
+}

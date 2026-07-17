@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { pathFor } from '../lib/pages';
 import Logo from '../components/Logo';
+import BookHero from '../components/BookHero';
 import { features } from '../mocks';
 import { useTheme } from '../lib/theme';
 
@@ -105,7 +106,31 @@ const aiRoleBenefits = [
 
 export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { isDark, toggleTheme } = useTheme();
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileNavOpen(false);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileNavOpen]);
+
+  const navLinks = [
+    { href: '#features', label: 'Features' },
+    { href: '#pricing', label: 'Pricing' },
+    { href: '#faq', label: 'FAQ' },
+  ];
 
   return (
     <div
@@ -114,12 +139,13 @@ export default function Landing() {
     >
       {/* ── Nav ── */}
       <header
-        className="sticky top-0 z-50 flex items-center justify-between px-6 lg:px-10"
+        className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 lg:px-10 gap-3"
         style={{
           height: '64px',
           backgroundColor: isDark ? 'rgba(15,14,23,0.90)' : 'rgba(255,255,255,0.90)',
           backdropFilter: 'blur(12px)',
           borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : '#E5E7EB'}`,
+          position: 'sticky',
         }}
       >
         <div className="flex items-center gap-3">
@@ -137,9 +163,9 @@ export default function Landing() {
         </div>
 
         <nav className="hidden lg:flex items-center gap-8 text-sm font-medium" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
-          <a href="#features" className="hover:text-[#5B4FE8] transition-colors">Features</a>
-          <a href="#pricing" className="hover:text-[#5B4FE8] transition-colors">Pricing</a>
-          <a href="#faq" className="hover:text-[#5B4FE8] transition-colors">FAQ</a>
+          {navLinks.map(item => (
+            <a key={item.href} href={item.href} className="hover:text-[#5B4FE8] transition-colors">{item.label}</a>
+          ))}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -153,98 +179,90 @@ export default function Landing() {
           >
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{isDark ? 'light_mode' : 'dark_mode'}</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(o => !o)}
+            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors lg:hidden"
+            style={{ color: isDark ? '#9CA3AF' : '#6B7280', backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6' }}
+            title={mobileNavOpen ? 'Close menu' : 'Open menu'}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileNavOpen}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+              {mobileNavOpen ? 'close' : 'menu'}
+            </span>
+          </button>
           <Link
             to={pathFor('login')}
-            className="h-9 px-4 rounded-lg text-sm font-semibold flex items-center transition-colors"
+            className="hidden sm:flex h-9 px-4 rounded-lg text-sm font-semibold items-center transition-colors"
             style={{ color: isDark ? '#E5E7EB' : '#374151', backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6' }}
           >
             Log in
           </Link>
           <Link
             to={pathFor('login')}
-            className="h-9 px-4 rounded-lg text-sm font-semibold flex items-center text-white transition-all hover:-translate-y-px"
+            className="hidden sm:flex h-9 px-4 rounded-lg text-sm font-semibold items-center text-white transition-all hover:-translate-y-px"
             style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
           >
             Start Free Trial
           </Link>
         </div>
+
+        {mobileNavOpen && (
+          <button
+            type="button"
+            aria-label="Close navigation"
+            className="fixed inset-0 z-40 bg-black/45 lg:hidden"
+            onClick={() => setMobileNavOpen(false)}
+          />
+        )}
+
+        <div
+          className={`absolute left-0 right-0 top-[64px] z-50 lg:hidden overflow-hidden transition-all duration-200 ${mobileNavOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+          style={{
+            backgroundColor: isDark ? 'rgba(15,14,23,0.98)' : 'rgba(255,255,255,0.98)',
+            borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : '#E5E7EB'}`,
+            backdropFilter: 'blur(12px)',
+          }}
+        >
+          <div className="px-6 py-5 space-y-4">
+            <div className="flex flex-col gap-2">
+              {navLinks.map(item => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="py-2 text-sm font-semibold"
+                  style={{ color: isDark ? '#E5E7EB' : '#374151' }}
+                  onClick={() => setMobileNavOpen(false)}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <Link
+                to={pathFor('login')}
+                className="h-10 px-4 rounded-lg text-sm font-semibold flex items-center justify-center transition-colors"
+                style={{ color: isDark ? '#E5E7EB' : '#374151', backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6' }}
+                onClick={() => setMobileNavOpen(false)}
+              >
+                Log in
+              </Link>
+              <Link
+                to={pathFor('login')}
+                className="h-10 px-4 rounded-lg text-sm font-semibold flex items-center justify-center text-white transition-all"
+                style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
+                onClick={() => setMobileNavOpen(false)}
+              >
+                Start Free Trial
+              </Link>
+            </div>
+          </div>
+        </div>
       </header>
 
-      {/* ── Hero ── */}
-      <section
-        className="relative overflow-hidden"
-        style={{
-          background: isDark
-            ? 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(91,79,232,0.25) 0%, transparent 70%), #0F0E17'
-            : 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(91,79,232,0.10) 0%, transparent 70%), #FFFFFF',
-          minHeight: '88vh',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        {/* Animated mesh bg */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-          <div className="cc-hero-grid absolute inset-0" />
-          <div className="absolute top-16 left-1/4 w-96 h-96 rounded-full opacity-25 blur-3xl" style={{ background: 'radial-gradient(circle, #5B4FE8, transparent)', animation: 'ccFloatA 16s ease-in-out infinite' }} />
-          <div className="absolute bottom-16 right-1/4 w-72 h-72 rounded-full opacity-20 blur-3xl" style={{ background: 'radial-gradient(circle, #8B5CF6, transparent)', animation: 'ccFloatB 20s ease-in-out infinite' }} />
-          <div className="absolute top-1/2 right-10 w-56 h-56 rounded-full opacity-20 blur-2xl" style={{ background: 'radial-gradient(circle, #06B6D4, transparent)', animation: 'ccFloatC 18s ease-in-out infinite' }} />
-          <div className="absolute top-1/3 left-6 w-52 h-52 rounded-full opacity-15 blur-3xl" style={{ background: 'radial-gradient(circle, #7C3AED, transparent)', animation: 'ccFloatB 24s ease-in-out infinite reverse' }} />
-        </div>
-
-        <div className="relative w-full max-w-6xl mx-auto px-6 lg:px-10 py-24 text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold mb-8" style={{ background: 'rgba(91,79,232,0.12)', border: '1px solid rgba(91,79,232,0.25)', color: '#5B4FE8' }}>
-            <span className="material-symbols-outlined filled" style={{ fontSize: '14px' }}>auto_awesome</span>
-            Powered by Generative AI
-          </div>
-
-          <h1
-            className="font-headline font-extrabold leading-tight tracking-tight mb-6"
-            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 'clamp(2.5rem, 6vw, 4.5rem)', letterSpacing: '-0.04em' }}
-          >
-            Crack Any Exam with
-            <br />
-            <span style={{ background: 'linear-gradient(135deg, #5B4FE8, #8B5CF6, #06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-              AI-Powered Intelligence
-            </span>
-          </h1>
-
-          <p
-            className="text-lg leading-relaxed mb-10 max-w-2xl mx-auto"
-            style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}
-          >
-            Concept Crack adapts to your unique learning style, identifies knowledge gaps in real-time, and creates a personalized path to your dream rank — built for JEE and NEET aspirants.
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link
-              to={pathFor('login')}
-              className="h-12 px-7 rounded-xl text-base font-semibold text-white flex items-center gap-2 transition-all hover:-translate-y-0.5"
-              style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 6px 20px rgba(91,79,232,0.40)' }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>rocket_launch</span>
-              Start Preparing Free
-            </Link>
-            <Link
-              to={pathFor('login')}
-              className="h-12 px-7 rounded-xl text-base font-semibold flex items-center gap-2 transition-all hover:-translate-y-0.5"
-              style={{ backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6', border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`, color: isDark ? '#E5E7EB' : '#374151' }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>play_circle</span>
-              Watch Demo
-            </Link>
-          </div>
-
-          {/* Exam focus */}
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-12 text-sm">
-            {['JEE Main + Advanced', 'NEET UG'].map(x => (
-              <span key={x} className="px-4 py-1.5 rounded-full font-semibold" style={{ backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8', border: '1px solid rgba(91,79,232,0.25)' }}>
-                {x}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ── Cinematic AI study hero ── */}
+      <BookHero />
 
       {/* ── Features ── */}
       <section id="features" className="py-24 max-w-6xl mx-auto px-6 lg:px-10">
@@ -354,29 +372,54 @@ export default function Landing() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 items-start">
-            {pricingPlans.map(plan => (
+            {pricingPlans.map(plan => {
+              const isPremium = plan.name === 'Premium';
+              const GOLD = '#D4AF37';
+              const goldGrad = 'linear-gradient(120deg, #9C7A1E 0%, #E7C15A 42%, #FBEEB5 52%, #C99A2E 72%, #9C7A1E 100%)';
+              return (
               <div
                 key={plan.name}
                 className="rounded-2xl overflow-hidden flex flex-col transition-all duration-200"
                 style={{
                   backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF',
-                  border: plan.recommended ? '2px solid #5B4FE8' : `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
-                  boxShadow: plan.recommended
-                    ? '0 12px 40px rgba(91,79,232,0.30)'
-                    : isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
+                  border: isPremium
+                    ? `1.5px solid ${GOLD}`
+                    : plan.recommended ? '2px solid #5B4FE8' : `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
+                  boxShadow: isPremium
+                    ? '0 14px 44px rgba(212,175,55,0.24)'
+                    : plan.recommended ? '0 12px 40px rgba(91,79,232,0.30)' : (isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.06)'),
                   transform: plan.recommended ? 'translateY(-8px)' : 'none',
                 }}
               >
-                <div className="px-6 py-7" style={{ background: plan.recommended ? 'linear-gradient(135deg, #5B4FE8, #7C3AED)' : (isDark ? '#151426' : '#111827') }}>
+                <div
+                  className="px-6 py-7 relative"
+                  style={{
+                    background: isPremium
+                      ? 'linear-gradient(135deg, #17130A 0%, #2E2410 55%, #17130A 100%)'
+                      : plan.recommended ? 'linear-gradient(135deg, #5B4FE8, #7C3AED)' : (isDark ? '#151426' : '#111827'),
+                  }}
+                >
+                  {isPremium && <div className="absolute inset-x-0 top-0 h-px" style={{ background: goldGrad }} />}
                   {plan.recommended && (
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide mb-3" style={{ backgroundColor: 'rgba(255,255,255,0.18)', color: '#FDE68A' }}>
                       <span className="material-symbols-outlined filled" style={{ fontSize: '13px' }}>star</span>
                       Recommended
                     </div>
                   )}
+                  {isPremium && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide mb-3" style={{ backgroundColor: 'rgba(212,175,55,0.16)', color: '#F5D67A', border: '1px solid rgba(212,175,55,0.35)' }}>
+                      <span className="material-symbols-outlined filled" style={{ fontSize: '13px' }}>workspace_premium</span>
+                      Premium
+                    </div>
+                  )}
                   <h3 className="text-lg font-bold text-white mb-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{plan.name} Plan</h3>
                   <div className="flex items-baseline gap-1 mb-3">
-                    <span className="text-3xl font-extrabold text-white">₹{plan.price}</span>
+                    <span
+                      className="text-3xl font-extrabold"
+                      style={isPremium
+                        ? { background: goldGrad, backgroundSize: '200% auto', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'ccShimmer 5s linear infinite' }
+                        : { color: '#fff' }}
+                    >₹{plan.price}</span>
                     <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>/ month</span>
                   </div>
                   <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.75)' }}>{plan.tagline}</p>
@@ -385,7 +428,7 @@ export default function Landing() {
                 <ul className="p-6 space-y-3 flex-1">
                   {plan.features.map(f => (
                     <li key={f} className="flex items-start gap-2.5 text-sm">
-                      <span className="material-symbols-outlined shrink-0" style={{ fontSize: '18px', color: '#10B981' }}>check_circle</span>
+                      <span className="material-symbols-outlined filled shrink-0" style={{ fontSize: '18px', color: isPremium ? GOLD : '#10B981' }}>{isPremium ? 'workspace_premium' : 'check_circle'}</span>
                       <span style={{ color: isDark ? '#E5E7EB' : '#374151' }}>{f}</span>
                     </li>
                   ))}
@@ -396,16 +439,20 @@ export default function Landing() {
                     to={pathFor('login')}
                     className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:-translate-y-px"
                     style={
-                      plan.recommended
+                      isPremium
+                        ? { background: goldGrad, backgroundSize: '200% auto', color: '#231A05', boxShadow: '0 4px 14px rgba(212,175,55,0.40)', animation: 'ccShimmer 5s linear infinite' }
+                        : plan.recommended
                         ? { background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', color: '#fff', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }
                         : { backgroundColor: isDark ? '#2D2B42' : '#F3F4F6', color: isDark ? '#E5E7EB' : '#374151' }
                     }
                   >
+                    {isPremium && <span className="material-symbols-outlined filled" style={{ fontSize: '16px' }}>workspace_premium</span>}
                     Choose {plan.name}
                   </Link>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* B2B strip */}

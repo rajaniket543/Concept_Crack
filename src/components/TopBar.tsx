@@ -97,7 +97,7 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
 
   return (
     <header
-      className="flex items-center gap-4 px-6 shrink-0"
+      className="topbar flex items-center gap-3 sm:gap-4 px-4 sm:px-6 shrink-0"
       style={{
         height: '64px',
         backgroundColor: 'var(--topbar-bg)',

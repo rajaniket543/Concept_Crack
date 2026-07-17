@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { PageKey, pathFor } from '../lib/pages';
 import { logout } from '../lib/auth';
 import Logo from './Logo';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AICompanion from './AICompanion';
 import { useConfirm } from './ConfirmDialog';
 
@@ -33,6 +33,7 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
   const navigate = useNavigate();
   const confirm = useConfirm();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const roleAccent: Record<string, string> = {
     student: '#5B4FE8',
@@ -42,6 +43,27 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
   };
   const accent = roleAccent[role] ?? '#5B4FE8';
   const homePath = pathFor(role as PageKey);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setMobileNavOpen(false);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileNavOpen]);
 
   if (variant === 'focus') {
     return (
@@ -96,6 +118,7 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
         title={collapsed ? item.label : undefined}
         className={`sidebar-item ${active ? 'active' : ''}`}
         style={active ? { backgroundColor: accent } : undefined}
+        onClick={() => setMobileNavOpen(false)}
       >
         <span className="material-symbols-outlined item-icon">{item.icon}</span>
         {!collapsed && <span className="truncate text-sm">{item.label}</span>}
@@ -105,9 +128,19 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
 
   return (
     <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg)' }}>
+      {mobileNavOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/45 lg:hidden"
+          aria-label="Close navigation"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className="shrink-0 flex flex-col h-screen sticky top-0 overflow-y-auto transition-all duration-200"
+        className="sidebar shrink-0 flex flex-col h-screen sticky top-0 overflow-y-auto transition-transform duration-200 lg:transition-all"
+        data-mobile-open={mobileNavOpen ? 'true' : 'false'}
         style={{
           width: sidebarWidth,
           backgroundColor: 'var(--sidebar-bg)',
@@ -137,11 +170,11 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
         </div>
 
         {/* Collapsed expand button */}
-        {collapsed && (
-          <button
-            type="button"
-            onClick={() => setCollapsed(false)}
-            className="mx-auto mt-3 w-8 h-8 flex items-center justify-center rounded-md transition-colors"
+          {collapsed && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(false)}
+              className="mx-auto mt-3 w-8 h-8 flex items-center justify-center rounded-md transition-colors"
             style={{ color: 'var(--sidebar-text-muted)', backgroundColor: 'var(--sidebar-hover)' }}
             title="Expand sidebar"
           >
@@ -187,6 +220,17 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
 
       {/* Main */}
       <div className="flex-1 min-w-0 flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
+        <div className="lg:hidden fixed top-4 left-4 z-30">
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm"
+            style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            aria-label="Open navigation menu"
+          >
+            <span className="material-symbols-outlined">menu</span>
+          </button>
+        </div>
         <Outlet />
       </div>
 
