@@ -566,8 +566,8 @@ export default function Landing() {
         style={{ backgroundColor: isDark ? '#0F0E17' : '#111827', borderTop: `1px solid ${isDark ? '#1E1D2E' : '#1F2937'}` }}
       >
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-10">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-8 mb-10">
+            <div className="sm:col-span-2">
               <div className="flex items-center gap-2.5 mb-4">
                 <Logo size="md" tone="onDark" />
               </div>
@@ -579,26 +579,36 @@ export default function Landing() {
               { title: 'Product', links: [
                 { label: 'Features', href: '#features' },
                 { label: 'Pricing', href: '#pricing' },
-                { label: 'Question Bank', href: '#features' },
-                { label: 'Mock Tests', href: '#features' },
+                { label: 'Question Bank', href: '/question-bank' },
+                { label: 'Mock Tests', href: '/mock-tests' },
               ] },
               { title: 'Company', links: [
-                { label: 'About', href: '#features' },
-                { label: 'FAQ', href: '#faq' },
-                { label: 'Careers', href: 'mailto:contact@arcvion.in' },
-                { label: 'Contact', href: 'mailto:contact@arcvion.in' },
+                { label: 'About', href: '/about' },
+                { label: 'FAQ', href: '/faq' },
+                { label: 'Careers', href: '/careers' },
+                { label: 'Contact', href: '/contact' },
               ] },
               { title: 'Legal', links: [
-                { label: 'Privacy Policy', href: '#faq' },
-                { label: 'Terms of Service', href: '#faq' },
-                { label: 'Refund Policy', href: '#faq' },
+                { label: 'Privacy Policy', href: '/privacy' },
+                { label: 'Terms of Service', href: '/terms' },
+                { label: 'Refund Policy', href: '/refund' },
               ] },
             ].map(col => (
               <div key={col.title}>
                 <h4 className="text-sm font-semibold text-white mb-3">{col.title}</h4>
                 <ul className="space-y-2">
                   {col.links.map(l => (
-                    <li key={l.label}><a href={l.href} className="text-sm transition-colors hover:text-white" style={{ color: '#9CA3AF' }}>{l.label}</a></li>
+                    <li key={l.label}>
+                      {l.href.startsWith('/') ? (
+                        <Link to={l.href} className="text-sm transition-colors hover:text-white" style={{ color: '#9CA3AF' }}>
+                          {l.label}
+                        </Link>
+                      ) : (
+                        <a href={l.href} className="text-sm transition-colors hover:text-white" style={{ color: '#9CA3AF' }}>
+                          {l.label}
+                        </a>
+                      )}
+                    </li>
                   ))}
                 </ul>
               </div>

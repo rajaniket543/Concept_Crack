@@ -234,7 +234,7 @@ export default function UserManagement() {
         </div>
 
         {/* Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {metricMeta.map(m => (
             <div key={m.label} className="card">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: m.bg }}>

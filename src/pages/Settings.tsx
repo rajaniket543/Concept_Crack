@@ -387,7 +387,7 @@ export default function Settings() {
                 {/* Font size */}
                 <div>
                   <label className="text-label-sm font-semibold mb-3 block" style={{ color: 'var(--text-muted)' }}>Font Size</label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {(['compact', 'default', 'comfortable'] as const).map(size => {
                       const isActive = fontSize === size;
                       return (

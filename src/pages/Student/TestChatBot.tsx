@@ -462,7 +462,7 @@ export default function TestResultAndChat() {
 
             {/* Stats */}
             <div className="flex-1 w-full">
-              <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                 {[
                   { label: 'Correct',   value: correct, color: '#10B981', bg: 'rgba(16,185,129,0.10)', icon: 'check_circle' },
                   { label: 'Incorrect', value: wrong,   color: '#EF4444', bg: 'rgba(239,68,68,0.10)',  icon: 'cancel' },

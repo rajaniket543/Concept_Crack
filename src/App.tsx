@@ -5,6 +5,14 @@ import RouteProgress from './components/RouteProgress';
 import ActivityTracker from './components/ActivityTracker';
 import IdleTimeout from './components/IdleTimeout';
 import Landing from './pages/Landing';
+import About from './pages/About';
+import FAQ from './pages/FAQ';
+import Careers from './pages/Careers';
+import QuestionBank from './pages/QuestionBank';
+import MockTests from './pages/MockTests';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import RefundPolicy from './pages/RefundPolicy';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
 import StudentDashboard from './pages/Student/StudentDashboard';
@@ -230,10 +238,16 @@ export default function App() {
       <ActivityTracker />
       <IdleTimeout />
       <Routes>
-      {/* Landing is served at the root domain (conceptcrack.com) — no /about in the URL */}
+      {/* Landing is served at the root domain (conceptcrack.com) */}
       <Route path="/" element={<Landing />} />
-      {/* Keep the old /about URL working — redirect it to the canonical root */}
-      <Route path="/about" element={<Navigate to="/" replace />} />
+      <Route path="/about" element={<About />} />
+      <Route path="/faq" element={<FAQ />} />
+      <Route path="/careers" element={<Careers />} />
+      <Route path="/question-bank" element={<QuestionBank />} />
+      <Route path="/mock-tests" element={<MockTests />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/refund" element={<RefundPolicy />} />
       <Route path="/login" element={<Login />} />
       {/* Contact Us is public so logged-out visitors (e.g. from the login page) can reach it */}
       <Route path="/contact" element={<ContactUs />} />

@@ -176,7 +176,7 @@ export default function MockTest() {
               })}
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
               {[
                 { label: 'Total Questions', value: totalQuestions, icon: 'quiz' },
                 { label: 'Duration', value: `${pattern.durationMin}m`, icon: 'timer' },

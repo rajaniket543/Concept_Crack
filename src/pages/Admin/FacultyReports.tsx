@@ -177,7 +177,7 @@ Assess: how are the students under this faculty performing? Are core concepts la
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
                   {[
                     { label: 'Avg Accuracy', value: f.avgScorePct, suffix: '%' },
                     { label: 'Concept Clarity', value: f.conceptClarity, suffix: '%' },

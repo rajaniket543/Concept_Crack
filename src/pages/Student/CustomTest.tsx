@@ -296,7 +296,7 @@ export default function CustomTest() {
         <div className="space-y-6">
           <div>
             <h2 className="text-label-lg font-bold mb-3" style={{ color: 'var(--text-secondary)' }}>Level</h2>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {LEVELS.map(l => (
                 <button key={l.id} type="button" onClick={() => setLevel(l.id)}
                   className="py-2.5 rounded-xl text-sm font-semibold transition-all"
@@ -316,7 +316,7 @@ export default function CustomTest() {
 
           <div>
             <h2 className="text-label-lg font-bold mb-3" style={{ color: 'var(--text-secondary)' }}>Difficulty</h2>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {DIFFICULTIES.map(d => (
                 <button key={d} type="button" onClick={() => setDifficulty(d)}
                   className="py-2.5 rounded-xl text-sm font-semibold transition-all"
@@ -333,7 +333,7 @@ export default function CustomTest() {
 
           <div>
             <h2 className="text-label-lg font-bold mb-3" style={{ color: 'var(--text-secondary)' }}>Questions</h2>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {COUNTS.map(n => (
                 <button key={n} type="button" onClick={() => setCount(n)}
                   className="py-2.5 rounded-xl text-sm font-bold transition-all"

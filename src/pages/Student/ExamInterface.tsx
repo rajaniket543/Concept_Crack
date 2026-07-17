@@ -914,7 +914,7 @@ export default function ExamInterface() {
       </header>
 
       {/* ── Main area ── */}
-      <div className="flex pt-16 h-screen overflow-hidden">
+      <div className="flex flex-col lg:flex-row pt-16 min-h-[calc(100vh-4rem)] lg:h-screen overflow-hidden">
         {/* Question area */}
         <main className="flex-1 flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--bg)' }}>
           <div className="flex-1 overflow-y-auto">
@@ -1095,7 +1095,7 @@ export default function ExamInterface() {
 
         {/* Question palette sidebar */}
         <aside
-          className="w-72 shrink-0 flex flex-col overflow-y-auto"
+          className="w-full lg:w-72 shrink-0 flex flex-col overflow-y-auto"
           style={{ backgroundColor: 'var(--surface)', borderLeft: '1px solid var(--border)' }}
         >
           {/* Student info */}

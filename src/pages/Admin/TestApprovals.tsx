@@ -134,7 +134,7 @@ export default function TestApprovals() {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
                     {[
                       { icon: 'quiz', label: 'Questions', val: test.questionCount },
                       { icon: 'timer', label: 'Duration', val: formatDuration(test.durationSeconds) },

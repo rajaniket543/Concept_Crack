@@ -152,7 +152,7 @@ export default function StudentDetail() {
         </div>
 
         {/* Metrics row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {metrics.map(m => (
             <div key={m.label} className="card">
               <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: m.bg }}>

@@ -157,7 +157,7 @@ export default function ParentDashboard() {
         })()}
 
         {/* Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {data.metrics.map((m: any, i: number) => {
             const meta = metricMeta[i] ?? metricMeta[0];
             const isPositive = (m.trend ?? 0) > 0;
@@ -187,7 +187,7 @@ export default function ParentDashboard() {
         {/* Website Activity (Feature 4) */}
         {activity && (
           <Card title="Website Activity" subtitle="How your child spends time on Concept Crack (updates live as they study)">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {[
                 { label: 'Today',           value: activity.todaySeconds,    icon: 'today' },
                 { label: 'This Week',       value: activity.weekSeconds,     icon: 'date_range' },

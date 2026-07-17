@@ -139,7 +139,7 @@ export default function TestAnalysis() {
         </div>
 
         {/* Metric cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {metrics.map(m => (
             <div key={m.label} className="card">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: m.bg }}>
@@ -157,7 +157,7 @@ export default function TestAnalysis() {
           {/* Donut */}
           <Card title="Score Breakdown" subtitle="Correct vs incorrect vs skipped">
             <DonutChart data={donutData} total={donutTotal} />
-            <div className="grid grid-cols-3 gap-3 mt-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
               {donutData.map(d => (
                 <div key={d.label} className="text-center">
                   <div className="text-xl font-bold font-headline" style={{ color: d.color, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{d.count}</div>
