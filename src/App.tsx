@@ -230,8 +230,10 @@ export default function App() {
       <ActivityTracker />
       <IdleTimeout />
       <Routes>
-      <Route path="/" element={<Navigate to="/about" replace />} />
-      <Route path="/about" element={<Landing />} />
+      {/* Landing is served at the root domain (conceptcrack.com) — no /about in the URL */}
+      <Route path="/" element={<Landing />} />
+      {/* Keep the old /about URL working — redirect it to the canonical root */}
+      <Route path="/about" element={<Navigate to="/" replace />} />
       <Route path="/login" element={<Login />} />
       {/* Contact Us is public so logged-out visitors (e.g. from the login page) can reach it */}
       <Route path="/contact" element={<ContactUs />} />

@@ -83,7 +83,7 @@ export default function ContactUs() {
           className="flex items-center justify-between px-4 sm:px-6 shrink-0"
           style={{ height: '64px', backgroundColor: 'var(--bg)', borderBottom: '1px solid var(--border)' }}
         >
-          <Link to="/about" className="flex items-center min-w-0">
+          <Link to="/" className="flex items-center min-w-0">
             <Logo size="md" tone="theme" />
           </Link>
           <Link to="/login" className="btn-outline btn-md flex items-center gap-1.5">

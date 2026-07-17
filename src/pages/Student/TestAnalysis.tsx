@@ -111,7 +111,7 @@ export default function TestAnalysis() {
               className="btn-outline btn-md flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined filled" style={{ fontSize: '18px' }}>smart_toy</span>
-              Ask AI Tutor
+              Ask Companion
             </button>
             <Link to={pathFor('practice')} className="btn-primary btn-md flex items-center gap-1.5">
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>refresh</span>

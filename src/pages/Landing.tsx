@@ -60,6 +60,49 @@ const faqItems = [
   { q: 'How are mock tests created?', a: 'Full-length mock tests are assembled fresh from the question bank following the real JEE/NEET pattern, with no repeated questions in a paper.' },
 ];
 
+const aiRoleBenefits = [
+  {
+    role: 'Students',
+    icon: 'school',
+    color: '#5B4FE8',
+    points: [
+      'An AI Companion that reviews every test, explains what you got wrong, and tells you exactly what to study next.',
+      'Adaptive practice that detects weak concepts in real time and drills them until they stick.',
+      'Personalised study plans, smart revision schedules and AI-generated tests matched to your level.',
+    ],
+  },
+  {
+    role: 'Parents',
+    icon: 'family_restroom',
+    color: '#06B6D4',
+    points: [
+      'Plain-language AI reports on your child’s strengths, gaps and study engagement — no syllabus knowledge needed.',
+      'Progress and time-on-task insights, so you see real effort and not just marks.',
+      'Early signals when performance dips, so you can step in at the right moment.',
+    ],
+  },
+  {
+    role: 'Faculty',
+    icon: 'groups',
+    color: '#7C3AED',
+    points: [
+      'Build exam-ready tests from the question bank in seconds with AI assistance.',
+      'Automatic class-wide weakness detection that shows exactly which topics to reteach.',
+      'AI-summarised performance reports per student and per chapter, ready to act on.',
+    ],
+  },
+  {
+    role: 'Administrators',
+    icon: 'admin_panel_settings',
+    color: '#10B981',
+    points: [
+      'Institution-wide analytics with AI-generated performance summaries across cohorts.',
+      'Automated report generation and oversight of tests, approvals and faculty activity.',
+      'Data-driven insight into trends and outcomes to guide decisions.',
+    ],
+  },
+];
+
 export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const { isDark, toggleTheme } = useTheme();
@@ -139,11 +182,13 @@ export default function Landing() {
           alignItems: 'center',
         }}
       >
-        {/* Mesh bg */}
-        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-          <div className="absolute top-20 left-1/4 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: 'radial-gradient(circle, #5B4FE8, transparent)' }} />
-          <div className="absolute bottom-20 right-1/4 w-64 h-64 rounded-full opacity-15 blur-3xl" style={{ background: 'radial-gradient(circle, #8B5CF6, transparent)' }} />
-          <div className="absolute top-1/2 right-10 w-48 h-48 rounded-full opacity-10 blur-2xl" style={{ background: 'radial-gradient(circle, #06B6D4, transparent)' }} />
+        {/* Animated mesh bg */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+          <div className="cc-hero-grid absolute inset-0" />
+          <div className="absolute top-16 left-1/4 w-96 h-96 rounded-full opacity-25 blur-3xl" style={{ background: 'radial-gradient(circle, #5B4FE8, transparent)', animation: 'ccFloatA 16s ease-in-out infinite' }} />
+          <div className="absolute bottom-16 right-1/4 w-72 h-72 rounded-full opacity-20 blur-3xl" style={{ background: 'radial-gradient(circle, #8B5CF6, transparent)', animation: 'ccFloatB 20s ease-in-out infinite' }} />
+          <div className="absolute top-1/2 right-10 w-56 h-56 rounded-full opacity-20 blur-2xl" style={{ background: 'radial-gradient(circle, #06B6D4, transparent)', animation: 'ccFloatC 18s ease-in-out infinite' }} />
+          <div className="absolute top-1/3 left-6 w-52 h-52 rounded-full opacity-15 blur-3xl" style={{ background: 'radial-gradient(circle, #7C3AED, transparent)', animation: 'ccFloatB 24s ease-in-out infinite reverse' }} />
         </div>
 
         <div className="relative w-full max-w-6xl mx-auto px-6 lg:px-10 py-24 text-center">
@@ -240,6 +285,52 @@ export default function Landing() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* ── AI features by role ── */}
+      <section id="ai-features" className="py-24 max-w-6xl mx-auto px-6 lg:px-10">
+        <div className="text-center mb-16">
+          <div className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4" style={{ color: '#5B4FE8', backgroundColor: 'rgba(91,79,232,0.10)' }}>
+            AI, explained
+          </div>
+          <h2 className="text-3xl md:text-4xl font-headline font-bold mb-4 tracking-tight max-w-4xl mx-auto" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+            What exactly do our AI features do, and how are they beneficial for students, parents, faculty, and administrators?
+          </h2>
+          <p className="text-lg max-w-2xl mx-auto" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
+            One AI engine, four points of view — here’s what it does for each person in the Concept Crack ecosystem.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-5">
+          {aiRoleBenefits.map(r => (
+            <div
+              key={r.role}
+              className="rounded-2xl p-6 transition-all duration-200 hover:-translate-y-1"
+              style={{
+                backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF',
+                border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
+                boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
+              }}
+            >
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${r.color}1A` }}>
+                  <span className="material-symbols-outlined" style={{ color: r.color, fontSize: '22px' }}>{r.icon}</span>
+                </div>
+                <h3 className="text-lg font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: isDark ? '#F9FAFB' : '#111827' }}>
+                  For {r.role}
+                </h3>
+              </div>
+              <ul className="space-y-3">
+                {r.points.map((p, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm leading-relaxed" style={{ color: isDark ? '#B4B7C4' : '#4B5563' }}>
+                    <span className="material-symbols-outlined shrink-0" style={{ fontSize: '18px', color: r.color, marginTop: '1px' }}>auto_awesome</span>
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </section>
 

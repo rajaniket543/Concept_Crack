@@ -45,14 +45,14 @@ export interface PageDef {
 }
 
 export const pages: PageDef[] = [
-  { key: 'landing', label: 'Landing', group: 'Main', path: '/about' },
+  { key: 'landing', label: 'Landing', group: 'Main', path: '/' },
   { key: 'login', label: 'Login', group: 'Main', path: '/login' },
   { key: 'student', label: 'Student Dashboard', group: 'Student', path: '/student' },
   { key: 'practice', label: 'Practice Module', group: 'Student', path: '/student/practice' },
   { key: 'exam', label: 'Exam Interface', group: 'Student', path: '/student/exam' },
   { key: 'mockTest', label: 'Mock Test', group: 'Student', path: '/student/mock-test' },
   { key: 'analysis', label: 'Test Analysis', group: 'Student', path: '/student/analysis' },
-  { key: 'chatbot', label: 'AI Tutor Chat', group: 'Student', path: '/student/chatbot' },
+  { key: 'chatbot', label: 'Companion', group: 'Student', path: '/student/chatbot' },
   { key: 'insights', label: 'AI Insights', group: 'Student', path: '/student/insights' },
   { key: 'leaderboard', label: 'Leaderboard', group: 'Student', path: '/student/leaderboard' },
   { key: 'assignedTests', label: 'Assigned Tests', group: 'Student', path: '/student/assigned-tests' },
