@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { notify } from './db';
+import type { ChatAttachment } from './storage';
 
 export interface ChatParticipant {
   uid: string;
@@ -33,6 +34,9 @@ export interface ChatMessage {
   from: string;
   text: string;
   at: string | null;
+  attachmentUrl?:  string;
+  attachmentType?: 'image' | 'video';
+  attachmentName?: string;
 }
 
 export interface ChatContact {
@@ -101,16 +105,32 @@ export async function listThreads(uid: string): Promise<ChatThread[]> {
 
 // ── Messages ──────────────────────────────────────────────────────────────────
 
-export async function sendChatMessage(thread: ChatThread, from: ChatParticipant, text: string): Promise<void> {
+export async function sendChatMessage(
+  thread: ChatThread,
+  from: ChatParticipant,
+  text: string,
+  attachment?: ChatAttachment,
+): Promise<void> {
   const trimmed = text.trim();
-  if (!trimmed) return;
+  if (!trimmed && !attachment) return;
+
   await addDoc(collection(db, 'chats', thread.id, 'messages'), {
     from: from.uid,
     text: trimmed,
     at: serverTimestamp(),
+    ...(attachment ? {
+      attachmentUrl:  attachment.url,
+      attachmentType: attachment.type,
+      attachmentName: attachment.name,
+    } : {}),
   });
+
+  // A caption-less attachment still needs something to show in the thread
+  // list and the notification, so fall back to a short label for it.
+  const preview = trimmed || (attachment ? (attachment.type === 'image' ? '📷 Photo' : '🎥 Video') : '');
+
   await setDoc(doc(db, 'chats', thread.id), {
-    lastMessage: trimmed.slice(0, 120),
+    lastMessage: preview.slice(0, 120),
     lastFrom: from.uid,
     lastAt: serverTimestamp(),
   }, { merge: true });
@@ -118,7 +138,7 @@ export async function sendChatMessage(thread: ChatThread, from: ChatParticipant,
   // Notify the other participant (best-effort).
   const otherUid = thread.participants.find(p => p !== from.uid);
   if (otherUid) {
-    void notify(otherUid, `New message from ${from.name}`, trimmed.slice(0, 80), 'message');
+    void notify(otherUid, `New message from ${from.name}`, preview.slice(0, 80), 'message');
   }
 }
 
@@ -132,6 +152,9 @@ export function subscribeToMessages(threadId: string, cb: (msgs: ChatMessage[]) 
         from: (data.from as string) ?? '',
         text: (data.text as string) ?? '',
         at: toIso(data.at),
+        attachmentUrl:  (data.attachmentUrl as string) || undefined,
+        attachmentType: (data.attachmentType as 'image' | 'video') || undefined,
+        attachmentName: (data.attachmentName as string) || undefined,
       };
     }));
   }, e => console.error('subscribeToMessages failed', e));

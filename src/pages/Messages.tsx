@@ -4,10 +4,12 @@ import TopBar from '../components/TopBar';
 import Spinner from '../components/Spinner';
 import { getAuthSession } from '../lib/auth';
 import { pathFor, type PageKey } from '../lib/pages';
+import { useToast } from '../components/Toast';
 import {
   getOrCreateThread, listThreads, sendChatMessage, subscribeToMessages, listContactsFor,
   type ChatThread, type ChatMessage, type ChatContact, type ChatParticipant,
 } from '../lib/messages';
+import { uploadChatAttachment } from '../lib/storage';
 
 const ROLE_COLOR: Record<string, string> = {
   student: '#5B4FE8',
@@ -22,6 +24,7 @@ function initialsOf(name: string) {
 
 export default function Messages() {
   const navigate = useNavigate();
+  const toast    = useToast();
   const session = getAuthSession();
   const me: ChatParticipant = {
     uid:  session?.user?.id ?? '',
@@ -39,6 +42,12 @@ export default function Messages() {
   const [showNew, setShowNew]   = useState(false);
   const [contactSearch, setContactSearch] = useState('');
   const [sending, setSending]   = useState(false);
+
+  // Staged attachment — picked but not sent yet.
+  const [attachFile,    setAttachFile]    = useState<File | null>(null);
+  const [attachPreview, setAttachPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Load my threads + who I'm allowed to message
@@ -77,13 +86,38 @@ export default function Messages() {
     setActive(thread);
   }
 
+  function pickAttachment(file: File | null) {
+    if (!file) return;
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    if (!isImage && !isVideo) { toast('Please choose an image or video file.', 'error'); return; }
+    const limitMb = isImage ? 10 : 50;
+    if (file.size > limitMb * 1024 * 1024) { toast(`${isImage ? 'Image' : 'Video'} is too large (max ${limitMb} MB).`, 'error'); return; }
+
+    if (attachPreview) URL.revokeObjectURL(attachPreview);
+    setAttachFile(file);
+    setAttachPreview(URL.createObjectURL(file));
+  }
+
+  function clearAttachment() {
+    if (attachPreview) URL.revokeObjectURL(attachPreview);
+    setAttachFile(null);
+    setAttachPreview(null);
+  }
+
   async function send() {
     const text = input.trim();
-    if (!text || !active || sending) return;
+    if ((!text && !attachFile) || !active || sending) return;
     setSending(true);
     setInput('');
+    const fileToSend = attachFile;
+    clearAttachment();
     try {
-      await sendChatMessage(active, me, text);
+      const attachment = fileToSend ? await uploadChatAttachment(fileToSend, active.id) : undefined;
+      await sendChatMessage(active, me, text, attachment);
+    } catch (e) {
+      console.error('send failed', e);
+      toast(e instanceof Error ? e.message : 'Could not send — please try again.', 'error');
     } finally {
       setSending(false);
     }
@@ -240,7 +274,7 @@ export default function Messages() {
                     return (
                       <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                         <div
-                          className="max-w-[75%] px-4 py-2.5 text-sm leading-relaxed"
+                          className="max-w-[75%] overflow-hidden text-sm leading-relaxed"
                           style={{
                             backgroundColor: mine ? '#5B4FE8' : 'var(--surface)',
                             color: mine ? '#fff' : 'var(--text-primary)',
@@ -248,9 +282,20 @@ export default function Messages() {
                             borderRadius: mine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                           }}
                         >
-                          <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{m.text}</p>
-                          <div className="text-[10px] mt-1 text-right" style={{ color: mine ? 'rgba(255,255,255,0.7)' : 'var(--text-faint)' }}>
-                            {time(m.at)}
+                          {m.attachmentUrl && (
+                            m.attachmentType === 'video' ? (
+                              <video src={m.attachmentUrl} controls className="block w-full max-h-72 bg-black" />
+                            ) : (
+                              <a href={m.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                                <img src={m.attachmentUrl} alt={m.attachmentName ?? 'Attachment'} className="block w-full max-h-72 object-cover" />
+                              </a>
+                            )
+                          )}
+                          <div className="px-4 py-2.5">
+                            {m.text && <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{m.text}</p>}
+                            <div className="text-[10px] mt-1 text-right" style={{ color: mine ? 'rgba(255,255,255,0.7)' : 'var(--text-faint)' }}>
+                              {time(m.at)}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -258,7 +303,44 @@ export default function Messages() {
                   })}
                 </div>
 
+                {attachFile && (
+                  <div className="px-4 pt-3 shrink-0">
+                    <div className="inline-flex items-center gap-2 p-2 rounded-xl" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+                      {attachFile.type.startsWith('video/') ? (
+                        <video src={attachPreview ?? undefined} className="w-12 h-12 rounded-lg object-cover bg-black" />
+                      ) : (
+                        <img src={attachPreview ?? undefined} alt="Selected attachment" className="w-12 h-12 rounded-lg object-cover" />
+                      )}
+                      <span className="text-body-sm max-w-[160px] truncate" style={{ color: 'var(--text-primary)' }}>{attachFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={clearAttachment}
+                        className="icon-btn icon-btn-sm"
+                        aria-label="Remove attachment"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>close</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="px-4 py-3 flex items-center gap-2 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={e => { pickAttachment(e.target.files?.[0] ?? null); e.target.value = ''; }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="icon-btn icon-btn-md shrink-0"
+                    aria-label="Attach image or video"
+                    title="Attach image or video"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>attach_file</span>
+                  </button>
                   <input
                     type="text"
                     value={input}
@@ -271,7 +353,7 @@ export default function Messages() {
                   <button
                     type="button"
                     onClick={() => void send()}
-                    disabled={!input.trim() || sending}
+                    disabled={(!input.trim() && !attachFile) || sending}
                     className="w-11 h-11 rounded-xl flex items-center justify-center text-white transition-all disabled:opacity-50"
                     style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
                     aria-label="Send message"

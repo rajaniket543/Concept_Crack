@@ -29,6 +29,22 @@ service firebase.storage {
       allow delete: if isAdminOrFaculty();
     }
 
+    // Chat attachments (images/videos) — only the two participants of that
+    // exact thread can read or upload. Read cross-service via firestore.get()
+    // since Storage rules can't otherwise see who's in a chats/{threadId} doc.
+    match /chatAttachments/{threadId}/{fileName} {
+      function isThreadParticipant() {
+        return isSignedIn() &&
+          request.auth.uid in
+            firestore.get(/databases/(default)/documents/chats/$(threadId)).data.participants;
+      }
+      allow read: if isThreadParticipant();
+      allow write: if isThreadParticipant()
+        && request.resource.size < 50 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('video/.*'));
+      allow delete: if false; // keep chat history intact
+    }
+
     // Deny everything else by default.
     match /{allPaths=**} {
       allow read, write: if false;
