@@ -5,6 +5,54 @@ import Logo from '../components/Logo';
 import { features } from '../mocks';
 import { useTheme } from '../lib/theme';
 
+const pricingPlans = [
+  {
+    name: 'Basic',
+    price: 199,
+    tagline: 'For students who primarily need mock tests and performance tracking.',
+    recommended: false,
+    features: [
+      'Full-length Mock Tests',
+      'Chapter & Topic-wise Tests',
+      'CBT Simulation',
+      'Performance Analytics',
+      'Review Log',
+      'Basic Progress Tracking',
+    ],
+  },
+  {
+    name: 'Pro',
+    price: 499,
+    tagline: 'Our most popular plan — full AI mentorship and a personalized study path.',
+    recommended: true,
+    features: [
+      'Everything in the Basic Plan',
+      'AI Academic Mentor',
+      'Personalized Learning Path',
+      'Adaptive Practice Questions',
+      'Concept-wise Weakness Detection',
+      'AI-Based Study Recommendations',
+      'Smart Revision Plans',
+      'Advanced Academic Analytics',
+    ],
+  },
+  {
+    name: 'Premium',
+    price: 999,
+    tagline: 'Designed for students preparing for top ranks.',
+    recommended: false,
+    features: [
+      'Everything in the Pro Plan',
+      'Higher AI Usage Limits',
+      'Advanced Behavioural Analytics',
+      'Priority AI Response',
+      'Personalized AI Study Planner',
+      'Exclusive Features & Early Access',
+      'Priority Customer Support',
+    ],
+  },
+];
+
 const faqItems = [
   { q: 'Which exams does Concept Crack cover?', a: 'Concept Crack supports JEE (Main + Advanced) and NEET UG, with subjects, chapters and mock-test patterns tailored to each.' },
   { q: 'How does the AI adaptive engine work?', a: 'Our AI analyzes every answer you give — time spent, accuracy pattern, error type — and builds a real-time model of your strengths and gaps to recommend exactly what to practice next.' },
@@ -47,6 +95,7 @@ export default function Landing() {
 
         <nav className="hidden lg:flex items-center gap-8 text-sm font-medium" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
           <a href="#features" className="hover:text-[#5B4FE8] transition-colors">Features</a>
+          <a href="#pricing" className="hover:text-[#5B4FE8] transition-colors">Pricing</a>
           <a href="#faq" className="hover:text-[#5B4FE8] transition-colors">FAQ</a>
         </nav>
 
@@ -194,11 +243,120 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Pricing ── */}
+      <section
+        id="pricing"
+        className="py-24"
+        style={{ backgroundColor: isDark ? '#1A1929' : '#F9FAFB' }}
+      >
+        <div className="max-w-6xl mx-auto px-6 lg:px-10">
+          <div className="text-center mb-16">
+            <div className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4" style={{ color: '#5B4FE8', backgroundColor: 'rgba(91,79,232,0.10)' }}>
+              Pricing
+            </div>
+            <h2 className="text-4xl font-headline font-bold mb-4 tracking-tight" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+              Plans built for every stage of your prep
+            </h2>
+            <p className="text-lg max-w-2xl mx-auto" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
+              Three tiers designed to meet you where you are — from focused mock-test practice to a fully personalized, AI-guided study experience.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 items-start">
+            {pricingPlans.map(plan => (
+              <div
+                key={plan.name}
+                className="rounded-2xl overflow-hidden flex flex-col transition-all duration-200"
+                style={{
+                  backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF',
+                  border: plan.recommended ? '2px solid #5B4FE8' : `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
+                  boxShadow: plan.recommended
+                    ? '0 12px 40px rgba(91,79,232,0.30)'
+                    : isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
+                  transform: plan.recommended ? 'translateY(-8px)' : 'none',
+                }}
+              >
+                <div className="px-6 py-7" style={{ background: plan.recommended ? 'linear-gradient(135deg, #5B4FE8, #7C3AED)' : (isDark ? '#151426' : '#111827') }}>
+                  {plan.recommended && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide mb-3" style={{ backgroundColor: 'rgba(255,255,255,0.18)', color: '#FDE68A' }}>
+                      <span className="material-symbols-outlined filled" style={{ fontSize: '13px' }}>star</span>
+                      Recommended
+                    </div>
+                  )}
+                  <h3 className="text-lg font-bold text-white mb-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{plan.name} Plan</h3>
+                  <div className="flex items-baseline gap-1 mb-3">
+                    <span className="text-3xl font-extrabold text-white">₹{plan.price}</span>
+                    <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>/ month</span>
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.75)' }}>{plan.tagline}</p>
+                </div>
+
+                <ul className="p-6 space-y-3 flex-1">
+                  {plan.features.map(f => (
+                    <li key={f} className="flex items-start gap-2.5 text-sm">
+                      <span className="material-symbols-outlined shrink-0" style={{ fontSize: '18px', color: '#10B981' }}>check_circle</span>
+                      <span style={{ color: isDark ? '#E5E7EB' : '#374151' }}>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="p-6 pt-0">
+                  <Link
+                    to={pathFor('login')}
+                    className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:-translate-y-px"
+                    style={
+                      plan.recommended
+                        ? { background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', color: '#fff', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }
+                        : { backgroundColor: isDark ? '#2D2B42' : '#F3F4F6', color: isDark ? '#E5E7EB' : '#374151' }
+                    }
+                  >
+                    Choose {plan.name}
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* B2B strip */}
+          <div
+            className="mt-14 rounded-2xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8"
+            style={{ background: 'linear-gradient(135deg, #0F0E17 0%, #1E1D2E 100%)', border: `1px solid ${isDark ? '#2D2B42' : 'transparent'}` }}
+          >
+            <div className="max-w-xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-3" style={{ backgroundColor: 'rgba(6,182,212,0.15)', color: '#06B6D4' }}>
+                For Coaching Institutes
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-3" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                Bring AI-powered intelligence to your institute
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: '#9CA3AF' }}>
+                AI mentors, adaptive learning, CBT simulation, advanced analytics, parent &amp; faculty dashboards, question bank management, and white-label deployment — final pricing customized to your student strength and institutional needs.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <Link
+                to={pathFor('contact')}
+                className="h-11 px-6 rounded-xl text-sm font-semibold text-[#0F0E17] bg-white flex items-center gap-2 transition-all hover:-translate-y-px"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>calendar_month</span>
+                Book a Demo
+              </Link>
+              <Link
+                to={pathFor('contact')}
+                className="h-11 px-6 rounded-xl text-sm font-semibold text-white flex items-center gap-2 transition-all hover:-translate-y-px"
+                style={{ border: '1px solid rgba(255,255,255,0.25)' }}
+              >
+                Request a Custom Quote
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── FAQ ── */}
       <section
         id="faq"
         className="py-24"
-        style={{ backgroundColor: isDark ? '#1A1929' : '#F9FAFB' }}
       >
         <div className="max-w-2xl mx-auto px-6">
           <div className="text-center mb-12">
@@ -282,9 +440,9 @@ export default function Landing() {
             {[
               { title: 'Product', links: [
                 { label: 'Features', href: '#features' },
+                { label: 'Pricing', href: '#pricing' },
                 { label: 'Question Bank', href: '#features' },
                 { label: 'Mock Tests', href: '#features' },
-                { label: 'AI Insights', href: '#features' },
               ] },
               { title: 'Company', links: [
                 { label: 'About', href: '#features' },
