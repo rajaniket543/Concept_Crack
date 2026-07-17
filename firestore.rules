@@ -145,9 +145,23 @@ service cloud.firestore {
     }
 
     // ── /contactMessages/{id} ─────────────────────────────────────────────────
-    // Contact Us submissions. Any signed-in user can create; only admins read.
+    // Contact Us submissions. The Contact Us page is PUBLIC (reachable from the
+    // login screen), so logged-out visitors may create — but only a well-formed
+    // payload, to limit abuse. Only admins read/manage.
     match /contactMessages/{id} {
-      allow create: if isAuthenticated();
+      allow create: if request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.name.size() <= 120
+                    && request.resource.data.email is string
+                    && request.resource.data.email.size() > 0
+                    && request.resource.data.email.size() <= 200
+                    && request.resource.data.subject is string
+                    && request.resource.data.subject.size() > 0
+                    && request.resource.data.subject.size() <= 200
+                    && request.resource.data.message is string
+                    && request.resource.data.message.size() > 0
+                    && request.resource.data.message.size() <= 5000
+                    && request.resource.data.status == 'open';
       allow read, update, delete: if isAdmin();
     }
 

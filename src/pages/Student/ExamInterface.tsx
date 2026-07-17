@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest } from '../../lib/api';
+import Logo from '../../components/Logo';
 import { getAuthSession } from '../../lib/auth';
 import { updateStudentProgress } from '../../lib/db';
 import {
@@ -859,8 +860,7 @@ export default function ExamInterface() {
       >
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Concept Crack" className="w-7 h-7 rounded-lg object-cover" />
-            <span className="font-bold text-sm" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>Concept Crack</span>
+            <Logo size="sm" tone="theme" />
           </div>
           <div className="w-px h-5" style={{ backgroundColor: 'var(--border)' }} />
           <div>

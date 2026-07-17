@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import Logo from './Logo';
 
 interface Props {
   children: ReactNode;
@@ -40,11 +41,9 @@ export default class ErrorBoundary extends Component<Props, State> {
         }}
       >
         <div className="card" style={{ maxWidth: 420, textAlign: 'center' }}>
-          <img
-            src="/logo.png"
-            alt="Concept Crack"
-            style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', margin: '0 auto 16px' }}
-          />
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <Logo size="lg" tone="theme" />
+          </div>
           <h1 className="text-title-lg" style={{ color: 'var(--text-primary)', marginBottom: 8 }}>
             Something went wrong
           </h1>

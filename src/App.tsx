@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import Layout from './components/Layout';
 import RouteProgress from './components/RouteProgress';
 import ActivityTracker from './components/ActivityTracker';
+import IdleTimeout from './components/IdleTimeout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
@@ -227,10 +228,13 @@ export default function App() {
     <>
       <RouteProgress />
       <ActivityTracker />
+      <IdleTimeout />
       <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Navigate to="/about" replace />} />
       <Route path="/about" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      {/* Contact Us is public so logged-out visitors (e.g. from the login page) can reach it */}
+      <Route path="/contact" element={<ContactUs />} />
 
       <Route path="/student/chatbot" element={<RequireAuth roles={['student']}><TestChatBot /></RequireAuth>} />
 
@@ -281,7 +285,6 @@ export default function App() {
       {/* Shared pages nested inside the role's portal shell (sidebar stays) */}
       <Route element={<RequireAuth><SharedLayout /></RequireAuth>}>
         <Route path="/messages" element={<Messages />} />
-        <Route path="/contact" element={<ContactUs />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 

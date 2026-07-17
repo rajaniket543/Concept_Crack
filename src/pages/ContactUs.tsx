@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
+import Logo from '../components/Logo';
 import Card from '../components/Card';
 import Spinner from '../components/Spinner';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -29,8 +30,12 @@ export default function ContactUs() {
   const [sending, setSending]   = useState(false);
   const [sent, setSent]         = useState(false);
 
-  const role = session?.user?.role ?? 'student';
-  const dashboardPath = pathFor(role as PageKey);
+  // The page is public: logged-out visitors (e.g. from the login screen) can
+  // reach it too. Fall back to a "guest" identity + a back-to-sign-in flow.
+  const isAuthed = !!session;
+  const role = session?.user?.role ?? 'guest';
+  const backPath = isAuthed ? pathFor(role as PageKey) : '/login';
+  const backLabel = isAuthed ? 'Back to dashboard' : 'Back to sign in';
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -63,15 +68,30 @@ export default function ContactUs() {
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
-      <TopBar
-        breadcrumb={[{ label: 'Contact Us' }]}
-        actions={
-          <button type="button" onClick={() => navigate(dashboardPath)} className="btn-outline btn-md flex items-center gap-1.5">
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
-            Dashboard
-          </button>
-        }
-      />
+      {isAuthed ? (
+        <TopBar
+          breadcrumb={[{ label: 'Contact Us' }]}
+          actions={
+            <button type="button" onClick={() => navigate(backPath)} className="btn-outline btn-md flex items-center gap-1.5">
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+              Dashboard
+            </button>
+          }
+        />
+      ) : (
+        <header
+          className="flex items-center justify-between px-4 sm:px-6 shrink-0"
+          style={{ height: '64px', backgroundColor: 'var(--bg)', borderBottom: '1px solid var(--border)' }}
+        >
+          <Link to="/about" className="flex items-center min-w-0">
+            <Logo size="md" tone="theme" />
+          </Link>
+          <Link to="/login" className="btn-outline btn-md flex items-center gap-1.5">
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>login</span>
+            <span className="hidden sm:inline">Back to sign in</span>
+          </Link>
+        </header>
+      )}
 
       <div className="flex-1 p-6 lg:p-8 overflow-auto">
         <div className="max-w-4xl mx-auto space-y-6">
@@ -118,8 +138,8 @@ export default function ContactUs() {
                   <button type="button" onClick={() => { setSent(false); setSubject(''); setMessage(''); }} className="btn-outline btn-md">
                     Send another message
                   </button>
-                  <button type="button" onClick={() => navigate(dashboardPath)} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
-                    Back to dashboard
+                  <button type="button" onClick={() => navigate(backPath)} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                    {backLabel}
                   </button>
                 </div>
               </div>

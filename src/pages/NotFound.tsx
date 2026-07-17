@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import Logo from '../components/Logo';
 
 export default function NotFound() {
   return (
@@ -13,11 +14,9 @@ export default function NotFound() {
       }}
     >
       <div style={{ textAlign: 'center', maxWidth: 440 }}>
-        <img
-          src="/logo.png"
-          alt="Concept Crack"
-          style={{ width: 64, height: 64, borderRadius: 14, objectFit: 'cover', margin: '0 auto 24px' }}
-        />
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+          <Logo size="lg" tone="theme" />
+        </div>
         <div
           className="text-gradient-brand"
           style={{ fontSize: 72, fontWeight: 800, lineHeight: 1, fontFamily: "'Plus Jakarta Sans', sans-serif" }}

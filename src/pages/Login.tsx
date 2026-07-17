@@ -8,9 +8,9 @@ import {
 } from '../lib/auth';
 import { LoginRole, pathFor } from '../lib/pages';
 import Spinner from '../components/Spinner';
+import Logo from '../components/Logo';
 import { useTheme } from '../lib/theme';
 
-const SUPPORT_EMAIL = 'contact@arcvion.in';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type View = 'login' | 'forgot' | 'forgotSent' | 'reset' | 'resetDone';
@@ -186,8 +186,7 @@ export default function Login() {
         {/* Logo — top */}
         <div className="relative shrink-0">
           <Link to={pathFor('landing')} className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="Concept Crack" className="w-11 h-11 rounded-xl object-cover" />
-            <span className="font-bold text-white text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
+            <Logo size="lg" tone="onDark" />
           </Link>
         </div>
 
@@ -254,8 +253,7 @@ export default function Login() {
           {/* Mobile logo */}
           <div className="lg:hidden mb-8">
             <Link to={pathFor('landing')} className="inline-flex items-center gap-2">
-              <img src="/logo.png" alt="Concept Crack" className="w-10 h-10 rounded-xl object-cover" />
-              <span className="font-bold text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: t.heading }}>Concept Crack</span>
+              <Logo size="md" tone="theme" />
             </Link>
           </div>
 
@@ -553,7 +551,7 @@ export default function Login() {
           {view === 'login' && (
             <p className="text-xs text-center mt-4" style={{ color: t.sub }}>
               Trouble signing in?{' '}
-              <a href={`mailto:${SUPPORT_EMAIL}`} className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Contact admin</a>
+              <Link to={pathFor('contact')} className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Contact admin</Link>
             </p>
           )}
         </div>

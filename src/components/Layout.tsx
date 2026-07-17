@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { PageKey, pathFor } from '../lib/pages';
 import { logout } from '../lib/auth';
+import Logo from './Logo';
 import { useState } from 'react';
 import AICompanion from './AICompanion';
 import { useConfirm } from './ConfirmDialog';
@@ -120,17 +121,7 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
           style={{ height: '68px', borderBottom: '1px solid var(--sidebar-border)' }}
         >
           <Link to={homePath} className="flex items-center gap-3 min-w-0" title="Go to dashboard">
-            <img
-              src="/logo.png"
-              alt="Concept Crack"
-              className="w-10 h-10 rounded-xl object-cover shrink-0"
-            />
-            {!collapsed && (
-              <div className="min-w-0">
-                <div className="font-headline font-bold text-white text-[15px] tracking-tight truncate">Concept Crack</div>
-                <div className="text-[10px] uppercase tracking-widest truncate" style={{ color: 'var(--sidebar-text-muted)' }}>{brand}</div>
-              </div>
-            )}
+            <Logo size="md" tone="onDark" showText={!collapsed} />
           </Link>
           {!collapsed && (
             <button

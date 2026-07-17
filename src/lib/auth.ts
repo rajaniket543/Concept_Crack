@@ -47,6 +47,22 @@ const ROLE_PATH: Record<AuthRole, string> = {
 // ── LocalStorage session (kept for backward-compat with portal pages) ────────
 
 const STORAGE_KEY = 'prepmind_auth_session';
+// Timestamp of the user's last interaction — drives the idle auto-logout
+// (see components/IdleTimeout.tsx). Kept separate from the session so it can be
+// updated cheaply and shared across tabs.
+const ACTIVITY_KEY = 'prepmind_last_activity';
+
+/** Record "the user is active right now" for the idle-timeout watcher. */
+export function markActivity() {
+  window.localStorage.setItem(ACTIVITY_KEY, String(Date.now()));
+}
+
+/** Epoch ms of the last recorded activity, or 0 if unknown. */
+export function getLastActivity(): number {
+  const raw = window.localStorage.getItem(ACTIVITY_KEY);
+  const n = raw ? Number(raw) : 0;
+  return Number.isFinite(n) ? n : 0;
+}
 
 export function getAuthSession(): AuthSession | null {
   const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -61,10 +77,13 @@ export function getAuthSession(): AuthSession | null {
 
 export function setAuthSession(session: AuthSession) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  // Fresh sign-in resets the idle clock.
+  window.localStorage.setItem(ACTIVITY_KEY, String(Date.now()));
 }
 
 export function clearAuthSession() {
   window.localStorage.removeItem(STORAGE_KEY);
+  window.localStorage.removeItem(ACTIVITY_KEY);
 }
 
 export function getAuthToken() {
@@ -154,16 +173,45 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
 
 // ── Auth functions ───────────────────────────────────────────────────────────
 
+// Turn Firebase Auth error codes into clear, user-facing messages.
+function authErrorMessage(err: unknown): string {
+  const code = (err as { code?: string })?.code ?? '';
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/invalid-login-credentials':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Incorrect email or password. Please check your details and try again.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/missing-password':
+      return 'Please enter your password.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Please contact admin.';
+    case 'auth/too-many-requests':
+      return 'Too many failed attempts. Please wait a few minutes and try again.';
+    case 'auth/network-request-failed':
+      return 'Network error — check your connection and try again.';
+    default:
+      return 'Unable to sign in. Please try again.';
+  }
+}
+
 export async function login(payload: {
   identifier: string;
   password:   string;
   role:       AuthRole;
 }): Promise<AuthSession> {
-  const credential = await signInWithEmailAndPassword(
-    auth,
-    payload.identifier.trim(),
-    payload.password
-  );
+  let credential;
+  try {
+    credential = await signInWithEmailAndPassword(
+      auth,
+      payload.identifier.trim(),
+      payload.password
+    );
+  } catch (err) {
+    throw new Error(authErrorMessage(err));
+  }
   return buildSession(credential.user.uid, payload.role);
 }
 

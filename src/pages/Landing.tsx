@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { pathFor } from '../lib/pages';
+import Logo from '../components/Logo';
 import { features } from '../mocks';
 import { useTheme } from '../lib/theme';
 
@@ -40,8 +41,7 @@ export default function Landing() {
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
           </Link>
           <Link to={pathFor('landing')} className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="Concept Crack" className="w-8 h-8 rounded-lg object-cover" />
-            <span className="font-headline font-bold text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
+            <Logo size="sm" tone="theme" />
           </Link>
         </div>
 
@@ -273,8 +273,7 @@ export default function Landing() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-10">
             <div className="col-span-2">
               <div className="flex items-center gap-2.5 mb-4">
-                <img src="/logo.png" alt="Concept Crack" className="w-8 h-8 rounded-lg object-cover" />
-                <span className="font-headline font-bold text-white text-base" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Concept Crack</span>
+                <Logo size="md" tone="onDark" />
               </div>
               <p className="text-sm leading-relaxed mb-4" style={{ color: '#9CA3AF' }}>
                 AI-powered exam preparation platform for JEE and NEET.
