@@ -428,7 +428,8 @@ export default function Landing() {
 
                 <div className="p-6 pt-0">
                   <Link
-                    to={pathFor('login')}
+                    to={pathFor('comingSoon')}
+                    state={{ plan: plan.name }}
                     className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:-translate-y-px"
                     style={
                       isPremium

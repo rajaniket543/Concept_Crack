@@ -6,6 +6,7 @@ import ActivityTracker from './components/ActivityTracker';
 import IdleTimeout from './components/IdleTimeout';
 import Landing from './pages/Landing';
 import About from './pages/About';
+import ComingSoon from './pages/ComingSoon';
 import FAQ from './pages/FAQ';
 import Careers from './pages/Careers';
 import QuestionBank from './pages/QuestionBank';
@@ -248,6 +249,7 @@ export default function App() {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/refund" element={<RefundPolicy />} />
+      <Route path="/coming-soon" element={<ComingSoon />} />
       <Route path="/login" element={<Login />} />
       {/* Contact Us is public so logged-out visitors (e.g. from the login page) can reach it */}
       <Route path="/contact" element={<ContactUs />} />

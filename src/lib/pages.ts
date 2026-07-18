@@ -33,7 +33,8 @@ export type PageKey =
   | 'facultyReports'
   | 'messages'
   | 'contact'
-  | 'settings';
+  | 'settings'
+  | 'comingSoon';
 
 export type LoginRole = 'student' | 'parent' | 'faculty' | 'admin';
 
@@ -78,6 +79,7 @@ export const pages: PageDef[] = [
   { key: 'messages', label: 'Messages', group: 'Main', path: '/messages' },
   { key: 'contact', label: 'Contact Us', group: 'Main', path: '/contact' },
   { key: 'settings', label: 'Settings', group: 'Main', path: '/settings' },
+  { key: 'comingSoon', label: 'Coming Soon', group: 'Main', path: '/coming-soon' },
 ];
 
 export const pageByKey: Record<PageKey, PageDef> = pages.reduce(
