@@ -149,14 +149,6 @@ export default function Landing() {
         }}
       >
         <div className="flex items-center gap-3">
-          <Link
-            to={pathFor('login')}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:opacity-80"
-            style={{ backgroundColor: isDark ? '#1E1D2E' : '#F3F4F6', color: isDark ? '#9CA3AF' : '#6B7280' }}
-            title="Back to Login"
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
-          </Link>
           <Link to={pathFor('landing')} className="flex items-center gap-2.5">
             <Logo size="sm" tone="theme" />
           </Link>
