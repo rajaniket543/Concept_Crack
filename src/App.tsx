@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import Layout from './components/Layout';
 import RouteProgress from './components/RouteProgress';
+import SeoManager from './components/SeoManager';
 import ActivityTracker from './components/ActivityTracker';
 import IdleTimeout from './components/IdleTimeout';
 import Landing from './pages/Landing';
@@ -235,6 +236,7 @@ function RequireAuth({
 export default function App() {
   return (
     <>
+      <SeoManager />
       <RouteProgress />
       <ActivityTracker />
       <IdleTimeout />
