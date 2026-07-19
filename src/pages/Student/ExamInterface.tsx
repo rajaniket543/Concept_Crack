@@ -957,7 +957,7 @@ export default function ExamInterface() {
             <div className="hidden sm:block text-xs truncate" style={{ color: 'var(--text-faint)', letterSpacing: '0.05em' }}>SESSION: {exam.id}</div>
           </div>
           <div className="hidden xl:block shrink-0">
-            <ArcvionBadge variant="compact" />
+            <ArcvionBadge variant="compact" interactive={lockMode !== 'locked'} />
           </div>
         </div>
 

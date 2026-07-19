@@ -131,6 +131,26 @@
   outline-offset: 2px;
 }
 
+/* Static — inert attribution inside a locked exam. No hover affordance, no
+   pointer cursor, and not focusable, so it never reads as a way out. */
+.arcvion-badge-static,
+.arcvion-badge-static:hover {
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border);
+  background-color: var(--surface-muted);
+}
+
+.arcvion-badge-static:hover .arcvion-badge-name {
+  color: var(--text-primary);
+}
+
+.arcvion-badge-static:hover .arcvion-badge-mark {
+  transform: none;
+  filter: none;
+}
+
 /* Compact — exam header / tight chrome. */
 .arcvion-badge-compact {
   gap: 7px;

@@ -56,19 +56,20 @@ export function ArcvionLink({
 export function ArcvionBadge({
   variant = 'default',
   className = '',
+  interactive = true,
 }: {
   /** 'compact' drops the tagline — for tight spots like the exam header. */
   variant?: 'default' | 'compact' | 'onDark';
   className?: string;
+  /**
+   * When false the badge renders as inert text instead of a link. Used inside a
+   * locked-down exam, where any outbound link would be an escape hatch out of
+   * the proctored window.
+   */
+  interactive?: boolean;
 }) {
-  return (
-    <a
-      href={ARCVION_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`arcvion-badge arcvion-badge-${variant} ${className}`}
-      aria-label="Powered by Arcvion — opens in a new tab"
-    >
+  const inner = (
+    <>
       <span className="arcvion-badge-mark">
         <ArcvionMark size={variant === 'compact' ? 14 : 16} />
       </span>
@@ -79,6 +80,26 @@ export function ArcvionBadge({
           <span className="arcvion-badge-tagline">AI • Technology • Innovation</span>
         )}
       </span>
+    </>
+  );
+
+  if (!interactive) {
+    return (
+      <span className={`arcvion-badge arcvion-badge-${variant} arcvion-badge-static ${className}`}>
+        {inner}
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={ARCVION_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`arcvion-badge arcvion-badge-${variant} ${className}`}
+      aria-label="Powered by Arcvion — opens in a new tab"
+    >
+      {inner}
     </a>
   );
 }
