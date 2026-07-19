@@ -1,0 +1,183 @@
+/* ============================================================================
+   Arcvion attribution — wordmark link + "Powered by" badge.
+   Deliberately restrained: these sit on product surfaces and must never
+   compete with Concept Crack's own branding.
+   ============================================================================ */
+
+/* ── Wordmark link (footer, About section) ── */
+.arcvion-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  text-decoration: none;
+  font-weight: 700;
+  color: inherit;
+  transition: color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1), filter 0.22s ease;
+}
+
+.arcvion-link .arcvion-mark {
+  transition: transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1), filter 0.22s ease;
+}
+
+/* Underline sweeps in from the left, sized to the wordmark only. */
+.arcvion-word {
+  position: relative;
+}
+
+.arcvion-word::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #5B4FE8, #8B5CF6, #06B6D4);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.arcvion-link:hover {
+  color: #8B5CF6;
+  transform: translateY(-1px);
+  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.45));
+}
+
+.arcvion-link:hover .arcvion-mark {
+  transform: scale(1.12) rotate(-4deg);
+}
+
+.arcvion-link:hover .arcvion-word::after {
+  transform: scaleX(1);
+}
+
+.arcvion-link:focus-visible {
+  outline: 2px solid #8B5CF6;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ── "Powered by" badge (login, sidebar, exam header) ── */
+.arcvion-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  background-color: var(--surface-muted);
+  transition: border-color 0.22s ease, background-color 0.22s ease,
+              transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1), box-shadow 0.22s ease;
+}
+
+.arcvion-badge-mark {
+  display: inline-flex;
+  color: #8B5CF6;
+  transition: transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1), filter 0.22s ease;
+}
+
+.arcvion-badge-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.arcvion-badge-kicker {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--text-faint);
+}
+
+.arcvion-badge-name {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  transition: color 0.22s ease;
+}
+
+.arcvion-badge-tagline {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+.arcvion-badge:hover {
+  border-color: rgba(139, 92, 246, 0.45);
+  background-color: rgba(139, 92, 246, 0.07);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.18);
+}
+
+.arcvion-badge:hover .arcvion-badge-name {
+  color: #8B5CF6;
+}
+
+.arcvion-badge:hover .arcvion-badge-mark {
+  transform: scale(1.12) rotate(-4deg);
+  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.55));
+}
+
+.arcvion-badge:focus-visible {
+  outline: 2px solid #8B5CF6;
+  outline-offset: 2px;
+}
+
+/* Compact — exam header / tight chrome. */
+.arcvion-badge-compact {
+  gap: 7px;
+  padding: 5px 9px;
+  border-radius: 8px;
+}
+
+.arcvion-badge-compact .arcvion-badge-name {
+  font-size: 12px;
+}
+
+/* onDark — the Layout sidebar, which is always dark regardless of theme. */
+.arcvion-badge-onDark {
+  border-color: var(--sidebar-border);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.arcvion-badge-onDark .arcvion-badge-name {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.arcvion-badge-onDark .arcvion-badge-kicker,
+.arcvion-badge-onDark .arcvion-badge-tagline {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.arcvion-badge-onDark:hover {
+  border-color: rgba(139, 92, 246, 0.5);
+  background-color: rgba(139, 92, 246, 0.14);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arcvion-link,
+  .arcvion-link .arcvion-mark,
+  .arcvion-word::after,
+  .arcvion-badge,
+  .arcvion-badge-mark {
+    transition: none;
+  }
+
+  .arcvion-link:hover,
+  .arcvion-badge:hover {
+    transform: none;
+  }
+
+  .arcvion-link:hover .arcvion-mark,
+  .arcvion-badge:hover .arcvion-badge-mark {
+    transform: none;
+  }
+}
