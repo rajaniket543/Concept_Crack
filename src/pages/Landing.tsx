@@ -254,7 +254,7 @@ export default function Landing() {
       </header>
 
       {/* ── Cinematic AI study hero ── */}
-      <BookHero />
+      <BookHero isDark={isDark} />
 
       {/* ── Features ── */}
       <section id="features" className="py-24 max-w-6xl mx-auto px-6 lg:px-10">

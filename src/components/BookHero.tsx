@@ -15,9 +15,12 @@ const heroParticles = Array.from({ length: 26 }, (_, i) => {
   };
 });
 
-export default function BookHero() {
+export default function BookHero({ isDark }: { isDark: boolean }) {
   return (
-    <section className="book-hero" aria-label="Concept Crack AI-powered learning hero">
+    <section
+      className={`book-hero ${isDark ? 'book-hero--dark' : 'book-hero--light'}`}
+      aria-label="Concept Crack AI-powered learning hero"
+    >
       <div className="bh-bg" aria-hidden="true">
         <div className="bh-aurora" />
         <div className="bh-grid" />

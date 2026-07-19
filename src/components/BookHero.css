@@ -10,11 +10,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  isolation: isolate;
+}
+
+.book-hero--dark {
   background:
     radial-gradient(ellipse 80% 60% at 50% 0%, rgba(91, 79, 232, 0.22) 0%, transparent 65%),
     linear-gradient(180deg, #14121f 0%, #0f0e17 50%, #0c0b12 100%);
-  isolation: isolate;
   color: #fff;
+}
+
+.book-hero--light {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(91, 79, 232, 0.10) 0%, transparent 65%),
+    #FFFFFF;
+  color: #111827;
 }
 
 .bh-bg {
@@ -93,6 +103,10 @@
     linear-gradient(180deg, transparent 0%, rgba(4, 6, 12, 0.24) 100%);
 }
 
+.book-hero--light .bh-vignette {
+  display: none;
+}
+
 .bh-particle {
   position: absolute;
   bottom: -12px;
@@ -125,10 +139,17 @@
   border-radius: 999px;
   border: 1px solid rgba(91, 79, 232, 0.25);
   background: rgba(91, 79, 232, 0.12);
-  color: #8c86ff;
   font-size: 14px;
   font-weight: 700;
   backdrop-filter: blur(10px);
+}
+
+.book-hero--dark .bh-badge {
+  color: #8c86ff;
+}
+
+.book-hero--light .bh-badge {
+  color: #5B4FE8;
 }
 
 .bh-title {
@@ -139,6 +160,14 @@
   letter-spacing: -0.04em;
   font-weight: 800;
   text-wrap: balance;
+}
+
+.book-hero--dark .bh-title {
+  color: #fff;
+}
+
+.book-hero--light .bh-title {
+  color: #0F172A;
 }
 
 .bh-grad {
@@ -155,7 +184,14 @@
   margin: 18px auto 0;
   font-size: clamp(1rem, 1.7vw, 1.15rem);
   line-height: 1.65;
+}
+
+.book-hero--dark .bh-subtitle {
   color: #a9b2c9;
+}
+
+.book-hero--light .bh-subtitle {
+  color: #6B7280;
 }
 
 .bh-actions {
@@ -198,10 +234,19 @@
 }
 
 .bh-cta-ghost {
+  backdrop-filter: blur(8px);
+}
+
+.book-hero--dark .bh-cta-ghost {
   color: #e5e7eb;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
+}
+
+.book-hero--light .bh-cta-ghost {
+  color: #374151;
+  background: rgba(15, 14, 23, 0.04);
+  border: 1px solid rgba(15, 14, 23, 0.14);
 }
 
 .bh-filters {
