@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { pathFor } from '../lib/pages';
 import Logo from '../components/Logo';
 import BookHero from '../components/BookHero';
-import { ArcvionLink, ArcvionMark, ARCVION_URL } from '../components/Arcvion';
 import { features } from '../mocks';
 import { useTheme } from '../lib/theme';
 
@@ -150,14 +149,9 @@ export default function Landing() {
         }}
       >
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="flex items-center gap-2.5 cursor-pointer"
-            aria-label="Scroll to top of page"
-          >
+          <Link to={pathFor('landing')} className="flex items-center gap-2.5">
             <Logo size="sm" tone="theme" />
-          </button>
+          </Link>
         </div>
 
         <nav className="hidden lg:flex items-center gap-8 text-sm font-medium" style={{ color: isDark ? '#9CA3AF' : '#6B7280' }}>
@@ -369,7 +363,7 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+          <div className="grid md:grid-cols-3 gap-6 items-start">
             {pricingPlans.map(plan => {
               const isPremium = plan.name === 'Premium';
               const GOLD = '#D4AF37';
@@ -377,7 +371,7 @@ export default function Landing() {
               return (
               <div
                 key={plan.name}
-                className="rounded-2xl overflow-hidden flex flex-col h-full transition-all duration-200"
+                className="rounded-2xl overflow-hidden flex flex-col transition-all duration-200"
                 style={{
                   backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF',
                   border: isPremium
@@ -386,8 +380,7 @@ export default function Landing() {
                   boxShadow: isPremium
                     ? '0 14px 44px rgba(212,175,55,0.24)'
                     : plan.recommended ? '0 12px 40px rgba(91,79,232,0.30)' : (isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.06)'),
-                  transform: plan.recommended ? 'translateY(-8px) scale(1.03)' : 'none',
-                  zIndex: plan.recommended ? 10 : 1,
+                  transform: plan.recommended ? 'translateY(-8px)' : 'none',
                 }}
               >
                 <div
@@ -399,20 +392,18 @@ export default function Landing() {
                   }}
                 >
                   {isPremium && <div className="absolute inset-x-0 top-0 h-px" style={{ background: goldGrad }} />}
-                  <div className="flex items-center h-7 mb-3">
-                    {plan.recommended && (
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide" style={{ backgroundColor: 'rgba(255,255,255,0.18)', color: '#FDE68A' }}>
-                        <span className="material-symbols-outlined filled" style={{ fontSize: '13px' }}>star</span>
-                        Recommended
-                      </div>
-                    )}
-                    {isPremium && (
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide" style={{ backgroundColor: 'rgba(212,175,55,0.16)', color: '#F5D67A', border: '1px solid rgba(212,175,55,0.35)' }}>
-                        <span className="material-symbols-outlined filled" style={{ fontSize: '13px' }}>workspace_premium</span>
-                        Premium
-                      </div>
-                    )}
-                  </div>
+                  {plan.recommended && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide mb-3" style={{ backgroundColor: 'rgba(255,255,255,0.18)', color: '#FDE68A' }}>
+                      <span className="material-symbols-outlined filled" style={{ fontSize: '13px' }}>star</span>
+                      Recommended
+                    </div>
+                  )}
+                  {isPremium && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide mb-3" style={{ backgroundColor: 'rgba(212,175,55,0.16)', color: '#F5D67A', border: '1px solid rgba(212,175,55,0.35)' }}>
+                      <span className="material-symbols-outlined filled" style={{ fontSize: '13px' }}>workspace_premium</span>
+                      Premium
+                    </div>
+                  )}
                   <h3 className="text-lg font-bold text-white mb-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{plan.name} Plan</h3>
                   <div className="flex items-baseline gap-1 mb-3">
                     <span
@@ -423,7 +414,7 @@ export default function Landing() {
                     >₹{plan.price}</span>
                     <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>/ month</span>
                   </div>
-                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.75)', minHeight: '68px' }}>{plan.tagline}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.75)' }}>{plan.tagline}</p>
                 </div>
 
                 <ul className="p-6 space-y-3 flex-1">
@@ -535,42 +526,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Built by Arcvion ── */}
-      <section id="arcvion" className="pb-8 max-w-4xl mx-auto px-6">
-        <div
-          className="rounded-2xl p-8 md:p-10 text-center"
-          style={{
-            backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF',
-            border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
-            boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
-          }}
-        >
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-5"
-            style={{ color: '#8B5CF6', backgroundColor: 'rgba(139,92,246,0.10)' }}
-          >
-            <ArcvionMark size={14} />
-            Built by Arcvion
-          </div>
-          <p className="text-lg leading-relaxed max-w-2xl mx-auto mb-7" style={{ color: isDark ? '#B4B7C4' : '#4B5563' }}>
-            Concept Crack is proudly built and maintained by{' '}
-            <ArcvionLink showMark={false} style={{ color: isDark ? '#F9FAFB' : '#111827' }} />, an AI-first
-            technology company focused on building intelligent educational platforms for the next generation
-            of learners.
-          </p>
-          <a
-            href={ARCVION_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 h-11 px-6 rounded-xl text-sm font-semibold text-white transition-all hover:-translate-y-px"
-            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
-          >
-            Visit Arcvion
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
-          </a>
-        </div>
-      </section>
-
       {/* ── Final CTA ── */}
       <section className="py-24 max-w-4xl mx-auto px-6 text-center">
         <div
@@ -652,17 +607,6 @@ export default function Landing() {
               </div>
             ))}
           </div>
-          {/* Arcvion attribution */}
-          <div className="flex flex-col items-center gap-1.5 pb-6 text-center">
-            <p className="text-sm font-semibold flex items-center gap-1.5 flex-wrap justify-center" style={{ color: '#D1D5DB' }}>
-              Developed with <span aria-label="love" role="img">❤️</span> by
-              <ArcvionLink style={{ color: '#E5E7EB' }} />
-            </p>
-            <p className="text-xs" style={{ color: '#6B7280' }}>
-              Empowering the Future of Education Through AI
-            </p>
-          </div>
-
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6" style={{ borderTop: '1px solid #1F2937' }}>
             <p className="text-xs" style={{ color: '#6B7280' }}>© 2026 Concept Crack. All rights reserved.</p>
             <p className="text-xs" style={{ color: '#6B7280' }}>Made with ♥ for students across India</p>

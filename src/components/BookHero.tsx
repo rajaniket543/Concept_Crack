@@ -1,12 +1,7 @@
-import { Suspense, lazy, useRef, type CSSProperties } from 'react';
+import { type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { pathFor } from '../lib/pages';
-import { useResponsiveQuality } from './hero3d/useResponsiveQuality';
-import { useScrollProgress } from './hero3d/useScrollProgress';
-import { useMagneticHover, useCursorGlow, spawnRipple } from './heroInteractions';
 import './BookHero.css';
-
-const KnowledgeUniverse = lazy(() => import('./hero3d/KnowledgeUniverse'));
 
 const heroParticles = Array.from({ length: 26 }, (_, i) => {
   const frac = (x: number) => x - Math.floor(x);
@@ -21,35 +16,14 @@ const heroParticles = Array.from({ length: 26 }, (_, i) => {
 });
 
 export default function BookHero() {
-  const heroRef = useRef<HTMLElement>(null);
-  const primaryCtaRef = useRef<HTMLAnchorElement>(null);
-  const ghostCtaRef = useRef<HTMLAnchorElement>(null);
-
-  const quality = useResponsiveQuality();
-  const scrollProgress = useScrollProgress(heroRef);
-  useCursorGlow(heroRef);
-  useMagneticHover(primaryCtaRef);
-  useMagneticHover(ghostCtaRef);
-
-  const show3D = quality.webglAvailable && !quality.reducedMotion;
-
   return (
-    <section className="book-hero" ref={heroRef} aria-label="Concept Crack AI-powered learning hero">
+    <section className="book-hero" aria-label="Concept Crack AI-powered learning hero">
       <div className="bh-bg" aria-hidden="true">
         <div className="bh-aurora" />
         <div className="bh-grid" />
         <div className="bh-orb bh-orb-a" />
         <div className="bh-orb bh-orb-b" />
         <div className="bh-orb bh-orb-c" />
-
-        {show3D && (
-          <div className="bh-canvas-layer">
-            <Suspense fallback={null}>
-              <KnowledgeUniverse quality={quality} scrollProgress={scrollProgress} />
-            </Suspense>
-          </div>
-        )}
-
         <div className="bh-vignette" />
         {heroParticles.map((p, i) => (
           <span
@@ -75,7 +49,6 @@ export default function BookHero() {
           Powered by Generative AI
         </div>
 
-        <div className="bh-title-glow" aria-hidden="true" />
         <h1 className="bh-title">
           Crack Any Exam with
           <br />
@@ -91,8 +64,6 @@ export default function BookHero() {
           <Link
             to={pathFor('login')}
             className="bh-cta-primary"
-            ref={primaryCtaRef}
-            onClick={spawnRipple}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>rocket_launch</span>
             Start Preparing Free
@@ -100,8 +71,6 @@ export default function BookHero() {
           <Link
             to={pathFor('login')}
             className="bh-cta-ghost"
-            ref={ghostCtaRef}
-            onClick={spawnRipple}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>play_circle</span>
             Watch Demo

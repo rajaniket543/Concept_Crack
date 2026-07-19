@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest } from '../../lib/api';
 import Logo from '../../components/Logo';
@@ -20,18 +20,10 @@ import { pathFor } from '../../lib/pages';
 import { useToast } from '../../components/Toast';
 import { useConfirm } from '../../components/ConfirmDialog';
 import MathText from '../../components/MathText';
-import { ArcvionBadge } from '../../components/Arcvion';
-import {
-  buildSections,
-  derivePaletteState,
-  sectionOf,
-  sectionProgress,
-  PALETTE_STYLES,
-  type PaletteState,
-} from '../../lib/examSections';
-import { saveExamProgress, loadExamProgress, clearExamProgress } from '../../lib/examProgress';
 
 const fallbackMeta = examMeta;
+
+type PaletteState = 'not-visited' | 'answered' | 'marked' | 'not-answered';
 
 type QType = 'single' | 'multiple' | 'numeric';
 
@@ -64,6 +56,13 @@ function formatTime(totalSeconds: number): string {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
+const PALETTE_STYLES: Record<PaletteState, { bg: string; color: string; border: string }> = {
+  'not-visited':  { bg: 'var(--border)',    color: 'var(--text-muted)',    border: 'var(--border)' },
+  'answered':     { bg: '#10B981',          color: '#fff',                 border: '#10B981' },
+  'marked':       { bg: '#F59E0B',          color: '#fff',                 border: '#F59E0B' },
+  'not-answered': { bg: '#EF4444',          color: '#fff',                 border: '#EF4444' },
+};
+
 export default function ExamInterface() {
   const navigate  = useNavigate();
   const location  = useLocation();
@@ -92,12 +91,7 @@ export default function ExamInterface() {
   const [answers, setAnswers]       = useState<Record<number, string>>({});
   const [marked, setMarked]         = useState<Set<number>>(new Set());
   const [sessionId, setSessionId]   = useState<string | null>(null);
-  // Questions the student has actually opened — drives the official JEE
-  // "Not Visited" (grey) vs "Not Answered" (white) palette distinction.
-  const [visited, setVisited]       = useState<Set<number>>(new Set([1]));
-  // Which subject tab is active. Sections are derived from the loaded questions.
-  const [activeSection, setActiveSection] = useState(0);
-  const [resumed, setResumed]       = useState(false);
+  const [paletteState, setPaletteState] = useState<Record<number, PaletteState>>({});
 
   // Feature 1 — important formulas shown on the pre-test synopsis screen
   const [formulaGroups, setFormulaGroups] = useState<FormulaGroup[]>([]);
@@ -286,6 +280,7 @@ export default function ExamInterface() {
               setSeconds(test.durationSeconds);
               setCurrent(1);
               setQuestions(qs);
+              setPaletteState(Object.fromEntries(qs.map((_, i) => [i + 1, 'not-visited' as PaletteState])));
               setLoading(false);
               return;
             }
@@ -315,12 +310,14 @@ export default function ExamInterface() {
         setSeconds(durationSeconds);
         setCurrent(1);
         setQuestions(qs);
+        setPaletteState(Object.fromEntries(qs.map((_, i) => [i + 1, 'not-visited' as PaletteState])));
       } else {
         const mockQs = genExamQuestions(fallbackMeta.totalQuestions);
         setExam(fallbackMeta);
         setSeconds(fallbackMeta.durationSeconds);
         setCurrent(1);
         setQuestions(mockQs as unknown as FirestoreQuestion[]);
+        setPaletteState(Object.fromEntries(Array.from({ length: fallbackMeta.totalQuestions }, (_, i) => [i + 1, 'not-visited' as PaletteState])));
       }
 
       setLoading(false);
@@ -397,70 +394,13 @@ export default function ExamInterface() {
 
   const timerClass = seconds <= 300 ? 'danger' : seconds <= 600 ? 'warning' : '';
 
-  // ── Subject sectioning (JEE/NEET-style) ──
-  // Questions are grouped by subject; a single-subject practice run collapses
-  // to exactly one section, so the tab strip hides itself automatically.
-  const sections = useMemo(
-    () => buildSections(questions, subject),
-    [questions, subject],
-  );
-  const section = sections[activeSection] ?? sections[0];
-  /** Per-subject 1-based number for the question currently on screen. */
-  const localNumber = section ? section.indices.indexOf(current) + 1 : current;
-
-  // Keep the active tab in sync when navigation crosses a subject boundary
-  // (e.g. Save & Next off the end of Physics lands in Chemistry).
-  useEffect(() => {
-    if (sections.length === 0) return;
-    const owner = sectionOf(sections, current);
-    if (owner !== activeSection) setActiveSection(owner);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, sections]);
-
-  // Mark the on-screen question as visited — this is what turns a palette tile
-  // from grey ("Not Visited") to white ("Not Answered").
-  useEffect(() => {
-    if (!started) return;
-    setVisited(prev => (prev.has(current) ? prev : new Set(prev).add(current)));
-  }, [current, started]);
-
-  // ── Auto-save: mirror every answer/flag/tick to localStorage ──
-  useEffect(() => {
-    if (!started || loading || !exam.id) return;
-    saveExamProgress({
-      examId: exam.id,
-      answers,
-      marked: [...marked],
-      visited: [...visited],
-      current,
-      secondsRemaining: seconds,
-    });
-  }, [started, loading, exam.id, answers, marked, visited, current, seconds]);
-
-  // ── Resume: restore a saved attempt once questions are loaded ──
-  useEffect(() => {
-    if (loading || resumed || questions.length === 0 || !exam.id) return;
-    setResumed(true);
-    const saved = loadExamProgress(exam.id);
-    if (!saved) return;
-
-    setAnswers(saved.answers ?? {});
-    setMarked(new Set(saved.marked ?? []));
-    setVisited(new Set(saved.visited ?? [1]));
-    setCurrent(Math.min(Math.max(1, saved.current || 1), questions.length));
-    if (saved.secondsRemaining > 0) setSeconds(saved.secondsRemaining);
-    // Skip the instructions screen — the student has already begun this paper.
-    setStarted(true);
-    toast('Resumed your test from where you left off.', 'info');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, questions, exam.id]);
-
   // Central setter — stores the answer string (or clears when blank) and syncs
   // to the server (best-effort). Works for single, multiple and numeric.
   function commitAnswer(value: string) {
     const v = value.trim();
     if (v === '') { clearResponse(); return; }
     setAnswers(prev => ({ ...prev, [current]: v }));
+    setPaletteState(prev => ({ ...prev, [current]: marked.has(current) ? 'marked' : 'answered' }));
     if (sessionId) {
       void apiRequest(`/api/exams/sessions/${sessionId}/answer`, {
         method: 'PATCH',
@@ -483,6 +423,7 @@ export default function ExamInterface() {
 
   function clearResponse() {
     setAnswers(prev => { const next = { ...prev }; delete next[current]; return next; });
+    setPaletteState(prev => ({ ...prev, [current]: 'not-visited' }));
     if (sessionId) {
       void apiRequest(`/api/exams/sessions/${sessionId}/clear`, { method: 'PATCH', body: JSON.stringify({ questionId: current }) }).catch(() => undefined);
     }
@@ -494,8 +435,10 @@ export default function ExamInterface() {
       const wasMarked = next.has(current);
       if (wasMarked) {
         next.delete(current);
+        setPaletteState(p => ({ ...p, [current]: answers[current] ? 'answered' : 'not-visited' }));
       } else {
         next.add(current);
+        setPaletteState(p => ({ ...p, [current]: 'marked' }));
       }
       if (sessionId) {
         void apiRequest(`/api/exams/sessions/${sessionId}/mark`, { method: 'PATCH', body: JSON.stringify({ questionId: current, marked: !wasMarked }) }).catch(() => undefined);
@@ -504,44 +447,12 @@ export default function ExamInterface() {
     });
   }
 
-  // Navigation walks the ACTIVE SECTION's index list, not the raw global order —
-  // a paper's questions may interleave subjects, so `current + 1` could otherwise
-  // jump between Physics and Chemistry mid-section. Stepping past either end of a
-  // section rolls into the adjacent one, matching the official CBT behaviour.
-  function stepQuestion(delta: 1 | -1) {
-    if (sections.length === 0) return;
-    const si = sectionOf(sections, current);
-    const list = sections[si].indices;
-    const pos = list.indexOf(current);
-    const nextPos = pos + delta;
-
-    if (nextPos >= 0 && nextPos < list.length) {
-      setCurrent(list[nextPos]);
-      return;
-    }
-    const nextSection = sections[si + delta];
-    if (!nextSection) return; // first question of the paper, or the very last
-    setCurrent(delta === 1 ? nextSection.indices[0] : nextSection.indices[nextSection.indices.length - 1]);
-  }
-
-  function saveAndNext() { stepQuestion(1); }
-  function previous()    { stepQuestion(-1); }
-
-  /** True when there is nowhere further to step in this direction. */
-  function atEdge(delta: 1 | -1): boolean {
-    if (sections.length === 0) return true;
-    const si = sectionOf(sections, current);
-    const list = sections[si].indices;
-    const pos = list.indexOf(current);
-    if (pos + delta >= 0 && pos + delta < list.length) return false;
-    return !sections[si + delta];
-  }
+  function saveAndNext() { setCurrent(c => Math.min(exam.totalQuestions, c + 1)); }
+  function previous()    { setCurrent(c => Math.max(1, c - 1)); }
 
   async function submitExam() {
     if (submittingRef.current) return;
     submittingRef.current = true;
-    // The attempt is over — drop the resume record so it can't be restored.
-    clearExamProgress(exam.id);
 
     try {
       let apiResult: Record<string, unknown> = {};
@@ -944,29 +855,26 @@ export default function ExamInterface() {
     >
       {/* ── Top bar ── */}
       <header
-        className="fixed top-0 left-0 right-0 flex items-center justify-between gap-3 px-3 sm:px-6 h-16"
+        className="fixed top-0 left-0 right-0 flex items-center justify-between px-6 h-16"
         style={{ backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', zIndex: 50 }}
       >
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="hidden sm:flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <Logo size="sm" tone="theme" />
           </div>
-          <div className="hidden sm:block w-px h-5 shrink-0" style={{ backgroundColor: 'var(--border)' }} />
-          <div className="min-w-0">
-            <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{exam.title}</div>
-            <div className="hidden sm:block text-xs truncate" style={{ color: 'var(--text-faint)', letterSpacing: '0.05em' }}>SESSION: {exam.id}</div>
-          </div>
-          <div className="hidden xl:block shrink-0">
-            <ArcvionBadge variant="compact" />
+          <div className="w-px h-5" style={{ backgroundColor: 'var(--border)' }} />
+          <div>
+            <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{exam.title}</div>
+            <div className="text-xs" style={{ color: 'var(--text-faint)', letterSpacing: '0.05em' }}>SESSION: {exam.id}</div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-3">
           {/* Progress mini */}
-          <div className="hidden lg:flex items-center gap-4 text-xs font-semibold px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
+          <div className="hidden md:flex items-center gap-4 text-xs font-semibold px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
             <span><span style={{ color: '#10B981' }}>{answered}</span> answered</span>
-            <span><span style={{ color: '#7C3AED' }}>{reviewCount}</span> marked</span>
-            <span><span style={{ color: '#EF4444' }}>{exam.totalQuestions - answered}</span> remaining</span>
+            <span><span style={{ color: '#F59E0B' }}>{reviewCount}</span> flagged</span>
+            <span><span style={{ color: '#EF4444' }}>{exam.totalQuestions - answered - reviewCount}</span> remaining</span>
           </div>
 
           {/* Timer */}
@@ -1009,38 +917,6 @@ export default function ExamInterface() {
       <div className="flex flex-col lg:flex-row pt-16 min-h-[calc(100vh-4rem)] lg:h-screen overflow-hidden">
         {/* Question area */}
         <main className="flex-1 flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--bg)' }}>
-          {/* Subject tabs — only shown for multi-subject papers */}
-          {sections.length > 1 && (
-            <nav
-              className="shrink-0 flex items-stretch gap-1 px-4 sm:px-6 overflow-x-auto"
-              style={{ backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
-              aria-label="Exam subjects"
-            >
-              {sections.map((s, i) => {
-                const prog = sectionProgress(s, answers, marked);
-                const isActive = i === activeSection;
-                return (
-                  <button
-                    key={s.subject}
-                    type="button"
-                    onClick={() => { setActiveSection(i); setCurrent(s.indices[0]); }}
-                    aria-current={isActive ? 'page' : undefined}
-                    className="relative shrink-0 px-4 py-3 text-left transition-colors"
-                    style={{
-                      borderBottom: `3px solid ${isActive ? s.color : 'transparent'}`,
-                      color: isActive ? s.color : 'var(--text-muted)',
-                    }}
-                  >
-                    <span className="block text-sm font-bold whitespace-nowrap">{s.subject}</span>
-                    <span className="block text-[11px] font-medium" style={{ color: 'var(--text-faint)' }}>
-                      {prog.answered} / {prog.total} answered
-                    </span>
-                  </button>
-                );
-              })}
-            </nav>
-          )}
-
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-3xl mx-auto px-6 py-8">
               {/* Question meta */}
@@ -1048,17 +924,15 @@ export default function ExamInterface() {
                 <div className="flex items-center gap-3">
                   <span
                     className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold text-white"
-                    style={{ background: section ? `linear-gradient(135deg, ${section.color}, ${section.color}CC)` : 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                    style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
                   >
-                    {localNumber}
+                    {current}
                   </span>
                   <div>
                     <div className="text-body-sm font-semibold" style={{ color: 'var(--text-muted)' }}>
-                      Question {localNumber} of {section?.indices.length ?? exam.totalQuestions}
+                      Question {current} of {exam.totalQuestions}
                     </div>
-                    <div className="text-label-sm" style={{ color: 'var(--text-faint)' }}>
-                      {section?.subject ?? 'General'} · {question.section ?? 'General'}
-                    </div>
+                    <div className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{question.section ?? 'General'}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1073,8 +947,8 @@ export default function ExamInterface() {
                     {question.difficulty}
                   </span>
                   {marked.has(current) && (
-                    <span className="text-label-sm font-bold px-3 py-1 rounded-full" style={{ backgroundColor: 'rgba(124,58,237,0.10)', color: '#6D28D9' }}>
-                      Marked for Review
+                    <span className="text-label-sm font-bold px-3 py-1 rounded-full" style={{ backgroundColor: 'rgba(245,158,11,0.10)', color: '#B45309' }}>
+                      Flagged
                     </span>
                   )}
                 </div>
@@ -1171,35 +1045,35 @@ export default function ExamInterface() {
 
           {/* Footer controls */}
           <footer
-            className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-3 sm:px-6 py-3 sm:py-4"
+            className="shrink-0 flex items-center justify-between px-6 py-4"
             style={{ backgroundColor: 'var(--surface)', borderTop: '1px solid var(--border)', boxShadow: '0 -2px 8px rgba(0,0,0,0.06)' }}
           >
-            <div className="flex items-center gap-2 order-2 sm:order-1">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={clearResponse}
                 className="btn-ghost btn-md"
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>restart_alt</span>
-                <span className="hidden sm:inline">Clear Response</span>
+                Clear
               </button>
               <button
                 type="button"
                 onClick={toggleMark}
                 className={`btn-md ${marked.has(current) ? '' : 'btn-outline'}`}
-                style={marked.has(current) ? { backgroundColor: 'rgba(124,58,237,0.12)', color: '#6D28D9', border: '1px solid rgba(124,58,237,0.30)' } : undefined}
+                style={marked.has(current) ? { backgroundColor: 'rgba(245,158,11,0.12)', color: '#B45309', border: '1px solid rgba(245,158,11,0.30)' } : undefined}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
                   {marked.has(current) ? 'bookmark' : 'bookmark_add'}
                 </span>
-                <span className="hidden sm:inline">{marked.has(current) ? 'Marked for Review' : 'Mark for Review'}</span>
+                {marked.has(current) ? 'Flagged' : 'Flag for Review'}
               </button>
             </div>
-            <div className="flex items-center gap-2 order-1 sm:order-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={previous}
-                disabled={atEdge(-1)}
+                disabled={current === 1}
                 className="btn-outline btn-md"
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_left</span>
@@ -1208,7 +1082,7 @@ export default function ExamInterface() {
               <button
                 type="button"
                 onClick={saveAndNext}
-                disabled={atEdge(1)}
+                disabled={current === exam.totalQuestions}
                 className="btn-primary btn-md"
                 style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
               >
@@ -1233,108 +1107,70 @@ export default function ExamInterface() {
                 <div className="text-xs font-mono" style={{ color: 'var(--text-faint)' }}>ID: {currentStudent.id}</div>
               </div>
             </div>
-            {/* Per-subject progress */}
-            <div className="space-y-2.5">
-              {sections.map(s => {
-                const prog = sectionProgress(s, answers, marked);
-                const pct = prog.total === 0 ? 0 : Math.round((prog.answered / prog.total) * 100);
-                return (
-                  <div key={s.subject}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-bold" style={{ color: 'var(--text-secondary)' }}>{s.subject}</span>
-                      <span className="text-[11px] font-mono" style={{ color: 'var(--text-faint)' }}>
-                        {prog.answered} / {prog.total}
-                      </span>
-                    </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
-                      <div
-                        className="h-full rounded-full transition-all duration-300"
-                        style={{ width: `${pct}%`, backgroundColor: s.color }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              {[
+                { label: 'Done', count: answered, color: '#10B981' },
+                { label: 'Flag', count: reviewCount, color: '#F59E0B' },
+                { label: 'Left', count: exam.totalQuestions - answered - reviewCount, color: '#EF4444' },
+              ].map(s => (
+                <div key={s.label} className="py-2 rounded-lg" style={{ backgroundColor: 'var(--surface-muted)' }}>
+                  <div className="text-lg font-bold font-headline" style={{ color: s.color, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{s.count}</div>
+                  <div className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>{s.label}</div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Legend — official JEE Main / NEET status colours */}
+          {/* Legend */}
           <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              {(['not-visited', 'not-answered', 'answered', 'marked', 'answered-marked'] as PaletteState[]).map(state => {
-                const s = PALETTE_STYLES[state];
+              {[
+                { state: 'not-visited',  label: 'Not visited' },
+                { state: 'answered',     label: 'Answered' },
+                { state: 'marked',       label: 'Flagged' },
+                { state: 'not-answered', label: 'Not answered' },
+              ].map(({ state, label }) => {
+                const s = PALETTE_STYLES[state as PaletteState];
                 return (
                   <div key={state} className="flex items-center gap-1.5">
-                    <div
-                      className="w-4 h-4 rounded flex-shrink-0 relative"
-                      style={{ backgroundColor: s.bg, border: `1px solid ${s.border}` }}
-                    >
-                      {state === 'answered-marked' && (
-                        <span
-                          className="absolute rounded-full"
-                          style={{ width: 6, height: 6, backgroundColor: '#10B981', right: -1, bottom: -1, border: '1px solid #fff' }}
-                        />
-                      )}
-                    </div>
-                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{s.label}</span>
+                    <div className="w-4 h-4 rounded flex-shrink-0" style={{ backgroundColor: s.bg }} />
+                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{label}</span>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* Per-subject question palettes — numbering restarts inside each subject */}
-          <div className="flex-1 p-4 space-y-5">
-            {sections.map((s, si) => (
-              <div key={s.subject}>
-                <button
-                  type="button"
-                  onClick={() => { setActiveSection(si); setCurrent(s.indices[0]); }}
-                  className="flex items-center gap-2 mb-2 w-full text-left"
-                >
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                  <span
-                    className="text-overline uppercase"
-                    style={{ color: si === activeSection ? s.color : 'var(--text-faint)' }}
+          {/* Palette grid */}
+          <div className="flex-1 p-4">
+            <p className="text-overline uppercase mb-3" style={{ color: 'var(--text-faint)' }}>Question Palette</p>
+            <div className="grid grid-cols-5 gap-1.5">
+              {Array.from({ length: exam.totalQuestions }, (_, i) => {
+                const qn = i + 1;
+                const state = paletteState[qn] ?? 'not-visited';
+                const styles = PALETTE_STYLES[state];
+                const isCurrent = qn === current;
+                return (
+                  <button
+                    key={qn}
+                    type="button"
+                    onClick={() => setCurrent(qn)}
+                    className="palette-btn"
+                    aria-label={`Question ${qn}, ${state}`}
+                    aria-current={isCurrent ? 'true' : undefined}
+                    style={{
+                      backgroundColor: styles.bg,
+                      color: styles.color,
+                      outline: isCurrent ? `2px solid #5B4FE8` : 'none',
+                      outlineOffset: '2px',
+                    }}
                   >
-                    {s.subject}
-                  </span>
-                </button>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {s.indices.map((globalIdx, localIdx) => {
-                    const state = derivePaletteState(globalIdx, answers, marked, visited);
-                    const styles = PALETTE_STYLES[state];
-                    const isCurrent = globalIdx === current;
-                    const qNum = localIdx + 1;
-                    return (
-                      <button
-                        key={globalIdx}
-                        type="button"
-                        onClick={() => { setActiveSection(si); setCurrent(globalIdx); }}
-                        className="palette-btn relative"
-                        aria-label={`${s.subject} question ${qNum}, ${styles.label}`}
-                        aria-current={isCurrent ? 'true' : undefined}
-                        style={{
-                          backgroundColor: styles.bg,
-                          color: styles.color,
-                          border: `1px solid ${styles.border}`,
-                          outline: isCurrent ? `2px solid ${s.color}` : 'none',
-                          outlineOffset: '2px',
-                        }}
-                      >
-                        {qNum}
-                        {state === 'answered-marked' && (
-                          <span
-                            className="absolute rounded-full"
-                            style={{ width: 7, height: 7, backgroundColor: '#10B981', right: -2, bottom: -2, border: '1.5px solid var(--surface)' }}
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+                    {qn}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* AI Proctor — single monitoring status (also carries the live flag count) */}

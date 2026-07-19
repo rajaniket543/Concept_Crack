@@ -5,7 +5,6 @@ import Logo from './Logo';
 import { useEffect, useState } from 'react';
 import AICompanion from './AICompanion';
 import { useConfirm } from './ConfirmDialog';
-import { ArcvionBadge } from './Arcvion';
 
 interface NavSection {
   label?: string;
@@ -216,12 +215,6 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
             <span className="material-symbols-outlined item-icon">logout</span>
             {!collapsed && <span className="text-sm">Sign out</span>}
           </button>
-
-          {!collapsed && (
-            <div className="pt-2 px-1">
-              <ArcvionBadge variant="onDark" className="w-full" />
-            </div>
-          )}
         </div>
       </aside>
 
