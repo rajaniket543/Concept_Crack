@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { pathFor } from '../lib/pages';
 import Logo from '../components/Logo';
 import BookHero from '../components/BookHero';
-import { ArcvionLink, ArcvionMark, ARCVION_URL } from '../components/Arcvion';
+import { ArcvionLink } from '../components/Arcvion';
+import ArcvionSection from '../components/ArcvionSection';
 import { features } from '../mocks';
 import { useTheme } from '../lib/theme';
 
@@ -535,41 +536,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Built by Arcvion ── */}
-      <section id="arcvion" className="pb-8 max-w-4xl mx-auto px-6">
-        <div
-          className="rounded-2xl p-8 md:p-10 text-center"
-          style={{
-            backgroundColor: isDark ? '#1E1D2E' : '#FFFFFF',
-            border: `1px solid ${isDark ? '#2D2B42' : '#E5E7EB'}`,
-            boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
-          }}
-        >
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-5"
-            style={{ color: '#8B5CF6', backgroundColor: 'rgba(139,92,246,0.10)' }}
-          >
-            <ArcvionMark size={14} />
-            Built by Arcvion
-          </div>
-          <p className="text-lg leading-relaxed max-w-2xl mx-auto mb-7" style={{ color: isDark ? '#B4B7C4' : '#4B5563' }}>
-            Concept Crack is proudly built and maintained by{' '}
-            <ArcvionLink showMark={false} style={{ color: isDark ? '#F9FAFB' : '#111827' }} />, an AI-first
-            technology company focused on building intelligent educational platforms for the next generation
-            of learners.
-          </p>
-          <a
-            href={ARCVION_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 h-11 px-6 rounded-xl text-sm font-semibold text-white transition-all hover:-translate-y-px"
-            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
-          >
-            Visit Arcvion
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
-          </a>
-        </div>
-      </section>
+      <ArcvionSection />
 
       {/* ── Final CTA ── */}
       <section className="py-24 max-w-4xl mx-auto px-6 text-center">
