@@ -5,6 +5,7 @@ import Spinner from '../../components/Spinner';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { askAI, hasAI } from '../../lib/ai';
+import AIMarkdown from '../../components/AIMarkdown';
 
 const ACCENT = '#EC4899';
 
@@ -202,8 +203,8 @@ Assess: how are the students under this faculty performing? Are core concepts la
                 )}
 
                 {reports[f.id] ? (
-                  <div className="rounded-xl p-4 text-sm leading-relaxed whitespace-pre-wrap" style={{ backgroundColor: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', color: 'var(--text-secondary)' }}>
-                    {reports[f.id]}
+                  <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ backgroundColor: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', color: 'var(--text-secondary)' }}>
+                    <AIMarkdown text={reports[f.id]} />
                   </div>
                 ) : (
                   <button

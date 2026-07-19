@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getAuthSession } from '../lib/auth';
 import { getStudentStream } from '../lib/stream';
 import { getExamCountdown } from '../lib/examCountdown';
+import AIMarkdown from './AIMarkdown';
 
 interface Msg { id: number; role: 'ai' | 'user'; text: string; typing?: boolean }
 
@@ -193,7 +194,11 @@ Student: ${trimmed}`;
                     : { backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '16px 16px 16px 4px' }
                   }
                 >
-                  {m.typing ? <span className="inline-flex gap-1 py-1"><Dot /><Dot d={0.2} /><Dot d={0.4} /></span> : m.text}
+                  {m.typing ? (
+                    <span className="inline-flex gap-1 py-1"><Dot /><Dot d={0.2} /><Dot d={0.4} /></span>
+                  ) : m.role === 'ai' ? (
+                    <AIMarkdown text={m.text} />
+                  ) : m.text}
                 </div>
               </div>
             ))}
