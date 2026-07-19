@@ -8,6 +8,7 @@ import { getQuestionsByIds, type ExamQuestion } from '../../lib/questions';
 import { askAI, hasAI } from '../../lib/ai';
 import { useToast } from '../../components/Toast';
 import MathText from '../../components/MathText';
+import AIMarkdown from '../../components/AIMarkdown';
 
 interface AttemptView extends TestAttempt {
   testTitle: string;
@@ -371,11 +372,11 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
                         <>
                           {/* AI analysis */}
                           {analysis[a.id] ? (
-                            <div className="rounded-xl p-4 text-sm leading-relaxed whitespace-pre-wrap" style={{ backgroundColor: 'rgba(91,79,232,0.05)', border: '1px solid rgba(91,79,232,0.18)', color: 'var(--text-secondary)' }}>
+                            <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ backgroundColor: 'rgba(91,79,232,0.05)', border: '1px solid rgba(91,79,232,0.18)', color: 'var(--text-secondary)' }}>
                               <div className="flex items-center gap-2 mb-1.5 text-label-sm font-bold uppercase tracking-widest" style={{ color: '#5B4FE8' }}>
                                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>auto_awesome</span> AI Analysis
                               </div>
-                              {analysis[a.id]}
+                              <AIMarkdown text={analysis[a.id]} />
                             </div>
                           ) : (
                             <button type="button" onClick={() => void runAnalysis(a)} disabled={analysing === a.id} className="btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>

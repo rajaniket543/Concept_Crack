@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { pathFor } from '../../lib/pages';
 import { getAuthSession } from '../../lib/auth';
 import { STREAM_COLORS, STREAM_BG } from '../../lib/stream';
+import AIMarkdown from '../../components/AIMarkdown';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
@@ -712,6 +713,8 @@ export default function TestResultAndChat() {
                         style={{ backgroundColor: 'var(--text-faint)', animation: `bounce 1.2s ${i * 0.2}s infinite` }} />
                     ))}
                   </div>
+                ) : msg.role === 'ai' ? (
+                  <AIMarkdown text={msg.text} />
                 ) : msg.text}
               </div>
             </div>
