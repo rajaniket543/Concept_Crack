@@ -20,7 +20,7 @@ const heroParticles = Array.from({ length: 26 }, (_, i) => {
   };
 });
 
-export default function BookHero() {
+export default function BookHero({ isDark }: { isDark: boolean }) {
   const heroRef = useRef<HTMLElement>(null);
   const primaryCtaRef = useRef<HTMLAnchorElement>(null);
   const ghostCtaRef = useRef<HTMLAnchorElement>(null);
@@ -31,10 +31,10 @@ export default function BookHero() {
   useMagneticHover(primaryCtaRef);
   useMagneticHover(ghostCtaRef);
 
-  const show3D = quality.webglAvailable && !quality.reducedMotion;
+  const show3D = isDark && quality.webglAvailable && !quality.reducedMotion;
 
   return (
-    <section className="book-hero" ref={heroRef} aria-label="Concept Crack AI-powered learning hero">
+    <section className={`book-hero ${isDark ? 'book-hero--dark' : 'book-hero--light'}`} ref={heroRef} aria-label="Concept Crack AI-powered learning hero">
       <div className="bh-bg" aria-hidden="true">
         <div className="bh-aurora" />
         <div className="bh-grid" />
