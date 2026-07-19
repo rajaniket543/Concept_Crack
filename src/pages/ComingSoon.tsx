@@ -4,19 +4,21 @@ import { pathFor } from '../lib/pages';
 import { useTheme } from '../lib/theme';
 
 // Fixed particle field so it doesn't reshuffle on re-render (e.g. theme toggle).
+// Static decorative dots. `top` is explicit because these no longer animate —
+// the old rising animation was what positioned them and faded them in.
 const PARTICLES = [
-  { left: '6%',  size: 5, duration: 13, delay: 0,    drift: '18px'  },
-  { left: '14%', size: 3, duration: 17, delay: 2.4,  drift: '-24px' },
-  { left: '23%', size: 6, duration: 11, delay: 5.1,  drift: '10px'  },
-  { left: '32%', size: 4, duration: 15, delay: 1.2,  drift: '-14px' },
-  { left: '41%', size: 3, duration: 19, delay: 6.8,  drift: '22px'  },
-  { left: '52%', size: 5, duration: 12, delay: 3.6,  drift: '-18px' },
-  { left: '61%', size: 4, duration: 16, delay: 0.8,  drift: '16px'  },
-  { left: '69%', size: 6, duration: 14, delay: 8.2,  drift: '-10px' },
-  { left: '77%', size: 3, duration: 18, delay: 4.4,  drift: '20px'  },
-  { left: '85%', size: 5, duration: 13, delay: 2.0,  drift: '-22px' },
-  { left: '92%', size: 4, duration: 20, delay: 7.0,  drift: '12px'  },
-  { left: '48%', size: 3, duration: 15, delay: 10.5, drift: '-16px' },
+  { left: '6%',  top: '18%', size: 5, opacity: 0.55 },
+  { left: '14%', top: '62%', size: 3, opacity: 0.40 },
+  { left: '23%', top: '34%', size: 6, opacity: 0.50 },
+  { left: '32%', top: '78%', size: 4, opacity: 0.35 },
+  { left: '41%', top: '12%', size: 3, opacity: 0.45 },
+  { left: '52%', top: '84%', size: 5, opacity: 0.40 },
+  { left: '61%', top: '26%', size: 4, opacity: 0.50 },
+  { left: '69%', top: '68%', size: 6, opacity: 0.35 },
+  { left: '77%', top: '40%', size: 3, opacity: 0.45 },
+  { left: '85%', top: '74%', size: 5, opacity: 0.40 },
+  { left: '92%', top: '22%', size: 4, opacity: 0.50 },
+  { left: '48%', top: '52%', size: 3, opacity: 0.30 },
 ];
 
 export default function ComingSoon() {
@@ -78,12 +80,11 @@ export default function ComingSoon() {
               className="cc-particle"
               style={{
                 left: p.left,
+                top: p.top,
                 width: p.size,
                 height: p.size,
+                opacity: p.opacity,
                 backgroundColor: i % 3 === 0 ? '#5B4FE8' : i % 3 === 1 ? '#8B5CF6' : '#06B6D4',
-                animationDuration: `${p.duration}s`,
-                animationDelay: `${p.delay}s`,
-                ['--cc-drift' as string]: p.drift,
               }}
             />
           ))}
@@ -94,26 +95,32 @@ export default function ComingSoon() {
         <div className="absolute bottom-10 right-1/5 w-72 h-72 rounded-full opacity-15 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, #06B6D4, transparent)' }} aria-hidden="true" />
 
         <div className="relative w-full max-w-3xl mx-auto px-6 py-20 text-center">
+          {/* Each of these is wrapped in its own flex row. Left as bare
+              inline-flex siblings they share a line, so arriving with a plan
+              selected pushed the badge and the rocket onto the same row. */}
           {plan && (
-            <div
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold mb-6"
-              style={{ background: 'rgba(91,79,232,0.12)', border: '1px solid rgba(91,79,232,0.25)', color: '#5B4FE8' }}
-            >
-              <span className="material-symbols-outlined filled" style={{ fontSize: '14px' }}>bolt</span>
-              You selected the {plan} Plan
+            <div className="flex justify-center mb-6">
+              <div
+                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold"
+                style={{ background: 'rgba(91,79,232,0.12)', border: '1px solid rgba(91,79,232,0.25)', color: '#5B4FE8' }}
+              >
+                <span className="material-symbols-outlined filled" style={{ fontSize: '14px' }}>bolt</span>
+                You selected the {plan} Plan
+              </div>
             </div>
           )}
 
-          <div
-            className="inline-flex items-center justify-center w-20 h-20 rounded-3xl mb-8"
-            style={{
-              background: 'linear-gradient(135deg, rgba(91,79,232,0.18), rgba(139,92,246,0.14))',
-              border: '1px solid rgba(91,79,232,0.30)',
-              boxShadow: '0 12px 40px rgba(91,79,232,0.25)',
-              animation: 'ccFloatA 6s ease-in-out infinite',
-            }}
-          >
-            <span className="material-symbols-outlined filled" style={{ fontSize: '38px', color: '#8B5CF6' }}>rocket_launch</span>
+          <div className="flex justify-center mb-8">
+            <div
+              className="inline-flex items-center justify-center w-20 h-20 rounded-3xl"
+              style={{
+                background: 'linear-gradient(135deg, rgba(91,79,232,0.18), rgba(139,92,246,0.14))',
+                border: '1px solid rgba(91,79,232,0.30)',
+                boxShadow: '0 12px 40px rgba(91,79,232,0.25)',
+              }}
+            >
+              <span className="material-symbols-outlined filled" style={{ fontSize: '38px', color: '#8B5CF6' }}>rocket_launch</span>
+            </div>
           </div>
 
           <h1

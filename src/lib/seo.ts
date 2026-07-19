@@ -80,6 +80,13 @@ export const SEO_BY_PATH: Record<string, PageSeo> = {
     title: 'Sign In',
     description: 'Sign in to your Concept Crack student, parent, faculty or admin account.',
   },
+  // Kept out of the sitemap and out of search results — it has no lasting
+  // content — but it still needs a real browser-tab title.
+  '/coming-soon': {
+    title: 'Coming Soon',
+    description: 'Concept Crack subscription plans are launching soon.',
+    noindex: true,
+  },
 };
 
 /** Fallback for signed-in portals and anything unmapped — never indexed. */

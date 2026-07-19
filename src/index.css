@@ -885,23 +885,11 @@
   to { transform: rotate(360deg); }
 }
 
-/* Rising, twinkling particles in the hero */
+/* Static decorative particles. Position and opacity come from inline styles
+   at the call site; they no longer rise, so no animation and no will-change. */
 .cc-particle {
   position: absolute;
-  bottom: -12px;
   border-radius: 9999px;
-  opacity: 0;
-  will-change: transform, opacity;
-  animation-name: ccRise;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-@keyframes ccRise {
-  0%   { transform: translate3d(0, 0, 0); opacity: 0; }
-  8%   { opacity: 0.85; }
-  50%  { transform: translate3d(var(--cc-drift, 0), -48vh, 0); opacity: 0.9; }
-  92%  { opacity: 0.5; }
-  100% { transform: translate3d(0, -92vh, 0); opacity: 0; }
 }
 
 /* Flowing gradient sweep — hero headline + gold accents */
