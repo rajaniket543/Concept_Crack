@@ -622,7 +622,7 @@ export default function Landing() {
           {/* Arcvion attribution */}
           <div className="flex flex-col items-center gap-3 pb-8 text-center">
             <p className="text-sm font-semibold" style={{ color: '#D1D5DB' }}>
-              Developed with <span aria-label="love" role="img">❤️</span> by
+              Powered by
             </p>
             <a
               href={ARCVION_URL}
