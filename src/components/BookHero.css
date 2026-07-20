@@ -1,5 +1,5 @@
 /* ============================================================================
-   Hero section with background animation only
+   Hero section — static background (no background animation)
    ============================================================================ */
 
 .book-hero {
@@ -34,74 +34,6 @@
   pointer-events: none;
 }
 
-.bh-aurora {
-  position: absolute;
-  inset: -30%;
-  background: conic-gradient(
-    from 0deg at 50% 50%,
-    rgba(91, 79, 232, 0.18),
-    rgba(139, 92, 246, 0.12),
-    rgba(6, 182, 212, 0.12),
-    rgba(124, 58, 237, 0.14),
-    rgba(91, 79, 232, 0.18)
-  );
-  filter: blur(80px);
-  opacity: 0.75;
-  animation: bhSpin 42s linear infinite;
-}
-
-.bh-grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(91, 79, 232, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(91, 79, 232, 0.07) 1px, transparent 1px);
-  background-size: 56px 56px;
-  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 36%, #000 24%, transparent 76%);
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 36%, #000 24%, transparent 76%);
-  animation: bhGridPan 24s linear infinite;
-}
-
-.bh-orb {
-  position: absolute;
-  width: 28vw;
-  height: 28vw;
-  min-width: 240px;
-  min-height: 240px;
-  border-radius: 999px;
-  filter: blur(36px);
-  opacity: 0.38;
-  animation: bhDrift 12s ease-in-out infinite;
-}
-
-.bh-orb-a {
-  left: 12%;
-  top: 14%;
-  background: radial-gradient(circle, rgba(91, 79, 232, 0.52), transparent 68%);
-}
-
-.bh-orb-b {
-  right: 10%;
-  top: 20%;
-  background: radial-gradient(circle, rgba(6, 182, 212, 0.32), transparent 68%);
-  animation-direction: reverse;
-}
-
-.bh-orb-c {
-  left: 50%;
-  bottom: -8%;
-  transform: translateX(-50%);
-  background: radial-gradient(circle, rgba(245, 214, 122, 0.20), transparent 70%);
-  animation-duration: 16s;
-}
-
-.bh-canvas-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: calc(1 - var(--cc-scroll, 0) * 0.6);
-}
-
 .bh-vignette {
   position: absolute;
   inset: 0;
@@ -112,17 +44,6 @@
 
 .book-hero--light .bh-vignette {
   display: none;
-}
-
-.bh-particle {
-  position: absolute;
-  bottom: -12px;
-  border-radius: 999px;
-  opacity: 0;
-  animation-name: bhRise;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  will-change: transform, opacity;
 }
 
 .bh-content {
@@ -157,14 +78,6 @@
 
 .book-hero--light .bh-badge {
   color: #5B4FE8;
-}
-
-.bh-title-glow {
-  position: absolute;
-  inset: -40px -10% auto -10%;
-  height: 240px;
-  background: radial-gradient(320px circle at var(--cc-cursor-x, 50%) var(--cc-cursor-y, 40%), rgba(139, 92, 246, 0.28), transparent 70%);
-  z-index: 0;
 }
 
 .bh-title {
@@ -287,26 +200,6 @@
   font-weight: 700;
 }
 
-@keyframes bhSpin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes bhGridPan {
-  from { background-position: 0 0, 0 0; }
-  to { background-position: 56px 56px, 56px 56px; }
-}
-
-@keyframes bhDrift {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(24px, -18px, 0) scale(1.05); }
-}
-
-@keyframes bhRise {
-  0% { transform: translate3d(0, 0, 0); opacity: 0; }
-  10% { opacity: 0.85; }
-  100% { transform: translate3d(var(--cc-drift, 0), -92vh, 0); opacity: 0; }
-}
-
 @keyframes bhEnter {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
@@ -333,10 +226,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bh-aurora,
-  .bh-grid,
-  .bh-orb,
-  .bh-particle,
   .bh-grad {
     animation: none !important;
   }

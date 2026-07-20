@@ -1,72 +1,24 @@
-import { Suspense, lazy, useRef, type CSSProperties } from 'react';
+import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { pathFor } from '../lib/pages';
-import { useResponsiveQuality } from './hero3d/useResponsiveQuality';
-import { useScrollProgress } from './hero3d/useScrollProgress';
-import { useMagneticHover, useCursorGlow, spawnRipple } from './heroInteractions';
+import { useMagneticHover, spawnRipple } from './heroInteractions';
 import './BookHero.css';
 
-const KnowledgeUniverse = lazy(() => import('./hero3d/KnowledgeUniverse'));
-
-const heroParticles = Array.from({ length: 26 }, (_, i) => {
-  const frac = (x: number) => x - Math.floor(x);
-  return {
-    left: frac(i * 0.61803) * 96 + 2,
-    size: 2 + Math.round(frac(i * 0.31) * 3),
-    dur: 12 + frac(i * 0.53) * 14,
-    delay: -frac(i * 0.87) * 24,
-    drift: (frac(i * 0.29) - 0.5) * 60,
-    color: ['#5B4FE8', '#8B5CF6', '#06B6D4', '#C4B5FD'][i % 4],
-  };
-});
-
 export default function BookHero({ isDark }: { isDark: boolean }) {
-  const heroRef = useRef<HTMLElement>(null);
   const primaryCtaRef = useRef<HTMLAnchorElement>(null);
   const ghostCtaRef = useRef<HTMLAnchorElement>(null);
 
-  const quality = useResponsiveQuality();
-  const scrollProgress = useScrollProgress(heroRef);
-  useCursorGlow(heroRef);
   useMagneticHover(primaryCtaRef);
   useMagneticHover(ghostCtaRef);
 
-  const show3D = isDark && quality.webglAvailable && !quality.reducedMotion;
-
   return (
-    <section className={`book-hero ${isDark ? 'book-hero--dark' : 'book-hero--light'}`} ref={heroRef} aria-label="Concept Crack AI-powered learning hero">
+    <section
+      className={`book-hero ${isDark ? 'book-hero--dark' : 'book-hero--light'}`}
+      aria-label="Concept Crack AI-powered learning hero"
+    >
+      {/* Static background — no animation */}
       <div className="bh-bg" aria-hidden="true">
-        <div className="bh-aurora" />
-        <div className="bh-grid" />
-        <div className="bh-orb bh-orb-a" />
-        <div className="bh-orb bh-orb-b" />
-        <div className="bh-orb bh-orb-c" />
-
-        {show3D && (
-          <div className="bh-canvas-layer">
-            <Suspense fallback={null}>
-              <KnowledgeUniverse quality={quality} scrollProgress={scrollProgress} />
-            </Suspense>
-          </div>
-        )}
-
         <div className="bh-vignette" />
-        {heroParticles.map((p, i) => (
-          <span
-            key={i}
-            className="bh-particle"
-            style={{
-              left: `${p.left}%`,
-              width: p.size,
-              height: p.size,
-              backgroundColor: p.color,
-              boxShadow: `0 0 6px ${p.color}`,
-              animationDuration: `${p.dur}s`,
-              animationDelay: `${p.delay}s`,
-              '--cc-drift': `${p.drift}px`,
-            } as CSSProperties}
-          />
-        ))}
       </div>
 
       <div className="bh-content">
@@ -75,7 +27,6 @@ export default function BookHero({ isDark }: { isDark: boolean }) {
           Powered by Generative AI
         </div>
 
-        <div className="bh-title-glow" aria-hidden="true" />
         <h1 className="bh-title">
           Crack Any Exam with
           <br />

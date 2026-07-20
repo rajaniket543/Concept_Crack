@@ -2,9 +2,8 @@ import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { pathFor } from '../lib/pages';
 import Logo from '../components/Logo';
+import { ARCVION_URL } from '../components/Arcvion';
 import BookHero from '../components/BookHero';
-import { ArcvionLink } from '../components/Arcvion';
-import ArcvionSection from '../components/ArcvionSection';
 import { features } from '../mocks';
 import { useTheme } from '../lib/theme';
 
@@ -536,8 +535,6 @@ export default function Landing() {
         </div>
       </section>
 
-      <ArcvionSection />
-
       {/* ── Final CTA ── */}
       <section className="py-24 max-w-4xl mx-auto px-6 text-center">
         <div
@@ -573,9 +570,11 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-8 mb-10">
             <div className="sm:col-span-2">
-              <div className="flex items-center gap-2.5 mb-4">
-                <Logo size="md" tone="onDark" />
-              </div>
+              <img
+                src="/logo-full-dark.png"
+                alt="Concept Crack — Every lesson, mastered."
+                className="mb-4 w-[180px] max-w-full h-auto"
+              />
               <p className="text-sm leading-relaxed mb-4" style={{ color: '#9CA3AF' }}>
                 AI-powered exam preparation platform for JEE and NEET.
               </p>
@@ -619,12 +618,25 @@ export default function Landing() {
               </div>
             ))}
           </div>
+
           {/* Arcvion attribution */}
-          <div className="flex flex-col items-center gap-1.5 pb-6 text-center">
-            <p className="text-sm font-semibold flex items-center gap-1.5 flex-wrap justify-center" style={{ color: '#D1D5DB' }}>
+          <div className="flex flex-col items-center gap-3 pb-8 text-center">
+            <p className="text-sm font-semibold" style={{ color: '#D1D5DB' }}>
               Developed with <span aria-label="love" role="img">❤️</span> by
-              <ArcvionLink style={{ color: '#E5E7EB' }} />
             </p>
+            <a
+              href={ARCVION_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Arcvion — opens in a new tab"
+              className="inline-block transition-opacity hover:opacity-80"
+            >
+              <img
+                src="/logo-arcvion-dark.png"
+                alt="Arcvion — Powering Tomorrow's Intelligence"
+                className="w-[230px] max-w-full h-auto"
+              />
+            </a>
             <p className="text-xs" style={{ color: '#6B7280' }}>
               Empowering the Future of Education Through AI
             </p>
