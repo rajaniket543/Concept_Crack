@@ -4,7 +4,7 @@
 
 # Concept Crack
 
-### AI-powered learning & assessment platform for JEE · NEET 
+### AI-powered learning & assessment platform for JEE · NEET · UPSC · CAT
 
 Adaptive practice, proctored mock tests, deep analytics, and an AI tutor —
 across dedicated **Student, Parent, Faculty, and Admin** portals.
