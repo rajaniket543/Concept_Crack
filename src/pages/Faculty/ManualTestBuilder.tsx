@@ -6,6 +6,7 @@ import { useToast } from '../../components/Toast';
 import { listBankQuestions, QUESTION_ORIGINS, type BankQuestion } from '../../lib/questionBank';
 import { createTest, type LockMode } from '../../lib/tests';
 import { pathFor } from '../../lib/pages';
+import MathText from '../../components/MathText';
 
 const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
 const DIFF_COLOR: Record<string, string> = { Easy: '#10B981', Medium: '#F59E0B', Hard: '#EF4444' };
@@ -271,11 +272,14 @@ export default function ManualTestBuilder() {
               <button type="button" onClick={() => setPreview(null)} className="icon-btn icon-btn-sm"><span className="material-symbols-outlined">close</span></button>
             </div>
             <div className="p-6 space-y-3 max-h-[70vh] overflow-y-auto">
-              <p className="text-body-md" style={{ color: 'var(--text-primary)' }}>{preview.question}</p>
+              {preview.imageUrl && (
+                <img src={preview.imageUrl} alt="Question figure" className="rounded-lg max-h-56" style={{ border: '1px solid var(--border)' }} />
+              )}
+              <p className="text-body-md" style={{ color: 'var(--text-primary)' }}><MathText text={preview.question} /></p>
               {(['A', 'B', 'C', 'D'] as const).map(k => (
                 <div key={k} className="flex items-center gap-3 rounded-lg px-3 py-2" style={{ backgroundColor: preview.answer === k ? 'rgba(16,185,129,0.10)' : 'var(--surface-muted)', border: `1px solid ${preview.answer === k ? 'rgba(16,185,129,0.35)' : 'var(--border)'}` }}>
                   <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: preview.answer === k ? '#10B981' : 'var(--surface)', color: preview.answer === k ? '#fff' : 'var(--text-muted)' }}>{k}</span>
-                  <span className="text-body-md" style={{ color: 'var(--text-primary)' }}>{preview.options[k] || '—'}</span>
+                  <span className="text-body-md" style={{ color: 'var(--text-primary)' }}><MathText text={preview.options[k] || '—'} /></span>
                 </div>
               ))}
             </div>

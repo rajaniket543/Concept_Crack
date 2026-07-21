@@ -5,6 +5,7 @@ import App from './App';
 import { ThemeProvider } from './lib/theme';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
+import { ConfirmProvider } from './components/ConfirmDialog';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -13,7 +14,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <ErrorBoundary>
           <ToastProvider>
-            <App />
+            <ConfirmProvider>
+              <App />
+            </ConfirmProvider>
           </ToastProvider>
         </ErrorBoundary>
       </ThemeProvider>

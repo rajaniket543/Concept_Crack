@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
-import { getStudentDashboard, getStudentProgressData, type ProgressRecord } from '../../lib/db';
+import ActivityHeatmap from '../../components/ActivityHeatmap';
+import { getDailyActivityMinutes } from '../../lib/activity';
+import { getStudentDashboard, getStudentProgressData, getStudentStreamDB, type ProgressRecord } from '../../lib/db';
 import { getAuthSession } from '../../lib/auth';
-import { getStudentStream, STREAM_COLORS, STREAM_BG, STREAM_EXAM } from '../../lib/stream';
+import { getStudentStream, saveStreamLocal, STREAM_COLORS, STREAM_BG, type StudentStream } from '../../lib/stream';
+import { formatExamCountdown } from '../../lib/examCountdown';
 import {
   currentStudent,
   dashboardMetrics,
@@ -29,14 +32,17 @@ interface DashData {
 
 export default function StudentDashboard() {
   const session   = getAuthSession();
-  const stream    = getStudentStream();
   const firstName = session?.user?.name?.split(' ')[0] ?? currentStudent.name.split(' ')[0];
+  // Local cache first for instant paint; corrected against the student's
+  // actual profile below in case this device/session never set it locally.
+  const [stream, setStream] = useState<StudentStream | null>(getStudentStream());
   const [data, setData] = useState<DashData>({
     currentStudent, metrics: dashboardMetrics, weeklyProgress,
     subjectPerformance, heatmapCells, weakAreas, aiRecommendations,
   });
   const [loading,  setLoading]  = useState(false);
   const [progress, setProgress] = useState<ProgressRecord | null>(null);
+  const [activityMap, setActivityMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +55,20 @@ export default function StudentDashboard() {
       getStudentProgressData(session.user.id)
         .then(p => { if (!cancelled) setProgress(p); })
         .catch(() => undefined);
+      getDailyActivityMinutes(session.user.id)
+        .then(m => { if (!cancelled) setActivityMap(m); })
+        .catch(() => undefined);
+      // Correct against the student's actual profile — covers a fresh
+      // device/session where the local stream cache was never set.
+      if (!getStudentStream()) {
+        getStudentStreamDB(session.user.id)
+          .then(dbStream => {
+            if (cancelled || (dbStream !== 'JEE' && dbStream !== 'NEET')) return;
+            saveStreamLocal(dbStream);
+            setStream(dbStream);
+          })
+          .catch(() => undefined);
+      }
     }
     return () => { cancelled = true; };
   }, []);
@@ -106,7 +126,7 @@ export default function StudentDashboard() {
               {greeting}, {firstName} 👋
             </h1>
             <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
-              {stream ? STREAM_EXAM[stream] : ((data.currentStudent as any).examTarget ?? 'JEE 2025')} · {(data.currentStudent as any).daysToExam ?? 47} days remaining
+              {formatExamCountdown(stream)}
               {stream && <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: stream === 'JEE' ? 'rgba(91,79,232,0.12)' : 'rgba(20,184,166,0.12)', color: stream === 'JEE' ? '#5B4FE8' : '#14B8A6' }}>{stream}</span>}
             </p>
           </div>
@@ -222,22 +242,13 @@ export default function StudentDashboard() {
 
         {/* ── Bottom row ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Topic heatmap */}
+          {/* Study activity calendar (LeetCode-style) */}
           <Card
-            title="Topic Mastery Heatmap"
-            subtitle="Daily proficiency growth across all topics"
-            action={
-              <div className="flex items-center gap-1.5">
-                <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>Low</span>
-                {[0.15, 0.35, 0.60, 1].map((o, i) => (
-                  <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: `rgba(91,79,232,${o})` }} />
-                ))}
-                <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>High</span>
-              </div>
-            }
+            title="Study Activity"
+            subtitle="Your daily study time over the last 6 months"
             className="lg:col-span-2"
           >
-            <HeatmapGrid cells={data.heatmapCells} cols={12} />
+            <ActivityHeatmap data={activityMap} colorBase="#5B4FE8" unit="min" />
           </Card>
 
           {/* Weak areas */}
@@ -427,35 +438,3 @@ function WeeklyAreaChart({ data }: { data: any[] }) {
   );
 }
 
-// ── HeatmapGrid (inline) ─────────────────────────────────────────────────────
-function HeatmapGrid({ cells, cols = 12 }: { cells: any[]; cols?: number }) {
-  const INTENSITIES = [
-    'rgba(91,79,232,0.08)',
-    'rgba(91,79,232,0.20)',
-    'rgba(91,79,232,0.40)',
-    'rgba(91,79,232,0.65)',
-    'rgba(91,79,232,0.90)',
-  ];
-
-  return (
-    <div
-      className="grid gap-1 mt-2"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-      role="img"
-      aria-label="Topic mastery heatmap"
-    >
-      {cells.map((cell: any, i: number) => {
-        const pct = cell.percent ?? cell.pct ?? 50;
-        const idx = Math.min(Math.floor(pct / 20), 4);
-        return (
-          <div
-            key={i}
-            className="aspect-square rounded-sm transition-all duration-200 hover:scale-110 cursor-default"
-            style={{ backgroundColor: INTENSITIES[idx] }}
-            title={cell.tooltip ?? cell.topic ?? `Topic ${i + 1}: ${pct}%`}
-          />
-        );
-      })}
-    </div>
-  );
-}

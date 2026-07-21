@@ -10,6 +10,11 @@ import { useToast } from '../../components/Toast';
 
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard', 'Mixed'] as const;
 const COUNTS       = [10, 20, 30, 40, 50] as const;
+const LEVELS: Array<{ id: 'main' | 'advanced' | 'mixed'; label: string }> = [
+  { id: 'main',     label: 'JEE Main' },
+  { id: 'advanced', label: 'JEE Advanced' },
+  { id: 'mixed',    label: 'Mixed' },
+];
 
 type Step = 'subjects' | 'chapters' | 'config' | 'generating';
 
@@ -27,6 +32,7 @@ export default function CustomTest() {
   const [activeSubjectTab, setActiveSubjectTab] = useState('');
   const [difficulty, setDifficulty]           = useState<string>('Mixed');
   const [count, setCount]                     = useState(30);
+  const [level, setLevel]                     = useState<'main' | 'advanced' | 'mixed'>('main');
   const [loadingCh, setLoadingCh]             = useState(false);
 
   const totalSelected = Object.values(selectedChapters).reduce((acc, s) => acc + s.size, 0);
@@ -92,7 +98,7 @@ export default function CustomTest() {
         if (chapters.length === 0) return;
         const perSubject = Math.round(count * (chapters.length / totalSelected));
         const { questionIds } = await getQuestionsForCustomTest({
-          subject, chapters, difficulty, count: Math.max(5, perSubject),
+          subject, chapters, difficulty, count: Math.max(5, perSubject), level,
         });
         allQIds.push(...questionIds);
       }));
@@ -289,8 +295,28 @@ export default function CustomTest() {
       {step === 'config' && (
         <div className="space-y-6">
           <div>
+            <h2 className="text-label-lg font-bold mb-3" style={{ color: 'var(--text-secondary)' }}>Level</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {LEVELS.map(l => (
+                <button key={l.id} type="button" onClick={() => setLevel(l.id)}
+                  className="py-2.5 rounded-xl text-sm font-semibold transition-all"
+                  style={{
+                    backgroundColor: level === l.id ? '#5B4FE8' : 'var(--surface)',
+                    color:           level === l.id ? '#fff'    : 'var(--text-muted)',
+                    border:          `1.5px solid ${level === l.id ? '#5B4FE8' : 'var(--border)'}`,
+                  }}>
+                  {l.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+              JEE Advanced includes multiple-correct &amp; numeric-answer questions.
+            </p>
+          </div>
+
+          <div>
             <h2 className="text-label-lg font-bold mb-3" style={{ color: 'var(--text-secondary)' }}>Difficulty</h2>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {DIFFICULTIES.map(d => (
                 <button key={d} type="button" onClick={() => setDifficulty(d)}
                   className="py-2.5 rounded-xl text-sm font-semibold transition-all"
@@ -307,7 +333,7 @@ export default function CustomTest() {
 
           <div>
             <h2 className="text-label-lg font-bold mb-3" style={{ color: 'var(--text-secondary)' }}>Questions</h2>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {COUNTS.map(n => (
                 <button key={n} type="button" onClick={() => setCount(n)}
                   className="py-2.5 rounded-xl text-sm font-bold transition-all"
@@ -328,6 +354,7 @@ export default function CustomTest() {
             {[
               ['Subjects', subjectList.join(', ')],
               ['Chapters', `${totalSelected} selected across ${subjectList.length} subject${subjectList.length !== 1 ? 's' : ''}`],
+              ['Level', LEVELS.find(l => l.id === level)?.label ?? 'JEE Main'],
               ['Difficulty', difficulty],
               ['Questions', count],
               ['Duration', `${Math.round(count * 1.5)} min`],

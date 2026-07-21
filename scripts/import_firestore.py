@@ -5,16 +5,23 @@ PrepMind — Firestore Import Script
 Reads output/all_questions.json and imports all questions into Firestore.
 Skips already-imported questions using a checkpoint file.
 
+Any question with a local "imageLocalPath" (set by extract.py's figure-matching)
+is first uploaded to Firebase Storage; the field is replaced with a real
+"imageUrl" before the document is written, so no local file path ever ends up
+in Firestore.
+
 Run:  python import_firestore.py
 """
 
 import json
 import sys
+import uuid
+import urllib.parse
 from pathlib import Path
 
 try:
     import firebase_admin
-    from firebase_admin import credentials, firestore
+    from firebase_admin import credentials, firestore, storage
 except ImportError:
     print("❌  Run:  pip install firebase-admin")
     sys.exit(1)
@@ -25,6 +32,33 @@ SERVICE_ACCOUNT = Path("service-account.json")
 INPUT_FILE      = Path("output/all_questions.json")
 BATCH_SIZE      = 499   # Firestore max is 500 per batch
 COLLECTION      = "questions"
+STORAGE_BUCKET  = "concept-crack.firebasestorage.app"  # matches src/lib/firebase.ts
+
+# ── Figure upload ─────────────────────────────────────────────────────────────
+
+def upload_figure(bucket, local_path: str) -> str | None:
+    """
+    Upload a locally-extracted figure to Storage and return a download URL in
+    the same shape the web app's Firebase SDK produces (…?alt=media&token=…),
+    so it works exactly like a faculty-uploaded image. Returns None on failure
+    (the caller just leaves imageUrl unset rather than aborting the import).
+    """
+    p = Path(local_path)
+    if not p.exists():
+        return None
+    ext = p.suffix.lstrip(".") or "png"
+    dest = f"question-images/pdf-import/{uuid.uuid4()}.{ext}"
+    blob = bucket.blob(dest)
+    token = str(uuid.uuid4())
+    blob.metadata = {"firebaseStorageDownloadTokens": token}
+    try:
+        blob.upload_from_filename(str(p))
+        blob.patch()
+    except Exception as e:
+        print(f"      ⚠️  Figure upload failed for {p.name}: {e}")
+        return None
+    quoted = urllib.parse.quote(dest, safe="")
+    return f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{quoted}?alt=media&token={token}"
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -46,12 +80,27 @@ def main():
 
     print(f"   Loaded {len(questions)} questions from {INPUT_FILE}")
 
-    # Connect to Firestore
-    print("   Connecting to Firestore ...", end=" ", flush=True)
+    # Connect to Firestore + Storage
+    print("   Connecting to Firebase ...", end=" ", flush=True)
     cred = credentials.Certificate(str(SERVICE_ACCOUNT))
-    firebase_admin.initialize_app(cred)
-    db = firestore.client()
+    firebase_admin.initialize_app(cred, {"storageBucket": STORAGE_BUCKET})
+    db     = firestore.client()
+    bucket = storage.bucket()
     print("✅\n")
+
+    # Upload any locally-extracted figures and swap the local path for a real URL
+    # before anything is written to Firestore.
+    with_figures = [q for q in questions if q.get("imageLocalPath")]
+    if with_figures:
+        print(f"   Uploading {len(with_figures)} figure(s) to Storage ...")
+        uploaded = 0
+        for q in with_figures:
+            url = upload_figure(bucket, q["imageLocalPath"])
+            if url:
+                q["imageUrl"] = url
+                uploaded += 1
+            q.pop("imageLocalPath", None)
+        print(f"   ✅  {uploaded}/{len(with_figures)} figure(s) uploaded\n")
 
     # Import in batches of 499
     total    = len(questions)

@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { pathFor } from '../../lib/pages';
 import { getAuthSession } from '../../lib/auth';
 import { STREAM_COLORS, STREAM_BG } from '../../lib/stream';
+import AIMarkdown from '../../components/AIMarkdown';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
@@ -76,13 +77,16 @@ Answer the student's question in 2-4 short sentences. Reference their ACTUAL res
 Student's question: ${userMessage}`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+    // gemini-2.5-flash is no longer available on free-tier keys for new
+    // Google Cloud projects — gemini-flash-lite-latest is a rolling alias
+    // Google keeps pointed at a currently-supported model.
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${GEMINI_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: systemPrompt }] }],
-        // thinkingBudget: 0 keeps 2.5-flash from spending the token budget on
+        // thinkingBudget: 0 keeps the model from spending the token budget on
         // internal reasoning (which returns an empty answer for short replies).
         generationConfig: { maxOutputTokens: 700, temperature: 0.6, thinkingConfig: { thinkingBudget: 0 } },
       }),
@@ -280,6 +284,9 @@ export default function TestResultAndChat() {
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLInputElement>(null);
   const nextId     = useRef(1);
+  // True once the student actually starts chatting — gates the chat auto-scroll
+  // so landing on this page keeps them at the top (results/analysis first).
+  const userInteractedRef = useRef(false);
 
   const allSubjects   = result.subjects?.length ? result.subjects : (subject ? [subject] : []);
   const isMultiSubject = allSubjects.length > 1;
@@ -293,6 +300,9 @@ export default function TestResultAndChat() {
   ];
 
   useEffect(() => {
+    // Always land at the top so the student sees their results/analysis first,
+    // then scrolls down to the Companion themselves.
+    window.scrollTo({ top: 0 });
     const t1 = setTimeout(() => setChatReady(true), 800);
     const t2 = setTimeout(() => {
       setMessages([{ id: nextId.current++, role: 'ai', text: buildWelcome(result, name) }]);
@@ -302,11 +312,14 @@ export default function TestResultAndChat() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only follow new messages once the student has started chatting — the
+    // initial welcome message must not yank the page down to the Companion.
+    if (userInteractedRef.current) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   async function sendMessage(text: string) {
     if (!text.trim() || busy) return;
+    userInteractedRef.current = true;
     setInput('');
     setBusy(true);
     const userMsg:   Message = { id: nextId.current++, role: 'user', text: text.trim() };
@@ -352,7 +365,7 @@ export default function TestResultAndChat() {
         <div className="flex items-center gap-2">
           <button onClick={scrollToChat} className="btn-ghost btn-sm flex items-center gap-1.5">
             <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#5B4FE8' }}>smart_toy</span>
-            AI Tutor
+            Companion
           </button>
           <Link to={pathFor('analysis')} className="btn-outline btn-sm">Analysis</Link>
           <Link to={pathFor('student')} className="btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
@@ -450,7 +463,7 @@ export default function TestResultAndChat() {
 
             {/* Stats */}
             <div className="flex-1 w-full">
-              <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                 {[
                   { label: 'Correct',   value: correct, color: '#10B981', bg: 'rgba(16,185,129,0.10)', icon: 'check_circle' },
                   { label: 'Incorrect', value: wrong,   color: '#EF4444', bg: 'rgba(239,68,68,0.10)',  icon: 'cancel' },
@@ -660,7 +673,7 @@ export default function TestResultAndChat() {
               <span className="material-symbols-outlined filled text-white" style={{ fontSize: '13px' }}>smart_toy</span>
             </div>
             <span className="text-xs font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-              Ask Your AI Tutor
+              Ask Your Companion
             </span>
           </div>
           <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
@@ -700,6 +713,8 @@ export default function TestResultAndChat() {
                         style={{ backgroundColor: 'var(--text-faint)', animation: `bounce 1.2s ${i * 0.2}s infinite` }} />
                     ))}
                   </div>
+                ) : msg.role === 'ai' ? (
+                  <AIMarkdown text={msg.text} />
                 ) : msg.text}
               </div>
             </div>

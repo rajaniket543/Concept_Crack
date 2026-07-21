@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAuthSession } from '../../lib/auth';
 import { getStudentStream } from '../../lib/stream';
 import { updateStudentProgress } from '../../lib/db';
+import { saveTestAttempt } from '../../lib/tests';
 import {
   createBattle, joinBattle, startBattle, submitBattleResult,
   subscribeToBattle, configureBattle, inviteStudentToBattle,
@@ -11,7 +12,9 @@ import {
 } from '../../lib/battles';
 import { getQuestionsForCustomTest, type ExamQuestion } from '../../lib/questions';
 import { useToast } from '../../components/Toast';
+import { useConfirm } from '../../components/ConfirmDialog';
 import { pathFor } from '../../lib/pages';
+import MathText from '../../components/MathText';
 
 type Screen = 'home' | 'lobby' | 'exam';
 type PaletteState = 'not-visited' | 'answered' | 'not-answered';
@@ -30,6 +33,7 @@ function formatTime(s: number) {
 export default function Battle() {
   const navigate  = useNavigate();
   const toast     = useToast();
+  const confirm   = useConfirm();
   const session   = getAuthSession();
   const uid       = session?.user?.id ?? '';
   const name      = session?.user?.name ?? 'Student';
@@ -267,20 +271,30 @@ export default function Battle() {
     setSubmitted(true);
     window.clearInterval(timerRef.current);
 
-    let correct = 0, incorrect = 0;
+    let correct = 0, incorrect = 0, unscored = 0;
     const chapterStats: Record<string, { subject: string; chapter: string; correct: number; total: number }> = {};
     questions.forEach((qs, i) => {
       const ans     = answers[i + 1];
       const subj    = qs.subject  || battle.subjects[0] || 'Unknown';
       const chap    = qs.chapter  || qs.section         || 'Unknown';
       const key     = `${subj}::${chap}`;
+
+      // A question with no correct answer on record can't be graded — never
+      // score a response against it (previously this silently marked every
+      // answer, including the correct one, as wrong).
+      if (!qs.answer) { unscored++; return; }
+
       if (!chapterStats[key]) chapterStats[key] = { subject: subj, chapter: chap, correct: 0, total: 0 };
       chapterStats[key].total++;
       if (ans !== undefined) {
-        if (qs.answer && ans === qs.answer) { correct++; chapterStats[key].correct++; }
+        if (ans === qs.answer) { correct++; chapterStats[key].correct++; }
         else incorrect++;
       }
     });
+
+    if (unscored > 0) {
+      toast(`${unscored} question${unscored === 1 ? '' : 's'} in this battle could not be graded (missing answer key) and were excluded from scoring.`, 'info');
+    }
 
     const skipped    = questions.length - correct - incorrect;
     const accuracy   = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
@@ -313,8 +327,40 @@ export default function Battle() {
     const myRank = leaderboard.findIndex(p => p.uid === uid) + 1;
     const examTitle = `Battle — ${battle.subjects.join(' / ') || 'Mixed'}`;
 
-    // Save to Firestore so Test Analysis has data
-    void updateStudentProgress(uid, {
+    // Log the battle as an attempt so it appears in Review Tests, categorised as
+    // "Battle". Must never block reaching the results screen — retry once, and
+    // if it still fails, let the student through with a visible warning instead
+    // of silently losing the attempt.
+    const battleAttemptPayload = {
+      testId:       `battle:${battle.id}`,
+      studentId:    uid,
+      answers:      Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, v as 'A'|'B'|'C'|'D'])),
+      score, correctCount: correct, incorrectCount: incorrect,
+      skippedCount: skipped, accuracyPct: accuracy, timeSeconds: timeUsed,
+      status:       'submitted' as const,
+      startedAt:    new Date().toISOString(),
+      submittedAt:  new Date().toISOString(),
+      testType:     'battle' as const,
+      testTitle:    examTitle,
+      subjects:     battle.subjects.length ? battle.subjects : ['Mixed'],
+      questionIds:  questions.map(q => q.id),
+      rank:         myRank,
+    };
+
+    try {
+      await saveTestAttempt(battleAttemptPayload);
+    } catch {
+      await new Promise(r => setTimeout(r, 800));
+      try {
+        await saveTestAttempt(battleAttemptPayload);
+      } catch (e) {
+        console.error('saveTestAttempt failed after retry', e);
+        toast('Your result is shown below, but this battle could not be saved to Review Tests. Please check your connection.', 'error');
+      }
+    }
+
+    // Never throws internally (see updateStudentProgress) — safe to await.
+    await updateStudentProgress(uid, {
       lastActivity: { type: 'test', title: examTitle, score: accuracy, accuracy, completedAt: new Date().toISOString() },
       completedTests: 1,
       latestTestResult: {
@@ -661,7 +707,16 @@ export default function Battle() {
               {formatTime(seconds)}
             </span>
             <button type="button"
-              onClick={() => { if (window.confirm('Submit and end your exam?')) void handleSubmit(); }}
+              onClick={async () => {
+                const ok = await confirm({
+                  title: 'Submit and end your battle?',
+                  message: 'Your answers will be locked in and scored against your opponents. This cannot be undone.',
+                  confirmLabel: 'Submit',
+                  tone: 'warning',
+                  icon: 'send',
+                });
+                if (ok) void handleSubmit();
+              }}
               disabled={submitted}
               className="btn-primary btn-sm"
               style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
@@ -682,7 +737,10 @@ export default function Battle() {
             </div>
             <div className="rounded-xl p-5 mb-5 text-base leading-relaxed"
               style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
-              {q.prompt}
+              {q.imageUrl && (
+                <img src={q.imageUrl} alt="Question figure" className="rounded-lg max-h-72 mb-4 mx-auto" />
+              )}
+              <MathText text={q.prompt} />
             </div>
             <div className="space-y-3">
               {q.options.map(opt => {
@@ -700,7 +758,7 @@ export default function Battle() {
                       style={{ backgroundColor: sel ? '#5B4FE8' : 'var(--surface-muted)', color: sel ? '#fff' : 'var(--text-muted)' }}>
                       {opt.key}
                     </div>
-                    <span className="text-sm" style={{ color: sel ? '#5B4FE8' : 'var(--text-primary)' }}>{opt.text}</span>
+                    <span className="text-sm" style={{ color: sel ? '#5B4FE8' : 'var(--text-primary)' }}><MathText text={opt.text} /></span>
                   </button>
                 );
               })}

@@ -1,9 +1,11 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { PageKey, pathFor } from '../lib/pages';
 import { logout } from '../lib/auth';
-import { useTheme } from '../lib/theme';
-import { useState } from 'react';
+import Logo from './Logo';
+import { useEffect, useState } from 'react';
 import AICompanion from './AICompanion';
+import { useConfirm } from './ConfirmDialog';
+import { ArcvionBadge } from './Arcvion';
 
 interface NavSection {
   label?: string;
@@ -30,8 +32,9 @@ function isNavSection(x: NavItem | NavSection): x is NavSection {
 export default function Layout({ brand, role = 'student', nav, variant = 'default' }: LayoutProps) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { theme, toggleTheme, isDark } = useTheme();
+  const confirm = useConfirm();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const roleAccent: Record<string, string> = {
     student: '#5B4FE8',
@@ -41,6 +44,27 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
   };
   const accent = roleAccent[role] ?? '#5B4FE8';
   const homePath = pathFor(role as PageKey);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setMobileNavOpen(false);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileNavOpen]);
 
   if (variant === 'focus') {
     return (
@@ -52,10 +76,13 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
     );
   }
 
-  // Normalize nav to sections
+  // Normalize nav to sections. The "Account" section (Settings, Contact) is
+  // pinned to the bottom of the panel — common across all portals.
   const sections: NavSection[] = nav.every(isNavSection)
     ? (nav as NavSection[])
     : [{ items: nav as NavItem[] }];
+  const mainSections    = sections.filter(s => s.label !== 'Account');
+  const accountSections = sections.filter(s => s.label === 'Account');
 
   const sidebarWidth = collapsed ? '60px' : '260px';
 
@@ -69,6 +96,19 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
       return matches && t.length > best.len ? { key: it.key, len: t.length } : best;
     }, { key: '', len: -1 }).key;
 
+  async function handleSignOut() {
+    const ok = await confirm({
+      title: 'Sign out?',
+      message: 'You will be returned to the login page.',
+      confirmLabel: 'Sign out',
+      tone: 'danger',
+      icon: 'logout',
+    });
+    if (!ok) return;
+    await logout();
+    navigate(pathFor('login'));
+  }
+
   function renderNavItem(item: NavItem) {
     const target = pathFor(item.key);
     const active = item.key === activeKey;
@@ -79,6 +119,7 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
         title={collapsed ? item.label : undefined}
         className={`sidebar-item ${active ? 'active' : ''}`}
         style={active ? { backgroundColor: accent } : undefined}
+        onClick={() => setMobileNavOpen(false)}
       >
         <span className="material-symbols-outlined item-icon">{item.icon}</span>
         {!collapsed && <span className="truncate text-sm">{item.label}</span>}
@@ -88,9 +129,19 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
 
   return (
     <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg)' }}>
+      {mobileNavOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/45 lg:hidden"
+          aria-label="Close navigation"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className="shrink-0 flex flex-col h-screen sticky top-0 overflow-y-auto transition-all duration-200"
+        className="sidebar shrink-0 flex flex-col h-screen sticky top-0 overflow-y-auto transition-transform duration-200 lg:transition-all"
+        data-mobile-open={mobileNavOpen ? 'true' : 'false'}
         style={{
           width: sidebarWidth,
           backgroundColor: 'var(--sidebar-bg)',
@@ -101,20 +152,10 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
         {/* Logo */}
         <div
           className="flex items-center gap-3 px-4 shrink-0"
-          style={{ height: '64px', borderBottom: '1px solid var(--sidebar-border)' }}
+          style={{ height: '68px', borderBottom: '1px solid var(--sidebar-border)' }}
         >
           <Link to={homePath} className="flex items-center gap-3 min-w-0" title="Go to dashboard">
-            <img
-              src="/logo.png"
-              alt="Concept Crack"
-              className="w-8 h-8 rounded-lg object-cover shrink-0"
-            />
-            {!collapsed && (
-              <div className="min-w-0">
-                <div className="font-headline font-bold text-white text-sm tracking-tight truncate">Concept Crack</div>
-                <div className="text-[10px] uppercase tracking-widest truncate" style={{ color: 'var(--sidebar-text-muted)' }}>{brand}</div>
-              </div>
-            )}
+            <Logo size="md" tone="onDark" showText={!collapsed} />
           </Link>
           {!collapsed && (
             <button
@@ -130,11 +171,11 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
         </div>
 
         {/* Collapsed expand button */}
-        {collapsed && (
-          <button
-            type="button"
-            onClick={() => setCollapsed(false)}
-            className="mx-auto mt-3 w-8 h-8 flex items-center justify-center rounded-md transition-colors"
+          {collapsed && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(false)}
+              className="mx-auto mt-3 w-8 h-8 flex items-center justify-center rounded-md transition-colors"
             style={{ color: 'var(--sidebar-text-muted)', backgroundColor: 'var(--sidebar-hover)' }}
             title="Expand sidebar"
           >
@@ -144,7 +185,7 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
 
         {/* Navigation */}
         <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-0.5">
-          {sections.map((section, si) => (
+          {mainSections.map((section, si) => (
             <div key={si}>
               {section.label && !collapsed && (
                 <div
@@ -159,52 +200,44 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
           ))}
         </nav>
 
-        {/* Footer */}
+        {/* Footer — Account section (Settings etc.), then sign out.
+            The light/dark toggle lives in the top bar and in Settings only. */}
         <div
           className="px-2 py-3 space-y-0.5 shrink-0"
           style={{ borderTop: '1px solid var(--sidebar-border)' }}
         >
-          <button
-            type="button"
-            onClick={toggleTheme}
-            title={collapsed ? (isDark ? 'Light mode' : 'Dark mode') : undefined}
-            className="sidebar-item w-full"
-          >
-            <span className="material-symbols-outlined item-icon">
-              {isDark ? 'light_mode' : 'dark_mode'}
-            </span>
-            {!collapsed && <span className="text-sm">{isDark ? 'Light mode' : 'Dark mode'}</span>}
-          </button>
-          <Link
-            to={pathFor('landing')}
-            title={collapsed ? 'Home' : undefined}
-            className="sidebar-item"
-          >
-            <span className="material-symbols-outlined item-icon">home</span>
-            {!collapsed && <span className="text-sm">Home</span>}
-          </Link>
-          <Link
-            to="/built-by-arcvion"
-            title={collapsed ? 'Built by Arcvion' : undefined}
-            className="sidebar-item"
-          >
-            <span className="material-symbols-outlined item-icon">code</span>
-            {!collapsed && <span className="text-sm">Built by Arcvion</span>}
-          </Link>
+          {accountSections.flatMap(s => s.items).map(renderNavItem)}
           <button
             type="button"
             title={collapsed ? 'Sign out' : undefined}
-            onClick={async () => { await logout(); navigate(pathFor('login')); }}
+            onClick={handleSignOut}
             className="sidebar-item w-full"
           >
             <span className="material-symbols-outlined item-icon">logout</span>
             {!collapsed && <span className="text-sm">Sign out</span>}
           </button>
+
+          {!collapsed && (
+            <div className="pt-2 px-1">
+              <ArcvionBadge variant="onDark" className="w-full" />
+            </div>
+          )}
         </div>
       </aside>
 
       {/* Main */}
       <div className="flex-1 min-w-0 flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
+        <div className="lg:hidden fixed top-4 left-4 z-30">
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm"
+            style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            aria-label="Open navigation menu"
+          >
+            <span className="material-symbols-outlined">menu</span>
+          </button>
+        </div>
         <Outlet />
       </div>
 

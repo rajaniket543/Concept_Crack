@@ -1,0 +1,14 @@
+# Concept Crack — https://conceptcrack.com
+User-agent: *
+Allow: /
+
+# Signed-in app portals hold no crawlable content — keep bots on the public pages.
+Disallow: /student/
+Disallow: /parent/
+Disallow: /faculty/
+Disallow: /admin/
+Disallow: /messages
+Disallow: /settings
+Disallow: /change-password
+
+Sitemap: https://conceptcrack.com/sitemap.xml

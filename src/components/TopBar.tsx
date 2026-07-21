@@ -1,48 +1,103 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthSession, logout } from '../lib/auth';
-import { useTheme } from '../lib/theme';
 import { pathFor } from '../lib/pages';
+import { getUserNotifications, markNotificationsRead, type AppNotification } from '../lib/db';
+import { useConfirm } from './ConfirmDialog';
+import { useTheme } from '../lib/theme';
 
 interface TopBarProps {
   title?: string;
   breadcrumb?: { label: string; href?: string }[];
   actions?: ReactNode;
+  /** Kept for backwards compatibility — the global search bar has been removed. */
   showSearch?: boolean;
 }
 
-export default function TopBar({ title, breadcrumb, actions, showSearch = true }: TopBarProps) {
+const NOTIF_ICON: Record<string, string> = {
+  test:     'quiz',
+  approval: 'verified',
+  message:  'chat',
+  battle:   'sports_esports',
+  account:  'person',
+  system:   'notifications',
+};
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
   const session = getAuthSession();
   const navigate = useNavigate();
-  const { toggleTheme, isDark } = useTheme();
+  const confirm = useConfirm();
+  const { isDark, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   const userInitials = session?.user?.name
     ? session.user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     : 'U';
   const userName = session?.user?.name ?? 'User';
   const userRole = session?.user?.role ?? '';
+  const uid = session?.user?.id ?? '';
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    getUserNotifications(uid).then(list => { if (!cancelled) setNotifications(list); });
+    return () => { cancelled = true; };
+  }, [uid]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
     }
-    if (menuOpen) document.addEventListener('mousedown', handler);
+    if (menuOpen || notifOpen) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [menuOpen]);
+  }, [menuOpen, notifOpen]);
+
+  function openNotifications() {
+    const next = !notifOpen;
+    setNotifOpen(next);
+    if (next && unreadCount > 0) {
+      const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+      // Optimistically mark read; persist in the background.
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      void markNotificationsRead(unreadIds);
+    }
+  }
 
   async function handleLogout() {
+    setMenuOpen(false);
+    const ok = await confirm({
+      title: 'Sign out?',
+      message: 'You will be returned to the login page.',
+      confirmLabel: 'Sign out',
+      tone: 'danger',
+      icon: 'logout',
+    });
+    if (!ok) return;
     await logout();
     navigate(pathFor('login'));
   }
 
   return (
     <header
-      className="flex items-center gap-4 px-6 shrink-0"
+      className="topbar flex items-center gap-3 sm:gap-4 px-4 sm:px-6 shrink-0"
       style={{
         height: '64px',
         backgroundColor: 'var(--topbar-bg)',
@@ -80,52 +135,79 @@ export default function TopBar({ title, breadcrumb, actions, showSearch = true }
         ) : null}
       </div>
 
-      {/* Search */}
-      {showSearch && (
-        <div className="hidden md:block">
-          <div className="search-bar w-72">
-            <span className="material-symbols-outlined text-[18px] shrink-0">search</span>
-            <input
-              type="search"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search topics, questions..."
-              className="flex-1 bg-transparent outline-none text-body-md"
-              style={{ color: 'var(--text-primary)', minWidth: 0 }}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Right actions */}
       <div className="flex items-center gap-1">
         {actions}
 
-        {/* Theme toggle */}
+        {/* Light / dark toggle button */}
         <button
           type="button"
           onClick={toggleTheme}
           className="icon-btn icon-btn-md"
           title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          aria-label="Toggle theme"
+          aria-label="Toggle light or dark mode"
         >
           <span className="material-symbols-outlined">{isDark ? 'light_mode' : 'dark_mode'}</span>
         </button>
 
         {/* Notifications */}
-        <button
-          type="button"
-          className="icon-btn icon-btn-md relative"
-          title="Notifications"
-          aria-label="Notifications"
-        >
-          <span className="material-symbols-outlined">notifications</span>
-          <span
-            className="absolute top-1 right-1 w-2 h-2 rounded-full"
-            style={{ backgroundColor: '#EF4444' }}
-            aria-hidden="true"
-          />
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button
+            type="button"
+            onClick={openNotifications}
+            className="icon-btn icon-btn-md relative"
+            title="Notifications"
+            aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+            aria-expanded={notifOpen}
+          >
+            <span className="material-symbols-outlined">notifications</span>
+            {unreadCount > 0 && (
+              <span
+                className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
+                style={{ backgroundColor: '#EF4444' }}
+              >
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <div className="dropdown right-0 mt-1 overflow-hidden" style={{ width: '340px' }}>
+              <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
+                <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Notifications</span>
+                <span className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{notifications.length} recent</span>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <span className="material-symbols-outlined block mx-auto mb-2" style={{ fontSize: '28px', color: 'var(--text-faint)' }}>notifications_off</span>
+                    <p className="text-body-sm" style={{ color: 'var(--text-muted)' }}>No notifications yet</p>
+                    <p className="text-label-sm mt-0.5" style={{ color: 'var(--text-faint)' }}>Test results, approvals and messages appear here.</p>
+                  </div>
+                ) : (
+                  notifications.map(n => (
+                    <div
+                      key={n.id}
+                      className="px-4 py-3 flex gap-3 border-b last:border-b-0"
+                      style={{ borderColor: 'var(--border)', backgroundColor: n.read ? 'transparent' : 'rgba(91,79,232,0.04)' }}
+                    >
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: 'rgba(91,79,232,0.10)' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#5B4FE8' }}>
+                          {NOTIF_ICON[n.type] ?? 'notifications'}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-body-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{n.title}</div>
+                        {n.body && <div className="text-label-sm leading-5" style={{ color: 'var(--text-muted)' }}>{n.body}</div>}
+                        <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-faint)' }}>{timeAgo(n.createdAt)}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* User avatar + dropdown */}
         <div className="relative ml-1" ref={menuRef}>
@@ -156,7 +238,7 @@ export default function TopBar({ title, breadcrumb, actions, showSearch = true }
                 <div className="text-body-sm capitalize" style={{ color: 'var(--text-muted)' }}>{userRole}</div>
               </div>
               <div className="py-1">
-                <button type="button" className="dropdown-item">
+                <button type="button" onClick={() => { setMenuOpen(false); navigate(pathFor('settings')); }} className="dropdown-item">
                   <span className="material-symbols-outlined text-[18px]">person</span>
                   Profile
                 </button>
@@ -164,7 +246,7 @@ export default function TopBar({ title, breadcrumb, actions, showSearch = true }
                   <span className="material-symbols-outlined text-[18px]">settings</span>
                   Settings
                 </button>
-                <button type="button" className="dropdown-item">
+                <button type="button" onClick={() => { setMenuOpen(false); navigate(pathFor('contact')); }} className="dropdown-item">
                   <span className="material-symbols-outlined text-[18px]">help</span>
                   Help & Support
                 </button>

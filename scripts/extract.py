@@ -35,6 +35,15 @@ SUBJECT_STREAM = {
 
 SKIP_FILENAMES = {"answers_physics.pdf", "answers_mathematics.pdf"}
 
+FIGURES_DIR   = Path("output/figures")
+MIN_FIGURE_PX = 40   # skip tiny embedded icons/bullets/logos — real figures are bigger
+
+# Shared with find_question_blocks() below — recognises Q.1  Q. 1  1.  1)  Q1.
+QNUM_MARKER_RE = re.compile(
+    r'(?:^|\n)[ \t]*(?:Q\.?\s*)?(\d{1,3})[ \t]*[.)]\s+(?=[A-Za-z\d(])',
+    re.MULTILINE
+)
+
 # ── Text normalisation ────────────────────────────────────────────────────────
 
 def normalize(text: str) -> str:
@@ -83,11 +92,7 @@ def find_question_blocks(text: str) -> list:
     Splits text into (question_number, block_text) tuples.
     Recognises: Q.1  Q. 1  1.  1)  Q1.
     """
-    pat = re.compile(
-        r'(?:^|\n)[ \t]*(?:Q\.?\s*)?(\d{1,3})[ \t]*[.)]\s+(?=[A-Za-z\d(])',
-        re.MULTILINE
-    )
-    matches = list(pat.finditer(text))
+    matches = list(QNUM_MARKER_RE.finditer(text))
     if not matches:
         return []
 
@@ -246,6 +251,66 @@ def tag_questions(questions: list, path: Path) -> list:
         q.pop("questionNumber", None)
     return questions
 
+# ── Figure extraction (image → nearest preceding question, same page) ────────
+#
+# Heuristic, single-column assumption: for each page, find every question-number
+# marker and its vertical position, find every embedded image and its vertical
+# position, then assign each image to the question marker immediately above it
+# on the same page. Matches are a starting point for faculty review (via the
+# existing Question Bank / verification flow), not a guaranteed-correct result —
+# a two-column layout, or a figure that belongs to the question below it instead
+# of above, will misattach. Only one figure is kept per question (the schema
+# supports a single imageUrl), so if several images fall in one question's
+# range the first one found wins.
+
+def extract_page_figures(doc, pdf_stem: str) -> dict:
+    image_map: dict[int, str] = {}
+    out_dir = FIGURES_DIR / re.sub(r'[^\w]', '_', pdf_stem)
+
+    for page_num, page in enumerate(doc):
+        if not QNUM_MARKER_RE.search(page.get_text()):
+            continue  # no question markers on this page — nothing to match
+
+        markers = []  # (y0, question_number)
+        for block in page.get_text("blocks"):
+            y0, block_text = block[1], block[4]
+            for m in QNUM_MARKER_RE.finditer(block_text):
+                try:
+                    markers.append((y0, int(m.group(1))))
+                except ValueError:
+                    pass
+        if not markers:
+            continue
+        markers.sort(key=lambda t: t[0])
+
+        for xref, *_ in page.get_images(full=True):
+            rects = page.get_image_rects(xref)
+            if not rects:
+                continue
+            img_y0 = rects[0].y0
+            candidates = [n for y0, n in markers if y0 <= img_y0]
+            if not candidates:
+                continue
+            question_num = candidates[-1]  # nearest marker above the image
+            if question_num in image_map:
+                continue  # keep the first figure found for this question
+
+            try:
+                base_image = doc.extract_image(xref)
+            except Exception:
+                continue
+            if base_image.get("width", 0) < MIN_FIGURE_PX or base_image.get("height", 0) < MIN_FIGURE_PX:
+                continue
+
+            out_dir.mkdir(parents=True, exist_ok=True)
+            fname = f"p{page_num}_q{question_num}_x{xref}.{base_image['ext']}"
+            fpath = out_dir / fname
+            with open(fpath, "wb") as f:
+                f.write(base_image["image"])
+            image_map[question_num] = str(fpath)
+
+    return image_map
+
 # ── PDF extractor ─────────────────────────────────────────────────────────────
 
 def extract_pdf(path: Path) -> list:
@@ -259,10 +324,17 @@ def extract_pdf(path: Path) -> list:
     try:
         doc  = fitz.open(str(path))
         text = "\n".join(page.get_text() for page in doc)
-        doc.close()
     except Exception as e:
         print(f"      ❌  Cannot open: {e}")
         return []
+
+    try:
+        image_map = extract_page_figures(doc, path.stem)
+    except Exception as e:
+        print(f"      ⚠️  Figure extraction failed ({e}) — continuing with text only")
+        image_map = {}
+
+    doc.close()
 
     text       = normalize(text)
     answer_key = extract_answer_key(text)
@@ -276,11 +348,15 @@ def extract_pdf(path: Path) -> list:
         if q:
             if q["answer"] is None and num in answer_key:
                 q["answer"] = answer_key[num]
+            if num in image_map:
+                q["imageLocalPath"] = image_map[num]
             questions.append(q)
 
     questions = tag_questions(questions, path)
     save_progress(path, questions)
-    print(f"{len(questions)} questions extracted")
+    matched = sum(1 for q in questions if q.get("imageLocalPath"))
+    suffix = f", {matched} figure(s) matched" if matched else ""
+    print(f"{len(questions)} questions extracted{suffix}")
     return questions
 
 # ── DOCX extractor (Biology table format) ─────────────────────────────────────

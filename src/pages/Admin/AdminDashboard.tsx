@@ -1,38 +1,148 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
-import { adminMetrics, buildHeatmapCells, healthLogs, topInstitutions } from '../../mocks/portal';
-import { apiRequest } from '../../lib/api';
+import Spinner from '../../components/Spinner';
+import ActivityHeatmap from '../../components/ActivityHeatmap';
+import { collection, getDocs, Timestamp } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 import { pathFor } from '../../lib/pages';
+import { hasAI, pingAI, getAIUsage, type AIStatus, type AIUsageSummary } from '../../lib/ai';
+
+// Real platform data pulled straight from Firestore — no mock numbers.
+
+interface AttemptRow {
+  id: string;
+  studentId: string;
+  studentName: string;
+  testTitle: string;
+  score: number;
+  accuracyPct: number;
+  submittedAt: string | null;
+  tabSwitchCount: number;
+}
+
+function toIso(v: unknown): string | null {
+  if (v instanceof Timestamp) return v.toDate().toISOString();
+  if (typeof v === 'string') return v;
+  return null;
+}
 
 export default function AdminDashboard() {
-  const [data, setData] = useState<any>({
-    metrics: adminMetrics,
-    heatmap: buildHeatmapCells(12, 12, 'Peak'),
-    topInstitutions,
-    healthLogs,
-    securityNotes: ['SOC2 Compliant', '99.9% Uptime', 'Encrypted Multi-Tenancy'],
-  });
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<Array<{ role: string; status: string; name: string; id: string }>>([]);
+  const [testCounts, setTestCounts] = useState({ total: 0, active: 0, pending: 0 });
+  const [questionCount, setQuestionCount] = useState(0);
+  const [attempts, setAttempts] = useState<AttemptRow[]>([]);
+
+  // AI system status panel
+  const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
+  const [aiUsage, setAiUsage] = useState<AIUsageSummary | null>(null);
+  const [pinging, setPinging] = useState(false);
+  const [dbLatency, setDbLatency] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    apiRequest('/api/admin/dashboard')
-      .then(payload => { if (!cancelled) setData(payload); })
-      .catch(() => undefined);
+
+    async function load() {
+      try {
+        const dbStart = Date.now();
+        const [userSnap, testSnap, questionSnap, attemptSnap] = await Promise.all([
+          getDocs(collection(db, 'users')),
+          getDocs(collection(db, 'tests')),
+          getDocs(collection(db, 'questions')),
+          getDocs(collection(db, 'testAttempts')),
+        ]);
+        if (cancelled) return;
+        setDbLatency(Date.now() - dbStart);
+
+        const userRows = userSnap.docs.map(d => {
+          const u = d.data();
+          return { id: d.id, role: (u.role as string) ?? '', status: (u.status as string) ?? 'Active', name: (u.name as string) ?? (u.email as string) ?? '—' };
+        });
+        setUsers(userRows);
+        const nameById = new Map(userRows.map(u => [u.id, u.name]));
+
+        let active = 0, pending = 0;
+        const titleByTestId = new Map<string, string>();
+        testSnap.docs.forEach(d => {
+          const s = d.data().status as string;
+          titleByTestId.set(d.id, (d.data().title as string) ?? 'Test');
+          if (s === 'active' || s === 'approved') active += 1;
+          if (s === 'pending_approval') pending += 1;
+        });
+        setTestCounts({ total: testSnap.size, active, pending });
+        setQuestionCount(questionSnap.size);
+
+        const rows: AttemptRow[] = attemptSnap.docs.map(d => {
+          const a = d.data();
+          return {
+            id: d.id,
+            studentId: (a.studentId as string) ?? '',
+            studentName: nameById.get((a.studentId as string) ?? '') ?? 'Student',
+            testTitle: titleByTestId.get((a.testId as string) ?? '') ?? 'Test',
+            score: (a.score as number) ?? 0,
+            accuracyPct: (a.accuracyPct as number) ?? 0,
+            submittedAt: toIso(a.submittedAt),
+            tabSwitchCount: (a.tabSwitchCount as number) ?? 0,
+          };
+        }).sort((x, y) => (y.submittedAt ?? '').localeCompare(x.submittedAt ?? ''));
+        setAttempts(rows);
+      } catch (e) {
+        console.error('admin dashboard load failed', e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load();
+    void getAIUsage().then(u => { if (!cancelled) setAiUsage(u); });
+    // Auto health-check once on load (only when a key is configured).
+    if (hasAI()) {
+      void pingAI().then(s => { if (!cancelled) setAiStatus(s); });
+    } else {
+      setAiStatus({ configured: false, reachable: false, latencyMs: null, model: 'gemini-flash-lite-latest', checkedAt: new Date().toISOString() });
+    }
+
     return () => { cancelled = true; };
   }, []);
 
-  const metricMeta = [
-    { icon: 'group',          color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
-    { icon: 'apartment',      color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
-    { icon: 'quiz',           color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-    { icon: 'trending_up',    color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
+  async function runPing() {
+    setPinging(true);
+    const [s, u] = await Promise.all([pingAI(), getAIUsage()]);
+    setAiStatus(s);
+    setAiUsage(u);
+    setPinging(false);
+  }
+
+  const counts = useMemo(() => ({
+    students: users.filter(u => u.role === 'student').length,
+    faculty: users.filter(u => u.role === 'faculty').length,
+    parents: users.filter(u => u.role === 'parent').length,
+    activeUsers: users.filter(u => u.status === 'Active').length,
+  }), [users]);
+
+  // Daily submission counts for the contribution calendar.
+  const submissionsByDay = useMemo(() => {
+    const map: Record<string, number> = {};
+    attempts.forEach(a => {
+      if (!a.submittedAt) return;
+      const d = new Date(a.submittedAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      map[key] = (map[key] ?? 0) + 1;
+    });
+    return map;
+  }, [attempts]);
+
+  const metrics = [
+    { label: 'Total Users', value: users.length, sub: `${counts.activeUsers} active`, icon: 'group', color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
+    { label: 'Students / Faculty', value: `${counts.students} / ${counts.faculty}`, sub: `${counts.parents} parents linked`, icon: 'school', color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+    { label: 'Tests on Platform', value: testCounts.total, sub: `${testCounts.active} live · ${testCounts.pending} pending approval`, icon: 'quiz', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+    { label: 'Question Bank', value: questionCount, sub: `${attempts.length} attempts recorded`, icon: 'library_books', color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
   ];
 
-  const HEATMAP_LEVELS = [
-    'rgba(236,72,153,0.06)', 'rgba(236,72,153,0.18)', 'rgba(236,72,153,0.38)', 'rgba(236,72,153,0.60)', 'rgba(236,72,153,0.90)',
-  ];
+  const fmtWhen = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
@@ -45,12 +155,12 @@ export default function AdminDashboard() {
               Users
             </Link>
             <Link
-              to={pathFor('institutes')}
+              to={pathFor('testApprovals')}
               className="btn-primary btn-md flex items-center gap-1.5"
               style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>apartment</span>
-              Institutes
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>verified</span>
+              Approvals{testCounts.pending > 0 ? ` (${testCounts.pending})` : ''}
             </Link>
           </div>
         }
@@ -62,183 +172,167 @@ export default function AdminDashboard() {
             Platform Overview
           </h1>
           <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
-            Cross-institute intelligence, health monitoring, and platform operations
+            Live platform data — users, tests, activity and system health
           </p>
         </div>
 
         {/* Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-          {data.metrics.map((m: any, i: number) => {
-            const meta = metricMeta[i] ?? metricMeta[0];
-            const isPositive = (m.trend ?? 0) >= 0;
-            return (
-              <div key={m.label} className="card">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: meta.bg }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '20px', color: meta.color }}>{meta.icon}</span>
-                  </div>
-                  {m.trend !== undefined && (
-                    <span
-                      className="text-label-sm font-bold px-2 py-0.5 rounded-full"
-                      style={isPositive ? { backgroundColor: 'rgba(16,185,129,0.10)', color: '#10B981' } : { backgroundColor: 'rgba(239,68,68,0.10)', color: '#EF4444' }}
-                    >
-                      {isPositive ? '+' : ''}{m.trend}%
-                    </span>
-                  )}
-                </div>
-                <div className="text-2xl font-bold font-headline mb-0.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>{m.value}</div>
-                <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{m.label}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {metrics.map(m => (
+            <div key={m.label} className="card">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: m.bg }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: m.color }}>{m.icon}</span>
               </div>
-            );
-          })}
+              <div className="text-2xl font-bold font-headline mb-0.5" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+                {loading ? '…' : m.value}
+              </div>
+              <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{m.label}</div>
+              <div className="text-label-sm mt-1" style={{ color: 'var(--text-faint)' }}>{loading ? '' : m.sub}</div>
+            </div>
+          ))}
         </div>
 
-        {/* Activity heatmap + AI health */}
+        {/* Activity heatmap + AI system status */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <Card
-            title="Platform Activity Heatmap"
-            subtitle="User activity distribution across hours and days"
-            action={
-              <div className="flex items-center gap-1.5">
-                <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>Low</span>
-                {[0.06, 0.25, 0.55, 0.90].map((o, i) => (
-                  <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: `rgba(236,72,153,${o})` }} />
-                ))}
-                <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>High</span>
-              </div>
-            }
+            title="Platform Activity"
+            subtitle="Test submissions per day over the last 6 months"
             className="lg:col-span-2"
           >
-            <div className="grid gap-1 mt-2" style={{ gridTemplateColumns: `repeat(12, minmax(0, 1fr))` }}>
-              {(data.heatmap ?? []).map((cell: any, i: number) => {
-                const intensity = cell.intensity ?? cell.level ?? Math.floor(Math.random() * 5);
-                return (
-                  <div
-                    key={i}
-                    className="aspect-square rounded-sm transition-all hover:scale-110 cursor-default"
-                    style={{ backgroundColor: HEATMAP_LEVELS[Math.min(intensity, 4)] }}
-                    title={cell.tooltip ?? `${cell.label ?? `Hour ${i}`}: ${cell.value ?? intensity * 20}% activity`}
-                  />
-                );
-              })}
-            </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-10"><Spinner size={22} color="#EC4899" /></div>
+            ) : (
+              <ActivityHeatmap data={submissionsByDay} colorBase="#10B981" unit="submission" />
+            )}
           </Card>
 
-          {/* AI Health */}
-          <Card title="AI System Health" subtitle="Service status and performance">
-            <div className="space-y-3">
-              {(data.healthLogs ?? []).slice(0, 5).map((log: any, i: number) => {
-                const statusMap: Record<string, { color: string; bg: string; icon: string }> = {
-                  healthy:  { color: '#10B981', bg: 'rgba(16,185,129,0.10)', icon: 'check_circle' },
-                  warning:  { color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', icon: 'warning' },
-                  error:    { color: '#EF4444', bg: 'rgba(239,68,68,0.10)', icon: 'error' },
-                };
-                const status = statusMap[log.status ?? 'healthy'];
-                return (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: status.bg }}>
-                    <span className="material-symbols-outlined filled" style={{ fontSize: '18px', color: status.color }}>{status.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-body-md font-medium truncate" style={{ color: 'var(--text-primary)' }}>{log.service ?? log.name}</div>
-                      <div className="text-label-sm truncate" style={{ color: 'var(--text-muted)' }}>{log.message ?? log.detail ?? 'All systems operational'}</div>
-                    </div>
-                    <span className="text-label-sm font-bold shrink-0" style={{ color: status.color }}>
-                      {log.latency ? `${log.latency}ms` : 'OK'}
-                    </span>
+          {/* AI System Status */}
+          <Card
+            title="AI System Status"
+            subtitle="Service, health, usage & availability"
+            action={
+              <button type="button" onClick={() => void runPing()} disabled={pinging} className="btn-outline btn-sm flex items-center gap-1.5">
+                {pinging ? <Spinner size={13} /> : <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>refresh</span>}
+                Check now
+              </button>
+            }
+          >
+            <div className="space-y-2.5">
+              {[
+                {
+                  label: 'AI Service',
+                  value: aiStatus?.configured ? 'Configured' : 'Not configured',
+                  detail: aiStatus?.model ?? 'gemini-flash-lite-latest',
+                  ok: aiStatus?.configured ?? false,
+                },
+                {
+                  label: 'AI Health',
+                  value: aiStatus?.reachable === null ? 'Checking…' : aiStatus?.reachable ? 'Operational' : 'Unreachable',
+                  detail: aiStatus?.latencyMs != null ? `${aiStatus.latencyMs} ms round-trip` : aiStatus?.configured ? '' : 'Add VITE_GEMINI_API_KEY to enable',
+                  ok: aiStatus?.reachable ?? false,
+                },
+                {
+                  label: 'AI Usage',
+                  value: aiUsage ? `${aiUsage.todayCalls} calls today` : '—',
+                  detail: aiUsage ? `${aiUsage.totalCalls} all-time · ${aiUsage.totalErrors} errors` : '',
+                  ok: true,
+                },
+                {
+                  label: 'AI Availability',
+                  value: aiUsage && aiUsage.totalCalls > 0
+                    ? `${Math.round(((aiUsage.totalCalls - aiUsage.totalErrors) / aiUsage.totalCalls) * 100)}%`
+                    : 'No calls yet',
+                  detail: aiUsage?.lastCallAt ? `Last call ${fmtWhen(aiUsage.lastCallAt)}` : '',
+                  ok: !aiUsage || aiUsage.totalCalls === 0 || (aiUsage.totalCalls - aiUsage.totalErrors) / aiUsage.totalCalls > 0.9,
+                },
+                {
+                  label: 'Database',
+                  value: dbLatency != null ? 'Connected' : 'Checking…',
+                  detail: dbLatency != null ? `${dbLatency} ms initial load` : '',
+                  ok: dbLatency != null,
+                },
+              ].map(row => (
+                <div key={row.label} className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: row.ok ? 'rgba(16,185,129,0.07)' : 'rgba(239,68,68,0.07)' }}>
+                  <span className="material-symbols-outlined filled shrink-0" style={{ fontSize: '18px', color: row.ok ? '#10B981' : '#EF4444' }}>
+                    {row.ok ? 'check_circle' : 'error'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{row.label}</div>
+                    {row.detail && <div className="text-label-sm truncate" style={{ color: 'var(--text-muted)' }}>{row.detail}</div>}
                   </div>
-                );
-              })}
-            </div>
-            {/* Security notes */}
-            <div className="mt-4 pt-4 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
-              {data.securityNotes.map((note: string) => (
-                <div key={note} className="flex items-center gap-2 text-body-sm" style={{ color: '#10B981' }}>
-                  <span className="material-symbols-outlined filled" style={{ fontSize: '16px' }}>shield</span>
-                  {note}
+                  <span className="text-label-sm font-bold shrink-0 text-right" style={{ color: row.ok ? '#059669' : '#DC2626' }}>{row.value}</span>
                 </div>
               ))}
             </div>
           </Card>
         </div>
 
-        {/* Top institutions */}
+        {/* Recent test submissions */}
         <Card
-          title="Top Institutions"
-          subtitle="Ranked by student performance and engagement"
-          action={
-            <Link to={pathFor('institutes')} className="btn-outline btn-md flex items-center gap-1.5">
-              View all
-              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_forward</span>
-            </Link>
-          }
+          title="Recent Test Submissions"
+          subtitle="Latest attempts across the platform, with integrity flags"
           noPad
         >
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Institution</th>
-                  <th>Region</th>
-                  <th>Students</th>
-                  <th>Avg Score</th>
-                  <th>Plan</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.topInstitutions?.slice(0, 8).map((inst: any, i: number) => (
-                  <tr key={inst.name ?? i}>
-                    <td>
-                      <span className="text-body-md font-bold" style={{ color: 'var(--text-muted)' }}>#{i + 1}</span>
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0"
-                          style={{ background: `hsl(${(i * 47) % 360}, 65%, 55%)` }}
-                        >
-                          {inst.name?.slice(0, 2) ?? 'IN'}
-                        </div>
-                        <div className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{inst.name}</div>
-                      </div>
-                    </td>
-                    <td><span className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{inst.region}</span></td>
-                    <td><span className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{inst.studentCount ?? inst.students ?? '—'}</span></td>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <div className="progress-bar w-14">
-                          <div className="progress-bar-fill" style={{ width: `${inst.avgScore ?? 70}%`, backgroundColor: '#EC4899' }} />
-                        </div>
-                        <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{inst.avgScore ?? 70}%</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span
-                        className="badge"
-                        style={inst.plan === 'Enterprise' ? { backgroundColor: 'rgba(236,72,153,0.10)', color: '#EC4899' }
-                          : inst.plan === 'Growth' ? { backgroundColor: 'rgba(16,185,129,0.10)', color: '#059669' }
-                          : { backgroundColor: 'var(--surface-muted)', color: 'var(--text-muted)' }
-                        }
-                      >
-                        {inst.plan ?? 'Starter'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`badge ${inst.status === 'Active' ? 'badge-success' : 'badge-muted'}`}>
-                        {inst.status ?? 'Active'}
-                      </span>
-                    </td>
+          {loading ? (
+            <div className="flex items-center justify-center py-10"><Spinner size={22} color="#EC4899" /></div>
+          ) : attempts.length === 0 ? (
+            <div className="py-10 text-center" style={{ color: 'var(--text-faint)' }}>
+              No test attempts yet.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Student</th>
+                    <th>Test</th>
+                    <th>Score</th>
+                    <th>Accuracy</th>
+                    <th>Integrity</th>
+                    <th>Submitted</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {attempts.slice(0, 8).map((a, i) => (
+                    <tr key={a.id}>
+                      <td><span className="text-body-md font-bold" style={{ color: 'var(--text-muted)' }}>{i + 1}</span></td>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}>
+                            {a.studentName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <span className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{a.studentName}</span>
+                        </div>
+                      </td>
+                      <td><span className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{a.testTitle}</span></td>
+                      <td><span className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>{a.score}</span></td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <div className="progress-bar w-14">
+                            <div className="progress-bar-fill" style={{ width: `${a.accuracyPct}%`, backgroundColor: '#EC4899' }} />
+                          </div>
+                          <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{a.accuracyPct}%</span>
+                        </div>
+                      </td>
+                      <td>
+                        {a.tabSwitchCount > 0 ? (
+                          <span className="badge" style={{ backgroundColor: 'rgba(239,68,68,0.10)', color: '#DC2626' }}>
+                            {a.tabSwitchCount} tab switch{a.tabSwitchCount > 1 ? 'es' : ''}
+                          </span>
+                        ) : (
+                          <span className="badge badge-success">Clean</span>
+                        )}
+                      </td>
+                      <td><span className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{fmtWhen(a.submittedAt)}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </div>
     </div>
   );
 }
-
-const HEATMAP_LEVELS = [
-  'rgba(236,72,153,0.06)', 'rgba(236,72,153,0.18)', 'rgba(236,72,153,0.38)', 'rgba(236,72,153,0.60)', 'rgba(236,72,153,0.90)',
-];

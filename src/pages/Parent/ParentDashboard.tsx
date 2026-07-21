@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
+import ActivityHeatmap from '../../components/ActivityHeatmap';
 import { parentActivity, parentGrowth, parentMastery, parentMetrics, parentReports } from '../../mocks/portal';
 import { pathFor } from '../../lib/pages';
 import { getAuthSession } from '../../lib/auth';
 import { getLinkedStudentData, getStudentDashboard } from '../../lib/db';
-import { getActivitySummary, formatDuration, ACTIVITY_META, UPCOMING_ACTIVITIES, type ActivitySummary, type ActivityCategory } from '../../lib/activity';
+import { getActivitySummary, getDailyActivityMinutes, formatDuration, ACTIVITY_META, UPCOMING_ACTIVITIES, type ActivitySummary, type ActivityCategory } from '../../lib/activity';
+import { formatExamCountdown } from '../../lib/examCountdown';
+import type { StudentStream } from '../../lib/stream';
 
 export default function ParentDashboard() {
   const session = getAuthSession();
@@ -21,6 +24,7 @@ export default function ParentDashboard() {
   });
   const [linkedStudent, setLinkedStudent] = useState<any>(null);
   const [activity, setActivity] = useState<ActivitySummary | null>(null);
+  const [activityMap, setActivityMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +37,7 @@ export default function ParentDashboard() {
 
       // Website-activity summary (Feature 4)
       getActivitySummary(stu.id).then(a => { if (!cancelled) setActivity(a); }).catch(() => undefined);
+      getDailyActivityMinutes(stu.id).then(m => { if (!cancelled) setActivityMap(m); }).catch(() => undefined);
 
       // Fetch the exact same dashboard data the student sees
       const dash = await getStudentDashboard(stu.id).catch(() => null);
@@ -111,8 +116,8 @@ export default function ParentDashboard() {
         {/* Child info banner */}
         {(() => {
           const childName    = linkedStudent?.name    ?? 'Arjun Sharma';
-          const childStream  = linkedStudent?.stream  ?? 'JEE';
-          const childTarget  = linkedStudent?.examTarget ?? 'JEE 2025';
+          const childStream  = (linkedStudent?.stream as StudentStream) ?? 'JEE';
+          const childTarget  = formatExamCountdown(childStream);
           const childRank    = linkedStudent?.rank    ?? 247;
           const childScore   = linkedStudent?.score   ?? 92;
           const initials     = childName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
@@ -129,7 +134,7 @@ export default function ParentDashboard() {
                   {childName}
                 </div>
                 <div className="text-body-sm" style={{ color: 'var(--text-muted)' }}>
-                  {childStream} · {childTarget} · Rank: #{childRank} · Score: {childScore}%
+                  {childTarget} · Rank: #{childRank} · Score: {childScore}%
                 </div>
                 {linkedStudent?.progress?.lastActivity && (
                   <div className="text-label-sm mt-0.5" style={{ color: '#F97316' }}>
@@ -152,7 +157,7 @@ export default function ParentDashboard() {
         })()}
 
         {/* Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {data.metrics.map((m: any, i: number) => {
             const meta = metricMeta[i] ?? metricMeta[0];
             const isPositive = (m.trend ?? 0) > 0;
@@ -174,10 +179,15 @@ export default function ParentDashboard() {
           })}
         </div>
 
+        {/* Study activity calendar (LeetCode-style) */}
+        <Card title="Study Activity" subtitle="Your child's daily study time over the last 6 months">
+          <ActivityHeatmap data={activityMap} colorBase="#F97316" unit="min" />
+        </Card>
+
         {/* Website Activity (Feature 4) */}
         {activity && (
           <Card title="Website Activity" subtitle="How your child spends time on Concept Crack (updates live as they study)">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {[
                 { label: 'Today',           value: activity.todaySeconds,    icon: 'today' },
                 { label: 'This Week',       value: activity.weekSeconds,     icon: 'date_range' },

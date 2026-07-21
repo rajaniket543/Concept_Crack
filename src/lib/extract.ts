@@ -5,7 +5,11 @@
 // chapter, topic, explanation) that faculty can then review and edit.
 
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-const MODEL = 'gemini-2.5-flash';
+// gemini-2.5-flash / gemini-2.0-flash are no longer available on free-tier
+// keys for new Google Cloud projects — gemini-flash-lite-latest is a rolling
+// alias Google keeps pointed at a currently-supported model.
+const MODEL = 'gemini-flash-lite-latest';
+const FALLBACK_MODEL = 'gemini-flash-lite-latest';
 const MAX_TOTAL_BYTES = 18 * 1024 * 1024; // stay under the ~20MB inline-request limit
 
 export interface ExtractedQuestion {
@@ -17,6 +21,7 @@ export interface ExtractedQuestion {
   chapter:     string;
   topic:       string;
   explanation: string;
+  imageUrl?:   string; // question figure, attached manually during review
 }
 
 export function extractionAvailable(): boolean {
@@ -58,15 +63,47 @@ function normalize(q: Record<string, unknown>): ExtractedQuestion {
 function parseQuestions(text: string): ExtractedQuestion[] {
   const cleaned = text.trim().replace(/```json/gi, '').replace(/```/g, '').trim();
   const start = cleaned.indexOf('[');
+  if (start === -1) return [];
   const end = cleaned.lastIndexOf(']');
-  if (start === -1 || end === -1) return [];
-  let arr: unknown;
-  try { arr = JSON.parse(cleaned.slice(start, end + 1)); } catch { return []; }
+
+  let arr: unknown = null;
+  if (end > start) {
+    try { arr = JSON.parse(cleaned.slice(start, end + 1)); } catch { arr = null; }
+  }
+
+  // Salvage a truncated response (e.g. output hit the token limit): cut back to
+  // the last complete object and close the array, so extraction still succeeds.
+  if (!Array.isArray(arr)) {
+    const lastComplete = cleaned.lastIndexOf('}');
+    if (lastComplete > start) {
+      try { arr = JSON.parse(cleaned.slice(start, lastComplete + 1) + ']'); } catch { return []; }
+    }
+  }
   if (!Array.isArray(arr)) return [];
+
   return arr
     .filter((q): q is Record<string, unknown> => !!q && typeof q === 'object' && typeof (q as Record<string, unknown>).question === 'string')
     .map(normalize)
     .filter(q => q.question.length > 0);
+}
+
+async function callGemini(model: string, parts: Array<Record<string, unknown>>, opts: { maxOutputTokens: number; temperature: number }): Promise<Response> {
+  return fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: {
+          maxOutputTokens: opts.maxOutputTokens,
+          temperature: opts.temperature,
+          responseMimeType: 'application/json',
+          ...(model === MODEL ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        },
+      }),
+    },
+  );
 }
 
 export async function extractQuestionsFromFiles(
@@ -84,8 +121,8 @@ export async function extractQuestionsFromFiles(
   const prompt =
     `You are an exam-question extraction engine for Indian JEE/NEET coaching material.\n` +
     `Extract EVERY multiple-choice question from the attached file(s). For each question output:\n` +
-    `- "question": full question text. Render equations as readable plain/unicode text; if a diagram/figure is essential, describe it briefly inside [square brackets].\n` +
-    `- "options": an object with keys A, B, C, D (exactly four; leave a value "" if the source truly has fewer).\n` +
+    `- "question": full question text. Write any mathematical/chemical formula as LaTeX wrapped in $...$ (inline) or $$...$$ (display) — e.g. $\\frac{v^2}{r}$, $\\int_0^1 x\\,dx$. If a diagram/figure is essential to the question, describe it briefly inside [square brackets].\n` +
+    `- "options": an object with keys A, B, C, D (exactly four; leave a value "" if the source truly has fewer). Use the same $...$ LaTeX convention for any formula in an option.\n` +
     `- "answer": the correct option letter (A/B/C/D) if the source indicates it, otherwise null.\n` +
     `- "difficulty": your best estimate — one of Easy, Medium, Hard.\n` +
     `- "subject": Physics, Chemistry, Mathematics, or Biology${hint?.subject ? ` (likely ${hint.subject})` : ''}.\n` +
@@ -100,22 +137,12 @@ export async function extractQuestionsFromFiles(
     parts.push({ inlineData: { mimeType: file.type || 'application/octet-stream', data } });
   }
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: {
-          maxOutputTokens: 8192,
-          temperature: 0.1,
-          responseMimeType: 'application/json',
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
-    },
-  );
+  const genOpts = { maxOutputTokens: 8192, temperature: 0.1 };
+  let res = await callGemini(MODEL, parts, genOpts);
+  // Primary model unavailable (quota / outage / model retired) → retry on fallback.
+  if (!res.ok && [404, 429, 500, 503].includes(res.status)) {
+    res = await callGemini(FALLBACK_MODEL, parts, genOpts);
+  }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
@@ -124,7 +151,7 @@ export async function extractQuestionsFromFiles(
   const json = (await res.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
   const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
   const questions = parseQuestions(text);
-  if (questions.length === 0) throw new Error('No questions could be detected in the uploaded file(s).');
+  if (questions.length === 0) throw new Error('No questions could be detected in the uploaded file(s). Make sure the PDF/photo contains readable MCQs and try again.');
   return questions;
 }
 
@@ -152,30 +179,19 @@ export async function generateQuestionsAI(spec: GenerateSpec): Promise<Extracted
     `- ${spec.easy} Easy question(s)\n- ${spec.medium} Medium question(s)\n- ${spec.hard} Hard question(s)\n` +
     `Total = ${total}.\n\n` +
     `For each question output an object with:\n` +
-    `- "question": the question text (equations as plain/unicode text)\n` +
-    `- "options": an object with keys A, B, C, D — four distinct, plausible options\n` +
+    `- "question": the question text (write any formula as LaTeX in $...$ inline or $$...$$ display)\n` +
+    `- "options": an object with keys A, B, C, D — four distinct, plausible options (formulas as $...$ LaTeX)\n` +
     `- "answer": the correct option letter (A/B/C/D)\n` +
     `- "difficulty": "Easy" | "Medium" | "Hard" (matching the requested counts)\n` +
     `- "subject": "${spec.subject}"\n- "chapter": "${spec.chapter}"\n- "topic": ${spec.topic ? `"${spec.topic}"` : '"" or a specific sub-topic'}\n` +
     `- "explanation": a concise worked solution\n\n` +
     `Reply with ONLY a JSON array of exactly ${total} objects.`;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          maxOutputTokens: 8192,
-          temperature: 0.7,
-          responseMimeType: 'application/json',
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
-    },
-  );
+  const genOpts = { maxOutputTokens: 8192, temperature: 0.7 };
+  let res = await callGemini(MODEL, [{ text: prompt }], genOpts);
+  if (!res.ok && [404, 429, 500, 503].includes(res.status)) {
+    res = await callGemini(FALLBACK_MODEL, [{ text: prompt }], genOpts);
+  }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');

@@ -6,7 +6,21 @@ import { db } from './firebase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type TestType   = 'faculty_batch' | 'faculty_coaching' | 'ai' | 'custom';
+export type TestType   = 'faculty_batch' | 'faculty_coaching' | 'ai' | 'custom' | 'mock';
+
+// Every attempt is tagged with the kind of test it was, so Test History can
+// categorise it (mock / custom / ai / battle / practice / assigned / coaching).
+export type AttemptType = TestType | 'battle' | 'practice';
+
+export const ATTEMPT_TYPE_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+  mock:              { label: 'Mock Test',    color: '#5B4FE8', bg: 'rgba(91,79,232,0.10)',  icon: 'quiz' },
+  custom:            { label: 'Custom Test',  color: '#0891B2', bg: 'rgba(8,145,178,0.10)',  icon: 'tune' },
+  ai:                { label: 'AI Test',      color: '#7C3AED', bg: 'rgba(124,58,237,0.10)', icon: 'auto_awesome' },
+  battle:            { label: 'Battle',       color: '#EA580C', bg: 'rgba(234,88,12,0.10)',  icon: 'sports_esports' },
+  practice:          { label: 'Practice',     color: '#10B981', bg: 'rgba(16,185,129,0.10)', icon: 'edit_note' },
+  faculty_batch:     { label: 'Assigned Test',color: '#059669', bg: 'rgba(16,185,129,0.10)', icon: 'assignment' },
+  faculty_coaching:  { label: 'Coaching Test',color: '#D97706', bg: 'rgba(245,158,11,0.10)', icon: 'verified' },
+};
 export type TestStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'final_rejected' | 'active' | 'closed';
 
 // Feature 8 — optional verification stage between faculty submission and final admin approval.
@@ -69,11 +83,17 @@ export interface TestAttempt {
   status:        'in_progress' | 'submitted';
   startedAt:     string;
   submittedAt:   string | null;
+  // Denormalised so Test History can categorise & label without extra reads.
+  testType?:     AttemptType;
+  testTitle?:    string;
+  subjects?:     string[];
+  questionIds?:  string[];   // the exact questions served (for answer review)
   // Feature 2 — browser-lock telemetry (recorded for every test type).
   tabSwitchCount?:     number;
   tabSwitchEvents?:    Array<{ at: string; awaySeconds: number }>;
   timeOutsideSeconds?: number;
   lockViolations?:     number;   // blocked copy/paste/right-click/dev-tools attempts (locked mode)
+  rank?:               number;   // only meaningful for Battle attempts (position among participants)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -316,29 +336,40 @@ export async function saveTestAttempt(attempt: Omit<TestAttempt, 'id'>): Promise
   const clean = Object.fromEntries(Object.entries(attempt).filter(([, v]) => v !== undefined));
   const ref = await addDoc(collection(db, 'testAttempts'), {
     ...clean,
-    startedAt:   serverTimestamp(),
-    submittedAt: serverTimestamp(),
   });
   return ref.id;
 }
 
+// Some attempt docs predate the current save schema and have startedAt /
+// submittedAt stored as a Firestore Timestamp instead of the ISO string the
+// current saveTestAttempt() writes. Normalizing both shapes to a string here
+// (same pattern as docToTest above) means every downstream consumer —
+// including the sort below, which used to call .localeCompare() straight on
+// whatever came back and threw on a Timestamp — can trust it's always a string.
+function docToAttempt(id: string, data: Record<string, unknown>): TestAttempt {
+  return {
+    ...(data as Omit<TestAttempt, 'id' | 'startedAt' | 'submittedAt'>),
+    id,
+    startedAt:   toIso(data.startedAt) ?? '',
+    submittedAt: toIso(data.submittedAt),
+  };
+}
+
+// Throws on failure — deliberately NOT swallowed here. A caller that treats a
+// failed read the same as "genuinely zero attempts" tells a student their
+// saved test history is empty when it's actually just a transient read error.
+// Let the caller distinguish the two and offer a retry.
 export async function getStudentAttempts(studentUid: string): Promise<TestAttempt[]> {
-  try {
-    // Single where clause — no composite index needed
-    const q = query(
-      collection(db, 'testAttempts'),
-      where('studentId', '==', studentUid),
-      limit(50)
-    );
-    const snap = await getDocs(q);
-    return snap.docs
-      .map(d => ({ id: d.id, ...(d.data() as Omit<TestAttempt, 'id'>) }))
-      .filter(a => a.status === 'submitted')
-      .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
-  } catch (e) {
-    console.error('getStudentAttempts error:', e);
-    return [];
-  }
+  // Single where clause — no composite index needed
+  const q = query(
+    collection(db, 'testAttempts'),
+    where('studentId', '==', studentUid),
+  );
+  const snap = await getDocs(q);
+  return snap.docs
+    .map(d => docToAttempt(d.id, d.data() as Record<string, unknown>))
+    .filter(a => a.status === 'submitted')
+    .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
 }
 
 export async function getStudentAttemptCount(studentUid: string): Promise<number> {

@@ -2,17 +2,13 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
+  verifyPasswordResetCode,
+  confirmPasswordReset,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithPhoneNumber,
-  RecaptchaVerifier,
-  type ConfirmationResult,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { clearStudentStream } from './stream';
+import { clearStudentStream, saveStreamLocal, type StudentStream } from './stream';
 import { auth, db } from './firebase';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -26,6 +22,10 @@ export interface AuthUser {
   email: string;
   mobile: string;
   permissions: string[];
+  // Set by an admin at account creation; forces the Change Password page on
+  // every route until cleared. Persisted on the session (not re-read from
+  // Firestore per navigation) so the route guard can check it synchronously.
+  mustChangePassword: boolean;
 }
 
 export interface AuthSession {
@@ -47,6 +47,22 @@ const ROLE_PATH: Record<AuthRole, string> = {
 // ── LocalStorage session (kept for backward-compat with portal pages) ────────
 
 const STORAGE_KEY = 'prepmind_auth_session';
+// Timestamp of the user's last interaction — drives the idle auto-logout
+// (see components/IdleTimeout.tsx). Kept separate from the session so it can be
+// updated cheaply and shared across tabs.
+const ACTIVITY_KEY = 'prepmind_last_activity';
+
+/** Record "the user is active right now" for the idle-timeout watcher. */
+export function markActivity() {
+  window.localStorage.setItem(ACTIVITY_KEY, String(Date.now()));
+}
+
+/** Epoch ms of the last recorded activity, or 0 if unknown. */
+export function getLastActivity(): number {
+  const raw = window.localStorage.getItem(ACTIVITY_KEY);
+  const n = raw ? Number(raw) : 0;
+  return Number.isFinite(n) ? n : 0;
+}
 
 export function getAuthSession(): AuthSession | null {
   const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -61,10 +77,13 @@ export function getAuthSession(): AuthSession | null {
 
 export function setAuthSession(session: AuthSession) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  // Fresh sign-in resets the idle clock.
+  window.localStorage.setItem(ACTIVITY_KEY, String(Date.now()));
 }
 
 export function clearAuthSession() {
   window.localStorage.removeItem(STORAGE_KEY);
+  window.localStorage.removeItem(ACTIVITY_KEY);
 }
 
 export function getAuthToken() {
@@ -108,7 +127,15 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
       email:       data.email       ?? firebaseUser.email ?? '',
       mobile:      data.mobile      ?? '',
       permissions: data.permissions ?? [],
+      mustChangePassword: data.mustChangePassword === true,
     };
+
+    // The exam stream (JEE / NEET) is assigned by the admin at registration —
+    // students never pick it themselves. Apply it to this device on login.
+    if (data.role === 'student') {
+      const stream = (data.stream === 'NEET' ? 'NEET' : 'JEE') as StudentStream;
+      saveStreamLocal(stream);
+    }
 
     // Update last-active timestamp (fire-and-forget)
     void setDoc(userRef, { lastActive: serverTimestamp() }, { merge: true });
@@ -121,6 +148,7 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
       email:       firebaseUser.email ?? '',
       mobile:      '',
       permissions: [],
+      mustChangePassword: false, // self-registered accounts never require this
     };
     await setDoc(userRef, {
       ...userData,
@@ -128,16 +156,15 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
       createdAt: serverTimestamp(),
       lastActive: serverTimestamp(),
     });
+    if (selectedRole === 'student') saveStreamLocal('JEE');
   }
 
   // Redirect to password-change page on first login
-  const mustChange = userSnap.exists() && userSnap.data().mustChangePassword === true;
-
   const session: AuthSession = {
     token,
     expiresAt:  Date.now() + 60 * 60 * 1000, // 1 hour
     user:       userData,
-    redirectTo: mustChange ? '/change-password' : ROLE_PATH[selectedRole],
+    redirectTo: userData.mustChangePassword ? '/change-password' : ROLE_PATH[selectedRole],
   };
 
   setAuthSession(session);
@@ -146,70 +173,47 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
 
 // ── Auth functions ───────────────────────────────────────────────────────────
 
+// Turn Firebase Auth error codes into clear, user-facing messages.
+function authErrorMessage(err: unknown): string {
+  const code = (err as { code?: string })?.code ?? '';
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/invalid-login-credentials':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Incorrect email or password. Please check your details and try again.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/missing-password':
+      return 'Please enter your password.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Please contact admin.';
+    case 'auth/too-many-requests':
+      return 'Too many failed attempts. Please wait a few minutes and try again.';
+    case 'auth/network-request-failed':
+      return 'Network error — check your connection and try again.';
+    default:
+      return 'Unable to sign in. Please try again.';
+  }
+}
+
 export async function login(payload: {
   identifier: string;
   password:   string;
   role:       AuthRole;
-  method:     'email' | 'mobile';
 }): Promise<AuthSession> {
-  const credential = await signInWithEmailAndPassword(
-    auth,
-    payload.identifier.trim(),
-    payload.password
-  );
+  let credential;
+  try {
+    credential = await signInWithEmailAndPassword(
+      auth,
+      payload.identifier.trim(),
+      payload.password
+    );
+  } catch (err) {
+    throw new Error(authErrorMessage(err));
+  }
   return buildSession(credential.user.uid, payload.role);
 }
-
-export async function requestOtp(payload: { identifier: string; role: AuthRole }) {
-  const actionCodeSettings = {
-    url:            `${window.location.origin}/login?role=${payload.role}`,
-    handleCodeInApp: true,
-  };
-  await sendSignInLinkToEmail(auth, payload.identifier.trim(), actionCodeSettings);
-  window.localStorage.setItem('otp_email', payload.identifier.trim());
-  window.localStorage.setItem('otp_role',  payload.role);
-  return {
-    challengeId:      'email-link',
-    devCode:          '',
-    expiresInSeconds: 600,
-    message:          `A sign-in link has been sent to ${payload.identifier}. Click the link in your email to sign in.`,
-  };
-}
-
-export async function verifyOtp(payload: { challengeId: string; code: string }) {
-  if (!isSignInWithEmailLink(auth, window.location.href)) {
-    throw new Error('No valid sign-in link found. Please request a new OTP.');
-  }
-  const email = window.localStorage.getItem('otp_email') ?? payload.code;
-  const role  = (window.localStorage.getItem('otp_role') ?? 'student') as AuthRole;
-  const credential = await signInWithEmailLink(auth, email, window.location.href);
-  window.localStorage.removeItem('otp_email');
-  window.localStorage.removeItem('otp_role');
-  return buildSession(credential.user.uid, role);
-}
-
-let _recaptchaVerifier: RecaptchaVerifier | null = null;
-
-export async function sendPhoneOtp(phone: string, container: HTMLElement): Promise<ConfirmationResult> {
-  if (_recaptchaVerifier) {
-    _recaptchaVerifier.clear();
-    _recaptchaVerifier = null;
-  }
-  container.innerHTML = '';
-  _recaptchaVerifier = new RecaptchaVerifier(auth, container, { size: 'invisible' });
-  return signInWithPhoneNumber(auth, phone.trim(), _recaptchaVerifier);
-}
-
-export async function verifyPhoneOtp(
-  confirmation: ConfirmationResult,
-  code: string,
-  role: AuthRole
-): Promise<AuthSession> {
-  const credential = await confirmation.confirm(code.trim());
-  return buildSession(credential.user.uid, role);
-}
-
-export type { ConfirmationResult };
 
 export async function loginWithGoogle(role: AuthRole): Promise<AuthSession> {
   const provider = new GoogleAuthProvider();
@@ -217,8 +221,26 @@ export async function loginWithGoogle(role: AuthRole): Promise<AuthSession> {
   return buildSession(credential.user.uid, role);
 }
 
+// ── Forgot password ──────────────────────────────────────────────────────────
+// Step 1: a secure one-time reset code is emailed to the user.
+// Step 2: if the link opens back in the app (?mode=resetPassword&oobCode=…),
+//         the new password is set right on the login page.
+
 export async function forgotPassword(email: string) {
-  await sendPasswordResetEmail(auth, email.trim());
+  await sendPasswordResetEmail(auth, email.trim(), {
+    url: `${window.location.origin}/login`,
+    handleCodeInApp: false,
+  });
+}
+
+/** Validates the emailed reset code and returns the account email it belongs to. */
+export async function verifyResetCode(oobCode: string): Promise<string> {
+  return verifyPasswordResetCode(auth, oobCode);
+}
+
+/** Completes the reset: sets the new password for the code's account. */
+export async function completePasswordReset(oobCode: string, newPassword: string): Promise<void> {
+  await confirmPasswordReset(auth, oobCode, newPassword);
 }
 
 export async function logout() {

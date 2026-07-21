@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { getPendingApprovalTests, forwardForVerification, finalizeApproval, type Test } from '../../lib/tests';
-import { listFaculty } from '../../lib/db';
+import { listFaculty, notify } from '../../lib/db';
 import { useToast } from '../../components/Toast';
+import { useConfirm } from '../../components/ConfirmDialog';
 
 const DESIGNATIONS = ['HOD', 'Senior Faculty', 'Subject Expert'];
 
 export default function TestApprovals() {
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [tests, setTests]         = useState<Test[]>([]);
   const [faculty, setFaculty]     = useState<Array<{ id: string; name: string; designation?: string }>>([]);
@@ -26,22 +28,32 @@ export default function TestApprovals() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function approve(testId: string) {
-    setActing(testId);
+  async function approve(test: Test) {
+    const ok = await confirm({
+      title: 'Approve and publish this test?',
+      message: `"${test.title}" will go live and become available to students immediately.`,
+      confirmLabel: 'Approve & publish',
+      tone: 'success',
+      icon: 'verified',
+    });
+    if (!ok) return;
+    setActing(test.id);
     try {
-      await finalizeApproval(testId, 'approved');
-      setTests(p => p.filter(t => t.id !== testId));
+      await finalizeApproval(test.id, 'approved');
+      setTests(p => p.filter(t => t.id !== test.id));
+      if (test.createdBy) void notify(test.createdBy, 'Test approved', `Your coaching test "${test.title}" was approved and is now live for students.`, 'approval');
       toast('Test approved and published to students', 'success');
     } catch { toast('Failed to approve test', 'error'); }
     finally { setActing(null); }
   }
 
-  async function reject(testId: string) {
+  async function reject(test: Test) {
     if (!rejectNote.trim()) { toast('Please enter a rejection reason', 'error'); return; }
-    setActing(testId);
+    setActing(test.id);
     try {
-      await finalizeApproval(testId, 'final_rejected', rejectNote.trim());
-      setTests(p => p.filter(t => t.id !== testId));
+      await finalizeApproval(test.id, 'final_rejected', rejectNote.trim());
+      setTests(p => p.filter(t => t.id !== test.id));
+      if (test.createdBy) void notify(test.createdBy, 'Test rejected', `Your coaching test "${test.title}" was rejected: ${rejectNote.trim()}`, 'approval');
       setRejectTarget(null);
       setRejectNote('');
       toast('Test finally rejected — faculty must create a fresh test', 'success');
@@ -59,6 +71,7 @@ export default function TestApprovals() {
       setTests(p => p.map(t => t.id === test.id
         ? { ...t, verification: { stage: 'awaiting', verifierId: v.id, verifierName: v.name, verifierDesignation: designation } }
         : t));
+      void notify(v.id, 'Test to review', `You've been asked to review "${test.title}" as ${designation}. Open Verifications to approve or reject it.`, 'approval');
       setForwardTarget(null);
       setVerifierId('');
       toast(`Forwarded to ${v.name} (${designation}) for verification`, 'success');
@@ -121,7 +134,7 @@ export default function TestApprovals() {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
                     {[
                       { icon: 'quiz', label: 'Questions', val: test.questionCount },
                       { icon: 'timer', label: 'Duration', val: formatDuration(test.durationSeconds) },
@@ -168,7 +181,7 @@ export default function TestApprovals() {
                       <p className="text-xs" style={{ color: 'var(--text-faint)' }}>Final rejection is permanent — the faculty must create a brand-new test.</p>
                       <div className="flex gap-2">
                         <button type="button" onClick={() => { setRejectTarget(null); setRejectNote(''); }} className="btn-ghost btn-sm flex-1">Cancel</button>
-                        <button type="button" onClick={() => reject(test.id)} disabled={acting === test.id || !rejectNote.trim()} className="btn-sm flex-1" style={{ backgroundColor: '#EF4444', color: '#fff', border: 'none', borderRadius: 10 }}>
+                        <button type="button" onClick={() => reject(test)} disabled={acting === test.id || !rejectNote.trim()} className="btn-sm flex-1" style={{ backgroundColor: '#EF4444', color: '#fff', border: 'none', borderRadius: 10 }}>
                           {acting === test.id ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Confirm Final Reject'}
                         </button>
                       </div>
@@ -208,7 +221,7 @@ export default function TestApprovals() {
                           <span className="material-symbols-outlined" style={{ fontSize: 16 }}>forward_to_inbox</span> Forward
                         </button>
                       )}
-                      <button type="button" onClick={() => approve(test.id)} disabled={acting === test.id} className="btn-primary btn-md flex-1 justify-center min-w-[120px]" style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
+                      <button type="button" onClick={() => approve(test)} disabled={acting === test.id} className="btn-primary btn-md flex-1 justify-center min-w-[120px]" style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
                         {acting === test.id ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check</span>}
                         {stage === 'none' ? 'Approve Directly' : 'Approve'}
                       </button>

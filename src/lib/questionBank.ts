@@ -47,6 +47,7 @@ export interface BankQuestion {
   verificationStatus?: VerificationStatus;
   originalPdfRef?:    string;   // Feature 5 — source document reference
   isPrivate?:         boolean;  // Feature 5 — "create test only" questions stay out of the shared bank
+  imageUrl?:          string;   // question figure (Firebase Storage download URL)
   createdAt?:         string | null;
 }
 
@@ -65,6 +66,7 @@ export interface BankQuestionInput {
   verificationStatus?: VerificationStatus;
   originalPdfRef?:    string;
   isPrivate?:         boolean;
+  imageUrl?:          string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -94,6 +96,7 @@ function docToBankQuestion(id: string, d: Record<string, unknown>): BankQuestion
     verificationStatus: (d.verificationStatus as VerificationStatus) || undefined,
     originalPdfRef:     (d.originalPdfRef as string) || undefined,
     isPrivate:          (d.isPrivate as boolean) ?? false,
+    imageUrl:           (d.imageUrl as string) || undefined,
     createdAt:          toIso(d.createdAt),
   };
 }
@@ -142,6 +145,7 @@ export async function createBankQuestion(input: BankQuestionInput): Promise<{ id
     updatedAt:          serverTimestamp(),
   };
   if (input.originalPdfRef) payload.originalPdfRef = input.originalPdfRef;
+  if (input.imageUrl) payload.imageUrl = input.imageUrl;
   const ref = await addDoc(collection(db, 'questions'), payload);
   return { id: ref.id, code };
 }

@@ -5,6 +5,7 @@ import { useToast } from './Toast';
 import { createBankQuestions, type BankQuestionInput, type QuestionOrigin } from '../lib/questionBank';
 import { createTest } from '../lib/tests';
 import { pathFor } from '../lib/pages';
+import { uploadQuestionImage } from '../lib/storage';
 import type { ExtractedQuestion } from '../lib/extract';
 
 const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
@@ -36,6 +37,7 @@ export default function QuestionReviewPanel({
   const [showTestForm, setShowTestForm] = useState(false);
   const [testTitle, setTestTitle]   = useState('');
   const [testType, setTestType]     = useState<'faculty_batch' | 'faculty_coaching'>('faculty_batch');
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
 
   const inputStyle = { backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' } as const;
 
@@ -47,6 +49,19 @@ export default function QuestionReviewPanel({
   }
   function removeItem(i: number) {
     setItems(prev => prev.filter((_, idx) => idx !== i));
+  }
+
+  async function attachImage(i: number, file: File | undefined) {
+    if (!file) return;
+    setUploadingIdx(i);
+    try {
+      const imageUrl = await uploadQuestionImage(file, uid);
+      updateItem(i, { imageUrl });
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Image upload failed', 'error');
+    } finally {
+      setUploadingIdx(null);
+    }
   }
 
   const isBad = (it: ExtractedQuestion) =>
@@ -68,6 +83,7 @@ export default function QuestionReviewPanel({
       explanation: it.explanation,
       verificationStatus: 'unverified',
       isPrivate,
+      imageUrl: it.imageUrl,
     }));
   }
 
@@ -153,6 +169,26 @@ export default function QuestionReviewPanel({
               <button type="button" onClick={() => removeItem(i)} className="text-label-sm font-semibold" style={{ color: '#EF4444' }}>Remove</button>
             </div>
             <textarea value={it.question} onChange={e => updateItem(i, { question: e.target.value })} rows={2} placeholder="Question text" className="input-field w-full resize-none" style={inputStyle} />
+
+            {it.imageUrl ? (
+              <div className="relative inline-block">
+                <img src={it.imageUrl} alt="Question figure" className="rounded-lg max-h-48" style={{ border: '1px solid var(--border)' }} />
+                <button type="button" onClick={() => updateItem(i, { imageUrl: undefined })}
+                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: '#EF4444', color: '#fff' }} title="Remove figure">
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
+                </button>
+              </div>
+            ) : (
+              <label className="btn-outline btn-sm inline-flex items-center gap-1.5 cursor-pointer w-fit">
+                {uploadingIdx === i
+                  ? <><span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Uploading…</>
+                  : <><span className="material-symbols-outlined" style={{ fontSize: 16 }}>image</span> Attach figure</>}
+                <input type="file" accept="image/*" className="hidden" disabled={uploadingIdx !== null}
+                  onChange={e => { void attachImage(i, e.target.files?.[0]); e.target.value = ''; }} />
+              </label>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(['A', 'B', 'C', 'D'] as const).map(k => (
                 <div key={k} className="flex items-center gap-2">

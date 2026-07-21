@@ -7,23 +7,20 @@ export const STREAM_SUBJECTS: Record<StudentStream, string[]> = {
   NEET: ['Physics', 'Chemistry', 'Biology'],
 };
 
-export const STREAM_EXAM: Record<StudentStream, string> = {
-  JEE:  'JEE 2025',
-  NEET: 'NEET 2025',
-};
-
+// Distinct hues per subject — Physics (blue) and Chemistry (orange) kept far
+// apart so they never look alike on charts and cards (5c).
 export const STREAM_COLORS: Record<string, string> = {
-  Physics:     '#5B4FE8',
-  Chemistry:   '#8B5CF6',
+  Physics:     '#2563EB',
+  Chemistry:   '#F97316',
   Mathematics: '#10B981',
-  Biology:     '#14B8A6',
+  Biology:     '#8B5CF6',
 };
 
 export const STREAM_BG: Record<string, string> = {
-  Physics:     'rgba(91,79,232,0.10)',
-  Chemistry:   'rgba(139,92,246,0.10)',
+  Physics:     'rgba(37,99,235,0.10)',
+  Chemistry:   'rgba(249,115,22,0.10)',
   Mathematics: 'rgba(16,185,129,0.10)',
-  Biology:     'rgba(20,184,166,0.10)',
+  Biology:     'rgba(139,92,246,0.10)',
 };
 
 export function getStudentStream(): StudentStream | null {

@@ -1,0 +1,616 @@
+/* ============================================================================
+   Arcvion company profile — the parent-company story block on the landing page.
+
+   Deliberately always dark, in both site themes: it reads as an inset "different
+   surface" the way Stripe/Vercel treat embedded panels, rather than a section
+   that failed to theme. Palette stays inside the existing Concept Crack brand
+   (#5B4FE8 / #8B5CF6 / #C4B5FD) — no new brand colours are introduced.
+
+   Every animation is transform/opacity only so it stays on the compositor at
+   60fps, and the whole file no-ops under prefers-reduced-motion.
+   ============================================================================ */
+
+.arc {
+  --arc-primary: #5B4FE8;
+  --arc-secondary: #8B5CF6;
+  --arc-accent: #C4B5FD;
+  --arc-bg: #0B0A12;
+  --arc-surface: rgba(255, 255, 255, 0.03);
+  --arc-border: rgba(255, 255, 255, 0.08);
+  --arc-text: #F4F5FA;
+  --arc-muted: #9A9CAB;
+  --arc-faint: #6E6C85;
+
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(91, 79, 232, 0.16) 0%, transparent 60%),
+    linear-gradient(180deg, #0B0A12 0%, #0F0E17 50%, #0B0A12 100%);
+  color: var(--arc-text);
+  padding: 120px 0 128px;
+}
+
+/* ── Animated background layers ─────────────────────────────────────────── */
+
+.arc-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.arc-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(139, 92, 246, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 92, 246, 0.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 20%, transparent 78%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 20%, transparent 78%);
+  animation: arcGridPan 30s linear infinite;
+}
+
+.arc-aurora {
+  position: absolute;
+  inset: -25%;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(91, 79, 232, 0.14),
+    rgba(139, 92, 246, 0.10),
+    rgba(6, 182, 212, 0.08),
+    rgba(124, 58, 237, 0.12),
+    rgba(91, 79, 232, 0.14)
+  );
+  filter: blur(90px);
+  opacity: 0.6;
+  animation: arcSpin 50s linear infinite;
+}
+
+.arc-blob {
+  position: absolute;
+  width: 30vw;
+  height: 30vw;
+  min-width: 260px;
+  min-height: 260px;
+  border-radius: 999px;
+  filter: blur(60px);
+  opacity: 0.3;
+  animation: arcDrift 18s ease-in-out infinite;
+}
+
+.arc-blob-a { left: 6%;  top: 12%; background: radial-gradient(circle, rgba(91, 79, 232, 0.5), transparent 70%); }
+.arc-blob-b { right: 4%; top: 44%; background: radial-gradient(circle, rgba(139, 92, 246, 0.4), transparent 70%); animation-direction: reverse; animation-duration: 24s; }
+
+.arc-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.arc-dot {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--arc-accent);
+  opacity: 0;
+  animation: arcFloat linear infinite;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+
+.arc-inner {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1120px);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.arc-block { margin-top: 104px; }
+
+/* ── Scroll reveal ──────────────────────────────────────────────────────── */
+
+.arc-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  filter: blur(6px);
+  transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1),
+              transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1),
+              filter 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.arc-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+/* ── Type ───────────────────────────────────────────────────────────────── */
+
+.arc-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--arc-faint);
+  margin-bottom: 22px;
+}
+
+.arc-eyebrow::before {
+  content: '';
+  width: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--arc-primary));
+}
+
+/* Explicit colour is required: index.css sets `h1..h6 { color: var(--text-primary) }`,
+   which flips to near-black in light mode and would make this heading invisible
+   against a section that is always dark. */
+.arc-h2 {
+  color: var(--arc-text);
+  margin: 0 0 26px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(2rem, 4.4vw, 3.3rem);
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  text-wrap: balance;
+}
+
+.arc-grad {
+  background: linear-gradient(120deg, #5B4FE8, #8B5CF6, #C4B5FD, #8B5CF6, #5B4FE8);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: arcShimmer 7s linear infinite;
+}
+
+.arc-hero-statement {
+  max-width: 700px;
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(1.35rem, 2.5vw, 1.95rem);
+  line-height: 1.38;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  color: var(--arc-text);
+  text-wrap: balance;
+}
+
+.arc-lede {
+  max-width: 640px;
+  font-size: 15.5px;
+  line-height: 1.75;
+  color: var(--arc-muted);
+}
+
+.arc-lede + .arc-lede { margin-top: 18px; }
+
+.arc-h3 {
+  margin: 0 0 8px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--arc-text);
+}
+
+.arc-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--arc-faint);
+  margin-bottom: 28px;
+}
+
+/* ── Glass card base ────────────────────────────────────────────────────── */
+
+.arc-card {
+  position: relative;
+  border-radius: 16px;
+  background: var(--arc-surface);
+  border: 1px solid var(--arc-border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: transform 0.32s cubic-bezier(0.2, 0.7, 0.2, 1),
+              border-color 0.32s ease,
+              background-color 0.32s ease;
+}
+
+.arc-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(139, 92, 246, 0.42);
+  background: rgba(139, 92, 246, 0.06);
+}
+
+/* Gradient hairline that fades in on hover — the "glowing border". */
+.arc-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(91, 79, 232, 0.85), rgba(196, 181, 253, 0.25), transparent 65%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.32s ease;
+  pointer-events: none;
+}
+
+.arc-card:hover::after { opacity: 1; }
+
+/* ── Stats ──────────────────────────────────────────────────────────────── */
+
+.arc-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: 1px;
+  background: var(--arc-border);
+  border: 1px solid var(--arc-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.arc-stat {
+  background: #0C0B14;
+  padding: 24px 20px;
+  transition: background-color 0.3s ease;
+}
+
+.arc-stat:hover { background: rgba(139, 92, 246, 0.06); }
+
+.arc-stat-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--arc-faint);
+  margin-bottom: 10px;
+}
+
+.arc-stat-value {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--arc-text);
+}
+
+.arc-stat-value.is-text {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--arc-accent);
+}
+
+/* ── Ecosystem ──────────────────────────────────────────────────────────── */
+
+.arc-eco {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+.arc-eco-card { padding: 22px 20px; }
+
+.arc-eco-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+  background: var(--arc-primary);
+  box-shadow: 0 0 0 4px rgba(91, 79, 232, 0.14);
+}
+
+.arc-eco-card[data-state='live'] .arc-eco-dot {
+  background: #10B981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.16);
+  animation: arcPulse 2.6s ease-in-out infinite;
+}
+
+.arc-eco-status {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--arc-faint);
+}
+
+/* ── Timeline ───────────────────────────────────────────────────────────── */
+
+.arc-timeline { position: relative; padding-left: 30px; }
+
+.arc-timeline::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: linear-gradient(180deg, var(--arc-primary), rgba(139, 92, 246, 0.35), transparent);
+}
+
+.arc-tl-item {
+  position: relative;
+  padding: 0 0 30px;
+}
+
+.arc-tl-item:last-child { padding-bottom: 0; }
+
+.arc-tl-item::before {
+  content: '';
+  position: absolute;
+  left: -29px;
+  top: 5px;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: #0B0A12;
+  border: 1.5px solid rgba(139, 92, 246, 0.5);
+  transition: border-color 0.4s ease, background-color 0.4s ease;
+}
+
+.arc-tl-item.is-done::before {
+  background: var(--arc-primary);
+  border-color: var(--arc-primary);
+}
+
+.arc-tl-year {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--arc-primary);
+  margin-bottom: 6px;
+}
+
+.arc-tl-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--arc-text);
+}
+
+.arc-tl-note {
+  font-size: 13px;
+  color: var(--arc-faint);
+  margin-top: 3px;
+}
+
+/* ── Philosophy quote ───────────────────────────────────────────────────── */
+
+.arc-quote {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.arc-quote-line {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(1.3rem, 2.6vw, 2rem);
+  line-height: 1.34;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.arc-quote-sub {
+  margin-top: 22px;
+  font-size: 15.5px;
+  line-height: 1.75;
+  color: var(--arc-muted);
+}
+
+/* ── Relationship chain ─────────────────────────────────────────────────── */
+
+.arc-chain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.arc-chain-node {
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--arc-border);
+  background: var(--arc-surface);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: border-color 0.3s ease, transform 0.3s ease;
+}
+
+.arc-chain-node:hover {
+  border-color: rgba(139, 92, 246, 0.45);
+  transform: translateY(-2px);
+}
+
+.arc-chain-link {
+  width: 34px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.7), rgba(139, 92, 246, 0.15));
+  background-size: 200% 100%;
+  animation: arcFlow 2.4s linear infinite;
+}
+
+/* ── Profile card ───────────────────────────────────────────────────────── */
+
+.arc-profile {
+  padding: 28px;
+  border-radius: 20px;
+}
+
+.arc-profile-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 0;
+  border-top: 1px solid var(--arc-border);
+}
+
+.arc-profile-key {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--arc-faint);
+  white-space: nowrap;
+}
+
+.arc-profile-val {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--arc-text);
+  text-align: right;
+}
+
+/* ── Logo lockup ────────────────────────────────────────────────────────── */
+
+.arc-logo-mark {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(1.7rem, 3.6vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  animation: arcGlowPulse 4.5s ease-in-out infinite;
+}
+
+/* The supplied logo is a JPG with a baked-in near-black background and no
+   alpha channel, so it would otherwise show as a visible rectangle on the
+   section. A radial mask feathers those hard edges out, and `screen` lifts
+   the remaining dark pixels toward the backdrop. Swap in a transparent
+   PNG/SVG and both the mask and the blend can be deleted. */
+.arc-logo-img {
+  display: block;
+  width: min(300px, 68vw);
+  height: auto;
+  margin: 0 auto;
+  mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(ellipse 62% 58% at 50% 50%, #000 45%, rgba(0, 0, 0, 0.6) 72%, transparent 100%);
+  mask-image: radial-gradient(ellipse 62% 58% at 50% 50%, #000 45%, rgba(0, 0, 0, 0.6) 72%, transparent 100%);
+  animation: arcGlowPulse 4.5s ease-in-out infinite;
+}
+
+/* Small corner lockup. At this size the feathered-mask trick reads as a broken
+   cutout against the lighter card, so the logo's own dark plate is embraced
+   instead: rounded and hairline-bordered so it looks like a deliberate brand
+   chip. A transparent asset would let this collapse to a bare <img>. */
+.arc-corner-logo {
+  display: block;
+  width: 116px;
+  height: auto;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  transition: border-color 0.3s ease, transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.arc-card:hover .arc-corner-logo {
+  border-color: rgba(139, 92, 246, 0.45);
+  transform: translateY(-1px);
+}
+
+/* ── CTA ────────────────────────────────────────────────────────────────── */
+
+.arc-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 28px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  color: #fff;
+  background: rgba(91, 79, 232, 0.16);
+  border: 1px solid rgba(139, 92, 246, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transform: translate(var(--mx, 0px), var(--my, 0px));
+  transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+              background-color 0.28s ease, border-color 0.28s ease;
+}
+
+.arc-cta:hover {
+  background: rgba(91, 79, 232, 0.28);
+  border-color: rgba(196, 181, 253, 0.65);
+}
+
+.arc-cta .arc-cta-arrow { transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.arc-cta:hover .arc-cta-arrow { transform: translateX(4px); }
+
+.arc-cta-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 22px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--arc-muted);
+  border: 1px solid var(--arc-border);
+  transition: color 0.28s ease, border-color 0.28s ease;
+}
+
+.arc-cta-ghost:hover {
+  color: var(--arc-text);
+  border-color: rgba(139, 92, 246, 0.45);
+}
+
+/* ── Keyframes ──────────────────────────────────────────────────────────── */
+
+@keyframes arcSpin   { to { transform: rotate(360deg); } }
+@keyframes arcGridPan { from { background-position: 0 0, 0 0; } to { background-position: 64px 64px, 64px 64px; } }
+@keyframes arcDrift  { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(26px, -20px, 0) scale(1.06); } }
+@keyframes arcShimmer { to { background-position: 220% center; } }
+@keyframes arcFlow    { to { background-position: -200% 0; } }
+@keyframes arcPulse   { 0%, 100% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.16); } 50% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0.04); } }
+@keyframes arcGlowPulse { 0%, 100% { filter: drop-shadow(0 0 14px rgba(139, 92, 246, 0.30)); } 50% { filter: drop-shadow(0 0 26px rgba(139, 92, 246, 0.55)); } }
+@keyframes arcFloat {
+  0%   { transform: translate3d(0, 0, 0); opacity: 0; }
+  12%  { opacity: 0.75; }
+  100% { transform: translate3d(var(--arc-dx, 0), -320px, 0); opacity: 0; }
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .arc { padding: 88px 0 96px; }
+  .arc-block { margin-top: 76px; }
+}
+
+@media (max-width: 640px) {
+  .arc { padding: 72px 0 80px; }
+  .arc-block { margin-top: 60px; }
+  .arc-inner { padding: 0 18px; }
+  .arc-cta, .arc-cta-ghost { width: 100%; justify-content: center; }
+  /* Blur is the most expensive thing here — drop it on small screens. */
+  .arc-aurora { filter: blur(60px); opacity: 0.45; }
+  .arc-blob { display: none; }
+  .arc-card { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(255, 255, 255, 0.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arc-grid, .arc-aurora, .arc-blob, .arc-dot, .arc-grad,
+  .arc-chain-link, .arc-logo-mark, .arc-logo-img, .arc-eco-card[data-state='live'] .arc-eco-dot {
+    animation: none !important;
+  }
+  .arc-reveal { opacity: 1; transform: none; filter: none; transition: none; }
+  .arc-card:hover, .arc-chain-node:hover, .arc-cta { transform: none; }
+}
