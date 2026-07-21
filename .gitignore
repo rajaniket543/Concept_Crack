@@ -23,6 +23,9 @@ scripts/pdfs/
 scripts/.import-workspace/
 scripts/output/
 
+# QC audit working files (full question-bank dumps — too big, and not source)
+scripts/qc/data/
+
 # Python bytecode cache
 __pycache__/
 *.pyc
