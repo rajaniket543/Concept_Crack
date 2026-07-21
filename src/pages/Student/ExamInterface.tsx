@@ -20,7 +20,6 @@ import { pathFor } from '../../lib/pages';
 import { useToast } from '../../components/Toast';
 import { useConfirm } from '../../components/ConfirmDialog';
 import MathText from '../../components/MathText';
-import { ArcvionBadge } from '../../components/Arcvion';
 import {
   buildSections,
   derivePaletteState,
@@ -955,9 +954,6 @@ export default function ExamInterface() {
           <div className="min-w-0">
             <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{exam.title}</div>
             <div className="hidden sm:block text-xs truncate" style={{ color: 'var(--text-faint)', letterSpacing: '0.05em' }}>SESSION: {exam.id}</div>
-          </div>
-          <div className="hidden xl:block shrink-0">
-            <ArcvionBadge variant="compact" interactive={lockMode !== 'locked'} />
           </div>
         </div>
 

@@ -9,7 +9,6 @@ import {
 import { LoginRole, pathFor } from '../lib/pages';
 import Spinner from '../components/Spinner';
 import Logo from '../components/Logo';
-import { ArcvionBadge } from '../components/Arcvion';
 import { useTheme } from '../lib/theme';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -556,9 +555,6 @@ export default function Login() {
             </p>
           )}
 
-          <div className="flex justify-center mt-6">
-            <ArcvionBadge />
-          </div>
         </div>
       </main>
     </div>
