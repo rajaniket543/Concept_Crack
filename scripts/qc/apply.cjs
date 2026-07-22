@@ -29,17 +29,21 @@ const args        = process.argv.slice(2);
 const GO          = args.includes('--go');
 const QUARANTINE  = args.includes('--quarantine');
 const FIX_SUBJECT = args.includes('--fix-subjects');
+const FIX_ANSWER  = args.includes('--fix-answers');
 
-if (!QUARANTINE && !FIX_SUBJECT) {
-  console.error('Pick at least one of --quarantine / --fix-subjects');
+if (!QUARANTINE && !FIX_SUBJECT && !FIX_ANSWER) {
+  console.error('Pick at least one of --quarantine / --fix-subjects / --fix-answers');
   process.exit(1);
 }
 
 initializeApp({ credential: cert(sa) });
 const db = getFirestore();
 
-const flagged = fs.readFileSync(IN, 'utf8')
-  .split('\n').filter(Boolean).map(l => JSON.parse(l));
+const readJsonl = f => fs.existsSync(f)
+  ? fs.readFileSync(f, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l))
+  : [];
+
+const flagged = readJsonl(IN);
 
 // Content damage blocks a question from being served; a wrong subject does not
 // (it just needs moving), so the two modes touch different sets.
@@ -51,14 +55,26 @@ const targets = flagged.filter(f =>
   (QUARANTINE && isDamage(f)) ||
   (FIX_SUBJECT && f.confidence === 'high' && f.suggestedSubject));
 
-console.log(`${targets.length} documents to update` + (GO ? '' : '  (dry run — pass --go to write)'));
+// Answer corrections come from triage, not the audit — both models had to agree
+// against the stored key (or supply one where none existed).
+const answers = FIX_ANSWER
+  ? [...readJsonl(path.join(__dirname, 'data', 'triage-key_wrong.jsonl')),
+     ...readJsonl(path.join(__dirname, 'data', 'triage-key_filled.jsonl'))]
+      .filter(r => r.suggested)
+  : [];
+
+console.log(`${targets.length} flag updates · ${answers.length} answer corrections` +
+            (GO ? '' : '  (dry run — pass --go to write)'));
 
 if (!GO) {
-  targets.slice(0, 25).forEach(f =>
+  targets.slice(0, 15).forEach(f =>
     console.log(`  ${f.id}  ${(f.subject ?? '-').padEnd(12)}` +
                 `${f.suggestedSubject ? `→ ${f.suggestedSubject.padEnd(12)}` : ''.padEnd(15)}` +
                 `${f.flags.join(',')}`));
-  if (targets.length > 25) console.log(`  … ${targets.length - 25} more`);
+  if (targets.length > 15) console.log(`  … ${targets.length - 15} more`);
+  answers.slice(0, 15).forEach(r =>
+    console.log(`  ${r.id}  answer ${String(r.stored ?? '—').padEnd(3)} → ${r.suggested}   ${r.subject ?? ''} · ${r.chapter ?? ''}`));
+  if (answers.length > 15) console.log(`  … ${answers.length - 15} more`);
   process.exit(0);
 }
 
@@ -91,7 +107,29 @@ async function main() {
 
     await batch.commit();
     done += chunk.length;
-    process.stdout.write(`\r  ${done}/${targets.length}`);
+    process.stdout.write(`\r  flags ${done}/${targets.length}`);
+  }
+
+  let fixed = 0;
+  for (let i = 0; i < answers.length; i += 400) {
+    const chunk = answers.slice(i, i + 400);
+    const batch = db.batch();
+
+    for (const r of chunk) {
+      batch.update(db.collection('questions').doc(r.id), {
+        answer: r.suggested,
+        qcAnswerWas: r.stored ?? null,
+        qcAnswerSource: 'model-consensus',
+        qcCheckedAt: now,
+        // Faculty still sees it in the review queue — a corrected key is a
+        // strong signal, not a verified one.
+        verificationStatus: 'pending',
+      });
+      fixed++;
+    }
+
+    await batch.commit();
+    process.stdout.write(`\r  answers ${fixed}/${answers.length}`);
   }
   console.log('\n✓ done');
 }
