@@ -18,7 +18,11 @@ from google.oauth2 import service_account
 import google.auth.transport.requests
 import urllib.request
 
-PROJECT_ID = "concept-crack"
+# Project follows the service-account key — the key carries its own project_id,
+# so dropping in a different key targets a different Firebase project with no
+# edit here. Impossible to deploy to the wrong project by mistake.
+with open("service-account.json") as _f:
+    PROJECT_ID = json.load(_f)["project_id"]
 RULES_FILE = Path(__file__).parent.parent / "firestore.rules"
 
 creds = service_account.Credentials.from_service_account_file(

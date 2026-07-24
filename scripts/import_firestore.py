@@ -14,6 +14,7 @@ Run:  python import_firestore.py
 """
 
 import json
+import os
 import sys
 import uuid
 import urllib.parse
@@ -32,7 +33,12 @@ SERVICE_ACCOUNT = Path("service-account.json")
 INPUT_FILE      = Path("output/all_questions.json")
 BATCH_SIZE      = 499   # Firestore max is 500 per batch
 COLLECTION      = "questions"
-STORAGE_BUCKET  = "concept-crack.firebasestorage.app"  # matches src/lib/firebase.ts
+# Bucket follows the service-account key's project (new-project convention),
+# so a different key targets a different project's Storage with no edit here.
+# Override with FIREBASE_STORAGE_BUCKET for an older <project>.appspot.com bucket.
+with open(SERVICE_ACCOUNT) as _f:
+    _project = json.load(_f)["project_id"]
+STORAGE_BUCKET  = os.environ.get("FIREBASE_STORAGE_BUCKET", f"{_project}.firebasestorage.app")
 
 # ── Figure upload ─────────────────────────────────────────────────────────────
 

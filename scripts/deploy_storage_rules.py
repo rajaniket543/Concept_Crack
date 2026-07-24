@@ -7,6 +7,7 @@ deploy_firestore_rules.py — creates a new Ruleset from the local file and
 points the live firebase.storage release at it.
 """
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -14,8 +15,12 @@ from google.oauth2 import service_account
 import google.auth.transport.requests
 import urllib.request
 
-PROJECT_ID = "concept-crack"
-BUCKET = "concept-crack.firebasestorage.app"
+# Project follows the service-account key (see deploy_firestore_rules.py). The
+# bucket defaults to the new-project convention <project>.firebasestorage.app;
+# override with FIREBASE_STORAGE_BUCKET for an older <project>.appspot.com bucket.
+with open(str(Path(__file__).parent / "service-account.json")) as _f:
+    PROJECT_ID = json.load(_f)["project_id"]
+BUCKET = os.environ.get("FIREBASE_STORAGE_BUCKET", f"{PROJECT_ID}.firebasestorage.app")
 RULES_FILE = Path(__file__).parent.parent / "storage.rules"
 
 creds = service_account.Credentials.from_service_account_file(
