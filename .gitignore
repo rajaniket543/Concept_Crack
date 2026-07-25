@@ -29,3 +29,7 @@ scripts/qc/data/
 # Python bytecode cache
 __pycache__/
 *.pyc
+
+# any Firebase admin key variant (prod, test, etc.)
+scripts/service-account*.json
+service-account*.json
