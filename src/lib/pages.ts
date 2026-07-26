@@ -15,6 +15,7 @@ export type PageKey =
   | 'customTest'
   | 'aiTest'
   | 'battle'
+  | 'pyq'
   | 'testLog'
   | 'parent'
   | 'faculty'
@@ -60,6 +61,7 @@ export const pages: PageDef[] = [
   { key: 'customTest', label: 'Custom Test', group: 'Student', path: '/student/custom-test' },
   { key: 'aiTest', label: 'AI Test', group: 'Student', path: '/student/ai-test' },
   { key: 'battle', label: 'Battle', group: 'Student', path: '/student/battle' },
+  { key: 'pyq', label: 'Previous Year Papers', group: 'Student', path: '/student/pyq' },
   { key: 'testLog', label: 'Test Log', group: 'Student', path: '/student/test-log' },
   { key: 'parent', label: 'Parent Dashboard', group: 'Parent', path: '/parent' },
   { key: 'faculty', label: 'Faculty Dashboard', group: 'Faculty', path: '/faculty' },

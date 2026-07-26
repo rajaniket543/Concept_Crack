@@ -21,8 +21,8 @@ except ImportError:
     print("❌  Run:  pip install firebase-admin")
     sys.exit(1)
 
-SERVICE_ACCOUNT = Path("service-account.json")
-INPUT_FILE      = Path("output/all_questions.json")
+SERVICE_ACCOUNT = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("service-account.json")
+INPUT_FILE      = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("output/all_questions.json")
 COLLECTION      = "chapters"
 BATCH_SIZE      = 499
 
