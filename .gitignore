@@ -30,6 +30,11 @@ scripts/qc/data/
 __pycache__/
 *.pyc
 
-# any Firebase admin key variant (prod, test, etc.)
+# any Firebase admin key variant (prod, test, etc.) — this also catches the
+# default filename Firebase Console downloads use (<project>-firebase-adminsdk-<hash>.json)
 scripts/service-account*.json
 service-account*.json
+*firebase-adminsdk*.json
+
+# reference-only example project, not part of this app
+scripts/reference_concept_crack/

@@ -6,10 +6,10 @@ import { db } from './firebase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type TestType   = 'faculty_batch' | 'faculty_coaching' | 'ai' | 'custom' | 'mock';
+export type TestType   = 'faculty_batch' | 'faculty_coaching' | 'ai' | 'custom' | 'mock' | 'pyq';
 
 // Every attempt is tagged with the kind of test it was, so Test History can
-// categorise it (mock / custom / ai / battle / practice / assigned / coaching).
+// categorise it (mock / custom / ai / battle / practice / assigned / coaching / pyq).
 export type AttemptType = TestType | 'battle' | 'practice';
 
 export const ATTEMPT_TYPE_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
@@ -20,6 +20,7 @@ export const ATTEMPT_TYPE_META: Record<string, { label: string; color: string; b
   practice:          { label: 'Practice',     color: '#10B981', bg: 'rgba(16,185,129,0.10)', icon: 'edit_note' },
   faculty_batch:     { label: 'Assigned Test',color: '#059669', bg: 'rgba(16,185,129,0.10)', icon: 'assignment' },
   faculty_coaching:  { label: 'Coaching Test',color: '#D97706', bg: 'rgba(245,158,11,0.10)', icon: 'verified' },
+  pyq:               { label: 'PYQ Paper',    color: '#B45309', bg: 'rgba(180,83,9,0.10)',   icon: 'history_edu' },
 };
 export type TestStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'final_rejected' | 'active' | 'closed';
 
@@ -326,6 +327,23 @@ export async function getCoachingTests(studentStream?: string): Promise<Test[]> 
       .sort(byCreatedDesc);
   } catch (e) {
     console.error('getCoachingTests error:', e);
+    return [];
+  }
+}
+
+// ── Student: PYQ papers ───────────────────────────────────────────────────────
+
+/** Sorted oldest→newest so a student naturally works forward through years. */
+export async function getPYQTests(studentStream?: string): Promise<Test[]> {
+  try {
+    const q = query(collection(db, 'tests'), where('type', '==', 'pyq'), where('status', '==', 'active'), limit(50));
+    const snap = await getDocs(q);
+    return snap.docs
+      .map(d => docToTest(d.id, d.data() as Record<string, unknown>))
+      .filter(t => !studentStream || !t.stream || t.stream === studentStream)
+      .sort((a, b) => a.title.localeCompare(b.title));
+  } catch (e) {
+    console.error('getPYQTests error:', e);
     return [];
   }
 }

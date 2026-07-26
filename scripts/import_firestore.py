@@ -29,8 +29,8 @@ except ImportError:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-SERVICE_ACCOUNT = Path("service-account.json")
-INPUT_FILE      = Path("output/all_questions.json")
+SERVICE_ACCOUNT = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("service-account.json")
+INPUT_FILE      = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("output/all_questions.json")
 BATCH_SIZE      = 499   # Firestore max is 500 per batch
 COLLECTION      = "questions"
 # Bucket follows the service-account key's project (new-project convention),
@@ -107,6 +107,25 @@ def main():
                 uploaded += 1
             q.pop("imageLocalPath", None)
         print(f"   ✅  {uploaded}/{len(with_figures)} figure(s) uploaded\n")
+
+    # Same, but for per-option diagram images (questionType "single" MCQs where
+    # some or all of A/B/C/D are drawn structures rather than text).
+    with_option_figures = [q for q in questions if q.get("optionImageLocalPaths")]
+    if with_option_figures:
+        total_opt_images = sum(len(q["optionImageLocalPaths"]) for q in with_option_figures)
+        print(f"   Uploading {total_opt_images} option figure(s) to Storage ...")
+        uploaded = 0
+        for q in with_option_figures:
+            option_images = {}
+            for letter, local_path in q["optionImageLocalPaths"].items():
+                url = upload_figure(bucket, local_path)
+                if url:
+                    option_images[letter] = url
+                    uploaded += 1
+            if option_images:
+                q["optionImages"] = option_images
+            q.pop("optionImageLocalPaths", None)
+        print(f"   ✅  {uploaded}/{total_opt_images} option figure(s) uploaded\n")
 
     # Import in batches of 499
     total    = len(questions)

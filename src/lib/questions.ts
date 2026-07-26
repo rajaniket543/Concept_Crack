@@ -11,10 +11,22 @@ export interface ChapterInfo {
 
 export type QuestionType = 'single' | 'multiple' | 'numeric';
 
+/** A body segment for questions whose statement isn't one paragraph + one
+ *  optional image — e.g. "text, then a figure, then more text" (PYQ papers:
+ *  "Consider the following reactions: [scheme] Which will not produce X?").
+ *  Only set when the body genuinely needs more than prompt+imageUrl; when
+ *  absent, renderers fall back to the plain prompt/imageUrl fields. */
+export type BodyBlock =
+  | { type: 'text'; content: string }
+  | { type: 'image'; imageUrl: string };
+
 export interface ExamQuestion {
   id: string;
   prompt: string;
-  options: Array<{ key: 'A' | 'B' | 'C' | 'D'; text: string }>;
+  /** imageUrl set on an option means that option is a drawn diagram/structure
+   *  rather than text (common in organic chemistry "identify the product" and
+   *  physics "which plot" questions) — text is "" in that case. */
+  options: Array<{ key: 'A' | 'B' | 'C' | 'D'; text: string; imageUrl?: string }>;
   /** 'single' = one correct MCQ (default), 'multiple' = one-or-more correct,
    *  'numeric' = integer/decimal answer with no options (JEE Advanced patterns). */
   questionType: QuestionType;
@@ -24,12 +36,26 @@ export interface ExamQuestion {
   subject?: string;
   chapter?: string;
   imageUrl?: string;
+  bodyBlocks?: BodyBlock[];
 }
 
 /** A stored question with no questionType is a plain single-answer MCQ. */
 function readQuestionType(d: Record<string, unknown>): QuestionType {
   const t = d.questionType as string | undefined;
   return t === 'multiple' || t === 'numeric' ? t : 'single';
+}
+
+/** Builds the options array, attaching a per-option image URL when the
+ *  question doc has one (options.optionImages.{A,B,C,D}) for that letter. */
+function readOptions(d: Record<string, unknown>, questionType: QuestionType): Array<{ key: 'A' | 'B' | 'C' | 'D'; text: string; imageUrl?: string }> {
+  if (questionType === 'numeric') return [];
+  const opts = (d.options ?? {}) as Record<string, string>;
+  const optionImages = (d.optionImages ?? {}) as Record<string, string>;
+  return (['A', 'B', 'C', 'D'] as const).map(k => ({
+    key: k,
+    text: opts[k] ?? '',
+    imageUrl: optionImages[k] || undefined,
+  }));
 }
 
 export async function getChaptersForSubject(subject: string): Promise<ChapterInfo[]> {
@@ -55,14 +81,11 @@ export async function getQuestionsByIds(ids: string[]): Promise<ExamQuestion[]> 
     const snap = await getDocs(q);
     snap.docs.forEach(doc => {
       const d = doc.data();
-      const opts = (d.options ?? {}) as Record<string, string>;
       const questionType = readQuestionType(d);
       results.push({
         id: doc.id,
         prompt: (d.question as string) ?? '',
-        options: questionType === 'numeric'
-          ? []
-          : (['A', 'B', 'C', 'D'] as const).map(k => ({ key: k, text: opts[k] ?? '' })),
+        options: readOptions(d, questionType),
         questionType,
         difficulty: (d.difficulty as string) ?? 'Medium',
         section: (d.chapter as string) ?? '',
@@ -70,6 +93,7 @@ export async function getQuestionsByIds(ids: string[]): Promise<ExamQuestion[]> 
         subject: (d.subject as string) || undefined,
         chapter: (d.chapter as string) || undefined,
         imageUrl: (d.imageUrl as string) || undefined,
+        bodyBlocks: (d.bodyBlocks as BodyBlock[]) || undefined,
       });
     });
   }
@@ -126,13 +150,10 @@ export async function getQuestionsForCustomTest(config: {
       // Level filter: Main = single only, Advanced = multiple/numeric only.
       if (level === 'main' && questionType !== 'single') return;
       if (level === 'advanced' && questionType === 'single') return;
-      const opts = (d.options ?? {}) as Record<string, string>;
       all.push({
         id: doc.id,
         prompt: (d.question as string) ?? '',
-        options: questionType === 'numeric'
-          ? []
-          : (['A', 'B', 'C', 'D'] as const).map(k => ({ key: k, text: opts[k] ?? '' })),
+        options: readOptions(d, questionType),
         questionType,
         difficulty: (d.difficulty as string) ?? 'Medium',
         section: chapter,
@@ -170,17 +191,11 @@ export async function getQuestionsForChapter(
     .filter(doc => ((doc.data().subject as string) ?? '').trim() === subject.trim())
     .map(doc => {
       const d = doc.data();
-      const opts = (d.options ?? {}) as Record<string, string>;
       const questionType = readQuestionType(d);
       return {
         id: doc.id,
         prompt: (d.question as string) ?? '',
-        options: questionType === 'numeric'
-          ? []
-          : (['A', 'B', 'C', 'D'] as const).map(k => ({
-              key: k,
-              text: opts[k] ?? '',
-            })),
+        options: readOptions(d, questionType),
         questionType,
         difficulty: (d.difficulty as string) ?? 'Medium',
         section: chapter,

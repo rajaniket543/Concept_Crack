@@ -27,6 +27,7 @@ import AssignedTests from './pages/Student/AssignedTests';
 import CustomTest from './pages/Student/CustomTest';
 import AITest from './pages/Student/AITest';
 import Battle from './pages/Student/Battle';
+import PYQSection from './pages/Student/PYQSection';
 import MockTest from './pages/Student/MockTest';
 import TestLog from './pages/Student/TestLog';
 import ParentDashboard from './pages/Parent/ParentDashboard';
@@ -75,6 +76,7 @@ const studentNav = [
       { key: 'customTest' as PageKey,    label: 'Custom Test',    icon: 'tune' },
       { key: 'aiTest' as PageKey,        label: 'AI Test',        icon: 'auto_awesome' },
       { key: 'battle' as PageKey,        label: 'Battle',         icon: 'sports_esports' },
+      { key: 'pyq' as PageKey,           label: 'Previous Year Papers', icon: 'history_edu' },
     ],
   },
   {
@@ -268,6 +270,7 @@ export default function App() {
         <Route path="custom-test" element={<RequireAuth roles={['student']}><CustomTest /></RequireAuth>} />
         <Route path="ai-test" element={<RequireAuth roles={['student']}><AITest /></RequireAuth>} />
         <Route path="battle" element={<RequireAuth roles={['student']}><Battle /></RequireAuth>} />
+        <Route path="pyq" element={<RequireAuth roles={['student']}><PYQSection /></RequireAuth>} />
         <Route path="mock-test" element={<RequireAuth roles={['student']}><MockTest /></RequireAuth>} />
         <Route path="test-log" element={<RequireAuth roles={['student']}><TestLog /></RequireAuth>} />
       </Route>

@@ -1081,10 +1081,22 @@ export default function ExamInterface() {
                 className="rounded-xl p-6 mb-6 text-base leading-relaxed"
                 style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '16px', lineHeight: '1.7' }}
               >
-                {question.imageUrl && (
-                  <img src={question.imageUrl} alt="Question figure" className="rounded-lg max-h-80 mb-4 mx-auto" />
+                {question.bodyBlocks ? (
+                  question.bodyBlocks.map((b, i) =>
+                    b.type === 'image' ? (
+                      <img key={i} src={b.imageUrl} alt="Question figure" className="rounded-lg max-h-80 my-4 mx-auto block" />
+                    ) : (
+                      <div key={i} className="mb-2 last:mb-0"><MathText text={b.content} /></div>
+                    )
+                  )
+                ) : (
+                  <>
+                    {question.imageUrl && (
+                      <img src={question.imageUrl} alt="Question figure" className="rounded-lg max-h-80 mb-4 mx-auto" />
+                    )}
+                    <MathText text={question.prompt} />
+                  </>
                 )}
-                <MathText text={question.prompt} />
               </div>
 
               {/* Answer-type hint for Advanced questions */}
@@ -1151,12 +1163,16 @@ export default function ExamInterface() {
                         >
                           {isMultiple && isSelected ? '✓' : opt.key}
                         </div>
-                        <span
-                          className="text-base"
-                          style={{ color: isSelected ? '#5B4FE8' : 'var(--text-primary)', fontWeight: isSelected ? 500 : 400 }}
-                        >
-                          <MathText text={opt.text} />
-                        </span>
+                        {opt.imageUrl ? (
+                          <img src={opt.imageUrl} alt={`Option ${opt.key}`} className="max-h-24 rounded-md" style={{ background: '#fff' }} />
+                        ) : (
+                          <span
+                            className="text-base"
+                            style={{ color: isSelected ? '#5B4FE8' : 'var(--text-primary)', fontWeight: isSelected ? 500 : 400 }}
+                          >
+                            <MathText text={opt.text} />
+                          </span>
+                        )}
                       </button>
                     );
                   })}
