@@ -54,12 +54,9 @@ async function callModel(model: string, prompt: string, opts: AskOptions): Promi
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        // thinkingBudget: 0 stops 2.5-flash spending the whole budget on hidden
-        // reasoning (which returns an empty answer for short replies).
         generationConfig: {
           maxOutputTokens: opts.maxTokens ?? 700,
           temperature: opts.temperature ?? 0.6,
-          ...(model === MODEL ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
         },
       }),
     },
