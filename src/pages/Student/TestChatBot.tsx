@@ -86,9 +86,7 @@ Student's question: ${userMessage}`;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: systemPrompt }] }],
-        // thinkingBudget: 0 keeps the model from spending the token budget on
-        // internal reasoning (which returns an empty answer for short replies).
-        generationConfig: { maxOutputTokens: 700, temperature: 0.6, thinkingConfig: { thinkingBudget: 0 } },
+        generationConfig: { maxOutputTokens: 700, temperature: 0.6 },
       }),
     }
   );
