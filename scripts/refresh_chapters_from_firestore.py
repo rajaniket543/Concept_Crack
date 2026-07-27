@@ -23,7 +23,22 @@ def main():
     app = firebase_admin.initialize_app(cred)
     db = firestore.client(app=app)
 
-    docs = list(db.collection("questions").stream())
+    # Paginate the scan — a single unbounded stream() times out once the
+    # collection grows large (14k+ docs), so page through in chunks instead.
+    docs = []
+    PAGE_SIZE = 1000
+    query = db.collection("questions").order_by("__name__").limit(PAGE_SIZE)
+    last = None
+    while True:
+        q = query.start_after(last) if last is not None else query
+        page = list(q.stream())
+        if not page:
+            break
+        docs.extend(page)
+        last = page[-1]
+        print(f"   ...scanned {len(docs)} so far")
+        if len(page) < PAGE_SIZE:
+            break
     print(f"Loaded {len(docs)} question docs")
 
     chapter_map: dict[tuple, dict] = defaultdict(lambda: {"count": 0, "stream": "BOTH"})
@@ -37,17 +52,20 @@ def main():
 
     print(f"Found {len(chapter_map)} unique chapters")
 
-    batch = db.batch()
-    for (subject, chapter), info in chapter_map.items():
-        safe_id = f"{subject}_{chapter}".replace(" ", "_").replace("/", "-")[:100]
-        ref = db.collection("chapters").document(safe_id)
-        batch.set(ref, {
-            "subject": subject,
-            "chapter": chapter,
-            "stream": info["stream"],
-            "questionCount": info["count"],
-        })
-    batch.commit()
+    entries = list(chapter_map.items())
+    BATCH_SIZE = 499  # Firestore max is 500 writes per batch
+    for i in range(0, len(entries), BATCH_SIZE):
+        batch = db.batch()
+        for (subject, chapter), info in entries[i:i + BATCH_SIZE]:
+            safe_id = f"{subject}_{chapter}".replace(" ", "_").replace("/", "-")[:100]
+            ref = db.collection("chapters").document(safe_id)
+            batch.set(ref, {
+                "subject": subject,
+                "chapter": chapter,
+                "stream": info["stream"],
+                "questionCount": info["count"],
+            })
+        batch.commit()
 
     print(f"\nUpdated {len(chapter_map)} chapter doc(s):")
     for (subject, chapter), info in sorted(chapter_map.items()):
