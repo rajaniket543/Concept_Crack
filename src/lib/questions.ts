@@ -161,6 +161,7 @@ export async function getQuestionsForCustomTest(config: {
         subject,
         chapter,
         imageUrl: (d.imageUrl as string) || undefined,
+        bodyBlocks: (d.bodyBlocks as BodyBlock[]) || undefined,
       });
     });
   }));
@@ -203,6 +204,7 @@ export async function getQuestionsForChapter(
         subject,
         chapter,
         imageUrl: (d.imageUrl as string) || undefined,
+        bodyBlocks: (d.bodyBlocks as BodyBlock[]) || undefined,
       } as ExamQuestion;
     });
   return dedupeQuestions(list);
