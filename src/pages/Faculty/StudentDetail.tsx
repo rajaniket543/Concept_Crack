@@ -67,7 +67,7 @@ export default function StudentDetail() {
       <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
         <TopBar breadcrumb={[{ label: 'Faculty', href: pathFor('faculty') }, { label: 'Student' }]} />
         <div className="flex-1 flex items-center justify-center">
-          <span className="material-symbols-outlined animate-spin text-4xl" style={{ color: '#14B8A6' }}>progress_activity</span>
+          <span className="material-symbols-outlined animate-spin text-4xl" style={{ color: 'var(--faculty-accent)' }}>progress_activity</span>
         </div>
       </div>
     );
@@ -91,7 +91,7 @@ export default function StudentDetail() {
   const weakAreas   = buildWeakAreas(student);
 
   const metrics = [
-    { label: 'Latest Score',  value: `${student.score}%`,     icon: 'trending_up',        color: '#14B8A6', bg: 'rgba(20,184,166,0.12)' },
+    { label: 'Latest Score',  value: `${student.score}%`,     icon: 'trending_up',        color: 'var(--faculty-accent)', bg: 'rgba(20,184,166,0.12)' },
     { label: 'Accuracy',      value: `${student.accuracy}%`,  icon: 'my_location',        color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
     { label: 'Batch Rank',    value: `#${student.rank}`,      icon: 'military_tech',      color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
     { label: 'Attendance',    value: `${student.attendance}%`,icon: 'calendar_month',     color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
@@ -120,12 +120,12 @@ export default function StudentDetail() {
           style={{
             background:   'linear-gradient(135deg, rgba(20,184,166,0.08), rgba(13,148,136,0.05))',
             border:       '1px solid rgba(20,184,166,0.20)',
-            borderLeft:   '4px solid #14B8A6',
+            borderLeft:   '4px solid var(--faculty-accent)',
           }}
         >
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-white text-xl shrink-0"
-            style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}
+            style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}
           >
             {initials}
           </div>
@@ -169,8 +169,8 @@ export default function StudentDetail() {
           <Card title="Subject Mastery" subtitle={`${student.stream} subjects`}>
             <div className="space-y-5">
               {subjects.map(s => {
-                const color = STREAM_COLORS[s.subject] ?? '#5B4FE8';
-                const bg    = STREAM_BG[s.subject]    ?? 'rgba(91,79,232,0.10)';
+                const color = STREAM_COLORS[s.subject] ?? 'var(--brand)';
+                const bg    = STREAM_BG[s.subject]    ?? 'rgba(107,94,240,0.10)';
                 return (
                   <div key={s.subject}>
                     <div className="flex items-center justify-between mb-2">
@@ -212,7 +212,7 @@ export default function StudentDetail() {
                       <td>
                         <div className="flex items-center gap-2">
                           <div className="progress-bar w-14">
-                            <div className="progress-bar-fill" style={{ width: `${t.score}%`, backgroundColor: '#14B8A6' }} />
+                            <div className="progress-bar-fill" style={{ width: `${t.score}%`, backgroundColor: 'var(--faculty-accent)' }} />
                           </div>
                           <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{t.score}%</span>
                         </div>
@@ -251,8 +251,8 @@ export default function StudentDetail() {
           <Card title="Progress Summary" subtitle="Overall learning status">
             <div className="space-y-4">
               {[
-                { label: 'Overall Accuracy',  value: student.accuracy,  color: '#14B8A6' },
-                { label: 'Latest Score',      value: student.score,     color: '#5B4FE8' },
+                { label: 'Overall Accuracy',  value: student.accuracy,  color: 'var(--faculty-accent)' },
+                { label: 'Latest Score',      value: student.score,     color: 'var(--brand)' },
                 { label: 'Attendance',        value: student.attendance, color: '#10B981' },
               ].map(item => (
                 <div key={item.label}>

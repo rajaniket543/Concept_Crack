@@ -66,7 +66,7 @@ export default function UploadQuestions() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {UPLOAD_OPTIONS.map(o => (
           <div key={o.title} className="rounded-2xl p-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 24, color: '#14B8A6' }}>{o.icon}</span>
+            <span className="material-symbols-outlined" style={{ fontSize: 24, color: 'var(--faculty-accent)' }}>{o.icon}</span>
             <div className="text-sm font-semibold mt-2" style={{ color: 'var(--text-primary)' }}>{o.title}</div>
             <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{o.desc}</div>
           </div>
@@ -79,7 +79,7 @@ export default function UploadQuestions() {
           className="flex flex-col items-center justify-center gap-2 rounded-xl py-8 cursor-pointer transition-all"
           style={{ border: '2px dashed var(--border)', backgroundColor: 'var(--surface-muted)' }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: 34, color: '#14B8A6' }}>upload_file</span>
+          <span className="material-symbols-outlined" style={{ fontSize: 34, color: 'var(--faculty-accent)' }}>upload_file</span>
           <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Click to choose a PDF or images</span>
           <span className="text-xs" style={{ color: 'var(--text-faint)' }}>PDF, PNG, JPG · up to ~18 MB total</span>
           <input type="file" accept="application/pdf,image/*" multiple className="hidden" onChange={e => { onFilesSelected(e.target.files); e.target.value = ''; }} />
@@ -89,7 +89,7 @@ export default function UploadQuestions() {
           <div className="space-y-2">
             {files.map((f, i) => (
               <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18, color: f.type === 'application/pdf' ? '#EF4444' : '#14B8A6' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: f.type === 'application/pdf' ? '#EF4444' : 'var(--faculty-accent)' }}>
                   {f.type === 'application/pdf' ? 'picture_as_pdf' : 'image'}
                 </span>
                 <span className="text-sm flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{f.name}</span>
@@ -119,7 +119,7 @@ export default function UploadQuestions() {
           onClick={extract}
           disabled={extracting || files.length === 0 || !available}
           className="btn-primary btn-md w-full justify-center"
-          style={{ background: extracting ? undefined : 'linear-gradient(135deg, #14B8A6, #0D9488)' }}
+          style={{ background: extracting ? undefined : 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}
         >
           {extracting
             ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Extracting questions…</>

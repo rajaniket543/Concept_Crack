@@ -180,7 +180,7 @@ export default function ManualTestBuilder() {
                 <div key={q.id} className="rounded-lg p-3 flex items-start gap-3" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[11px] font-mono" style={{ color: '#5B4FE8' }}>{q.code ?? '—'}</span>
+                      <span className="text-[11px] font-mono" style={{ color: 'var(--brand)' }}>{q.code ?? '—'}</span>
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: DIFF_COLOR[q.difficulty] ?? '#9CA3AF' }} title={q.difficulty} />
                       <span className="text-[11px]" style={{ color: 'var(--text-faint)' }}>{q.subject} · {q.chapter}{q.topic ? ` · ${q.topic}` : ''}</span>
                     </div>
@@ -188,7 +188,7 @@ export default function ManualTestBuilder() {
                   </div>
                   <button type="button" onClick={() => setPreview(q)} className="icon-btn icon-btn-sm shrink-0" title="Preview"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>visibility</span></button>
                   <button type="button" onClick={() => add(q)} disabled={added} className="btn-sm shrink-0"
-                    style={{ backgroundColor: added ? 'var(--surface)' : '#5B4FE8', color: added ? 'var(--text-faint)' : '#fff', border: added ? '1px solid var(--border)' : 'none', borderRadius: 8, padding: '4px 10px' }}>
+                    style={{ backgroundColor: added ? 'var(--surface)' : 'var(--brand)', color: added ? 'var(--text-faint)' : '#fff', border: added ? '1px solid var(--border)' : 'none', borderRadius: 8, padding: '4px 10px' }}>
                     {added ? 'Added' : 'Add'}
                   </button>
                 </div>
@@ -221,10 +221,10 @@ export default function ManualTestBuilder() {
                 style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)', cursor: 'grab' }}
               >
                 <span className="material-symbols-outlined shrink-0" style={{ fontSize: 18, color: 'var(--text-faint)' }}>drag_indicator</span>
-                <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0 text-white" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>{i + 1}</span>
+                <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0 text-white" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>{i + 1}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{p.q.question || '(no text)'}</p>
-                  <span className="text-[11px] font-mono" style={{ color: '#5B4FE8' }}>{p.q.code ?? '—'}</span>
+                  <span className="text-[11px] font-mono" style={{ color: 'var(--brand)' }}>{p.q.code ?? '—'}</span>
                 </div>
                 <label className="flex items-center gap-1 shrink-0" title="Marks">
                   <span className="material-symbols-outlined" style={{ fontSize: 14, color: 'var(--text-faint)' }}>star</span>
@@ -256,7 +256,7 @@ export default function ManualTestBuilder() {
               <input type="checkbox" checked={negativeMarking} onChange={e => setNeg(e.target.checked)} />
               Negative marking (−1 per wrong answer)
             </label>
-            <button type="button" onClick={finalize} disabled={saving || picked.length === 0} className="btn-primary btn-md w-full justify-center" style={{ background: saving ? undefined : 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+            <button type="button" onClick={finalize} disabled={saving || picked.length === 0} className="btn-primary btn-md w-full justify-center" style={{ background: saving ? undefined : 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
               {saving ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><span className="material-symbols-outlined" style={{ fontSize: 18 }}>check_circle</span> Finalize Test</>}
             </button>
           </div>
@@ -268,7 +268,7 @@ export default function ManualTestBuilder() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setPreview(null)}>
           <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
-              <span className="text-label-sm font-mono" style={{ color: '#5B4FE8' }}>{preview.code ?? 'no code'}</span>
+              <span className="text-label-sm font-mono" style={{ color: 'var(--brand)' }}>{preview.code ?? 'no code'}</span>
               <button type="button" onClick={() => setPreview(null)} className="icon-btn icon-btn-sm"><span className="material-symbols-outlined">close</span></button>
             </div>
             <div className="p-6 space-y-3 max-h-[70vh] overflow-y-auto">
@@ -284,7 +284,7 @@ export default function ManualTestBuilder() {
               ))}
             </div>
             <div className="px-6 py-4 flex justify-end gap-2" style={{ borderTop: '1px solid var(--border)' }}>
-              <button type="button" onClick={() => { add(preview); setPreview(null); }} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>Add to Test</button>
+              <button type="button" onClick={() => { add(preview); setPreview(null); }} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>Add to Test</button>
             </div>
           </div>
         </div>

@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 import { getAuthSession } from '../../lib/auth';
 import { getFacultyTests, updateTestStatus, type Test } from '../../lib/tests';
+import { getAssignedStudentsData } from '../../lib/db';
 import { pathFor } from '../../lib/pages';
 import { useToast } from '../../components/Toast';
 import { useConfirm } from '../../components/ConfirmDialog';
+
+interface TestStats { attempts: number; avgScore: number; avgAccuracy: number; completionPct: number | null; }
 
 // Status filters (3f)
 const FILTERS = ['All', 'Active', 'Pending', 'Approved', 'Rejected', 'Closed', 'Draft'] as const;
@@ -23,7 +28,7 @@ const FILTER_STATUSES: Record<Filter, string[]> = {
 const STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
   draft:            { label: 'Draft',            bg: 'rgba(107,114,128,0.10)', color: '#6B7280' },
   pending_approval: { label: 'Pending Approval', bg: 'rgba(245,158,11,0.10)',  color: '#B45309' },
-  approved:         { label: 'Approved',         bg: 'rgba(91,79,232,0.10)',   color: '#5B4FE8' },
+  approved:         { label: 'Approved',         bg: 'rgba(107,94,240,0.10)',   color: 'var(--brand)' },
   rejected:         { label: 'Rejected',         bg: 'rgba(239,68,68,0.10)',   color: '#EF4444' },
   final_rejected:   { label: 'Final Rejected',   bg: 'rgba(239,68,68,0.14)',   color: '#DC2626' },
   active:           { label: 'Active',           bg: 'rgba(16,185,129,0.10)',  color: '#059669' },
@@ -51,13 +56,55 @@ export default function ManageTests() {
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState<string | null>(null);
   const [filter, setFilter]   = useState<Filter>('All');
+  const [statsByTest, setStatsByTest] = useState<Record<string, TestStats>>({});
+  const [assignedCount, setAssignedCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!uid) return;
     getFacultyTests(uid)
       .then(setTests)
       .finally(() => setLoading(false));
+    getAssignedStudentsData(uid).then(students => setAssignedCount(students.length)).catch(() => undefined);
   }, [uid]);
+
+  // Real per-test stats — attempts, avg score/accuracy, completion — derived
+  // from the same testAttempts collection the dashboard reads.
+  useEffect(() => {
+    if (tests.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const testIds = new Set(tests.map(t => t.id));
+        const snap = await getDocs(collection(db, 'testAttempts'));
+        const byTest = new Map<string, Array<{ score: number; accuracyPct: number }>>();
+        snap.docs.forEach(d => {
+          const data = d.data();
+          const testId = data.testId as string;
+          if (!testIds.has(testId)) return;
+          const arr = byTest.get(testId) ?? [];
+          arr.push({ score: (data.score as number) ?? 0, accuracyPct: (data.accuracyPct as number) ?? 0 });
+          byTest.set(testId, arr);
+        });
+        if (cancelled) return;
+        const stats: Record<string, TestStats> = {};
+        tests.forEach(t => {
+          const attempts = byTest.get(t.id) ?? [];
+          const n = attempts.length;
+          const assignedN = t.assignedTo === 'all' ? assignedCount : t.assignedTo.length;
+          stats[t.id] = {
+            attempts: n,
+            avgScore: n > 0 ? Math.round(attempts.reduce((s, a) => s + a.score, 0) / n) : 0,
+            avgAccuracy: n > 0 ? Math.round(attempts.reduce((s, a) => s + a.accuracyPct, 0) / n) : 0,
+            completionPct: assignedN ? Math.round((n / assignedN) * 100) : null,
+          };
+        });
+        setStatsByTest(stats);
+      } catch (e) {
+        console.error('per-test stats load failed', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tests, assignedCount]);
 
   const filteredTests = useMemo(() => {
     const statuses = FILTER_STATUSES[filter];
@@ -116,7 +163,7 @@ export default function ManageTests() {
           type="button"
           onClick={() => navigate(pathFor('createTest'))}
           className="btn-primary btn-md"
-          style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+          style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
           Create Test
@@ -142,7 +189,7 @@ export default function ManageTests() {
             type="button"
             onClick={() => navigate(pathFor('createTest'))}
             className="btn-primary btn-md mt-4 mx-auto"
-            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+            style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}
           >
             Create your first test
           </button>
@@ -203,28 +250,37 @@ export default function ManageTests() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 mt-3 text-xs" style={{ color: 'var(--text-faint)' }}>
-                  <span className="flex items-center gap-1">
-                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>quiz</span>
-                    {test.questionCount}q
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>timer</span>
-                    {formatDuration(test.durationSeconds)}
-                  </span>
-                  {test.endAt && (
-                    <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>schedule</span>
-                      Ends {new Date(test.endAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
-                  )}
-                  {(test.status === 'rejected' || test.status === 'final_rejected') && test.rejectionNote && (
-                    <span className="flex items-center gap-1" style={{ color: '#EF4444' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>error</span>
-                      {test.rejectionNote}
-                    </span>
-                  )}
+                {test.endAt && (
+                  <div className="flex items-center gap-1 mt-2 text-xs" style={{ color: 'var(--text-faint)' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>schedule</span>
+                    Ends {new Date(test.endAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+                  {(() => {
+                    const stats = statsByTest[test.id];
+                    return [
+                      { l: 'Questions',    v: `${test.questionCount}` },
+                      { l: 'Duration',     v: formatDuration(test.durationSeconds) },
+                      { l: 'Attempts',     v: stats ? String(stats.attempts) : '—' },
+                      { l: 'Avg Score',    v: stats && stats.attempts > 0 ? String(stats.avgScore) : '—' },
+                      { l: 'Avg Accuracy', v: stats && stats.attempts > 0 ? `${stats.avgAccuracy}%` : '—' },
+                      { l: 'Completion',   v: stats?.completionPct !== null && stats?.completionPct !== undefined ? `${stats.completionPct}%` : '—' },
+                    ];
+                  })().map(m => (
+                    <div key={m.l}>
+                      <div className="text-sm font-extrabold font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>{m.v}</div>
+                      <div className="text-[10px] uppercase tracking-wide font-semibold mt-0.5" style={{ color: 'var(--text-faint)' }}>{m.l}</div>
+                    </div>
+                  ))}
                 </div>
+                {(test.status === 'rejected' || test.status === 'final_rejected') && test.rejectionNote && (
+                  <div className="flex items-center gap-1 mt-3 text-xs" style={{ color: '#EF4444' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>error</span>
+                    {test.rejectionNote}
+                  </div>
+                )}
                 {test.status === 'final_rejected' && (
                   <div className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.20)' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#DC2626' }}>block</span>

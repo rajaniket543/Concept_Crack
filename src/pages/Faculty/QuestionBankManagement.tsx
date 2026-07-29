@@ -271,7 +271,7 @@ export default function QuestionBankManagement() {
               type="button"
               onClick={() => setShowAddForm(v => !v)}
               className="btn-primary btn-md flex items-center gap-1.5"
-              style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}
+              style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
               Add Question
@@ -301,8 +301,8 @@ export default function QuestionBankManagement() {
         {/* Stat strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: 'Total Questions', value: stats.total, icon: 'quiz', color: '#14B8A6' },
-            { label: 'With Codes',      value: stats.coded, icon: 'tag', color: '#5B4FE8' },
+            { label: 'Total Questions', value: stats.total, icon: 'quiz', color: 'var(--faculty-accent)' }, // hex literal — concatenated with an alpha suffix below
+            { label: 'With Codes',      value: stats.coded, icon: 'tag', color: '#6B5EF0' }, // hex literal — concatenated with an alpha suffix below
             { label: 'Verified',        value: stats.verified, icon: 'verified', color: '#10B981' },
             { label: 'Hard Questions',  value: stats.byDiff.Hard ?? 0, icon: 'trending_up', color: '#EF4444' },
           ].map(s => (
@@ -362,66 +362,55 @@ export default function QuestionBankManagement() {
           </div>
         </Card>
 
-        {/* Questions table — paginated (3j) with correct serial numbers (3h) */}
-        <Card title="Questions" subtitle={`${rows.length} of ${all.length} shown · page ${page} of ${totalPages}`} noPad>
+        {/* Question cards — paginated (3j) with correct serial numbers (3h) */}
+        <Card title="Questions" subtitle={`${rows.length} of ${all.length} shown · page ${page} of ${totalPages}`}>
           {loading ? (
-            <div className="p-6 space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--surface-muted)' }} />)}
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-28 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--surface-muted)' }} />)}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Code</th>
-                    <th>Subject</th>
-                    <th>Chapter / Topic</th>
-                    <th>Difficulty</th>
-                    <th>Origin</th>
-                    <th>Uploaded By</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th className="text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedRows.map((q, i) => {
-                    const diffStyle = DIFFICULTY_COLOR[q.difficulty] ?? DIFFICULTY_COLOR.Easy;
-                    const verify = VERIFY_COLOR[q.verificationStatus ?? 'unverified'] ?? VERIFY_COLOR.unverified;
-                    const serial = (page - 1) * QUESTIONS_PER_PAGE + i + 1;
-                    return (
-                      <tr key={q.id}>
-                        <td><span className="text-label-sm font-bold" style={{ color: 'var(--text-faint)' }}>{serial}</span></td>
-                        <td><span className="text-label-sm font-mono font-semibold" style={{ color: q.code ? '#5B4FE8' : 'var(--text-faint)' }}>{q.code ?? '— none —'}</span></td>
-                        <td><span className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{q.subject || '—'}</span></td>
-                        <td>
-                          <div className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{q.chapter || '—'}</div>
-                          {q.topic && q.topic.trim().toLowerCase() !== (q.chapter ?? '').trim().toLowerCase() && (
-                            <div className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{q.topic}</div>
-                          )}
-                        </td>
-                        <td><span className="text-label-sm font-bold px-2.5 py-0.5 rounded-full" style={{ backgroundColor: diffStyle.bg, color: diffStyle.color }}>{q.difficulty}</span></td>
-                        <td><span className="text-body-md" style={{ color: 'var(--text-muted)' }}>{q.origin ?? '—'}</span></td>
-                        <td><span className="text-body-md" style={{ color: 'var(--text-secondary)' }}>{q.uploadedByName || '—'}</span></td>
-                        <td><span className="text-label-sm" style={{ color: 'var(--text-muted)' }}>{fmtDate(q.createdAt)}</span></td>
-                        <td><span className="text-label-sm font-bold px-2.5 py-0.5 rounded-full" style={{ backgroundColor: verify.bg, color: verify.color }}>{verify.label}</span></td>
-                        <td className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button type="button" onClick={() => setPreviewQ(q)} className="text-label-sm font-semibold hover:underline" style={{ color: '#14B8A6' }}>Preview</button>
-                            <button type="button" onClick={() => openEdit(q)} className="icon-btn icon-btn-sm" title="Edit"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span></button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {rows.length === 0 && (
-                    <tr><td colSpan={10} className="text-center py-10" style={{ color: 'var(--text-faint)' }}>
-                      {all.length === 0 ? 'No questions in the bank yet. Add one to get started.' : 'No questions match your filters.'}
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="space-y-3">
+              {pagedRows.map((q, i) => {
+                const diffStyle = DIFFICULTY_COLOR[q.difficulty] ?? DIFFICULTY_COLOR.Easy;
+                const verify = VERIFY_COLOR[q.verificationStatus ?? 'unverified'] ?? VERIFY_COLOR.unverified;
+                const serial = (page - 1) * QUESTIONS_PER_PAGE + i + 1;
+                return (
+                  <div key={q.id} className="rounded-2xl p-4" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-label-sm font-bold" style={{ color: 'var(--text-faint)' }}>#{serial}</span>
+                        <span className="text-label-sm font-mono font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: q.code ? 'var(--faculty-accent-muted)' : 'var(--surface)', color: q.code ? 'var(--faculty-accent-hover)' : 'var(--text-faint)' }}>{q.code ?? '— none —'}</span>
+                        <span className="text-label-sm font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: verify.bg, color: verify.color }}>{verify.label}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => setPreviewQ(q)} className="text-label-sm font-semibold hover:underline" style={{ color: 'var(--faculty-accent)' }}>Preview</button>
+                        <button type="button" onClick={() => openEdit(q)} className="icon-btn icon-btn-sm" title="Edit"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span></button>
+                      </div>
+                    </div>
+                    <p className="text-body-md font-medium mb-3" style={{ color: 'var(--text-primary)' }}><MathText text={q.question} /></p>
+                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                      {[
+                        { l: 'Subject', v: q.subject || '—' },
+                        { l: 'Chapter', v: q.chapter || '—' },
+                        { l: 'Difficulty', v: q.difficulty, color: diffStyle.color },
+                        { l: 'Origin', v: q.origin ?? '—' },
+                        { l: 'Uploaded By', v: q.uploadedByName || '—' },
+                        { l: 'Date', v: fmtDate(q.createdAt) },
+                      ].map(m => (
+                        <div key={m.l}>
+                          <div className="text-[9.5px] uppercase tracking-wide font-semibold" style={{ color: 'var(--text-faint)' }}>{m.l}</div>
+                          <div className="text-label-lg font-semibold mt-0.5 truncate" style={{ color: m.color ?? 'var(--text-secondary)' }}>{m.v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {rows.length === 0 && (
+                <p className="text-center py-10" style={{ color: 'var(--text-faint)' }}>
+                  {all.length === 0 ? 'No questions in the bank yet. Add one to get started.' : 'No questions match your filters.'}
+                </p>
+              )}
             </div>
           )}
 
@@ -444,7 +433,7 @@ export default function QuestionBankManagement() {
                       type="button"
                       onClick={() => setPage(p)}
                       className="w-8 h-8 rounded-md text-sm font-semibold transition-colors"
-                      style={p === page ? { backgroundColor: '#14B8A6', color: '#fff' } : { color: 'var(--text-muted)' }}
+                      style={p === page ? { backgroundColor: 'var(--faculty-accent)', color: '#fff' } : { color: 'var(--text-muted)' }}
                     >
                       {p}
                     </button>
@@ -463,7 +452,7 @@ export default function QuestionBankManagement() {
           <Card title="Add New Question" subtitle="A unique code is assigned automatically on save">
             <QuestionForm draft={draft} setDraft={setDraft} uid={uid} />
             <div className="flex gap-3 mt-4">
-              <button type="button" onClick={addQuestion} disabled={busy} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>
+              <button type="button" onClick={addQuestion} disabled={busy} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}>
                 {busy ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <span className="material-symbols-outlined" style={{ fontSize: 18 }}>save</span>}
                 Save Question
               </button>
@@ -480,7 +469,7 @@ export default function QuestionBankManagement() {
             <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
               <div className="flex items-center gap-3 flex-wrap">
                 <h3 className="text-title-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Question Preview</h3>
-                <span className="text-label-sm font-mono" style={{ color: '#5B4FE8' }}>{previewQ.code ?? 'no code'}</span>
+                <span className="text-label-sm font-mono" style={{ color: 'var(--faculty-accent)' }}>{previewQ.code ?? 'no code'}</span>
                 <span className="text-label-sm px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-muted)' }}>
                   {previewQ.subject} · {previewQ.chapter}{previewQ.topic && previewQ.topic.trim().toLowerCase() !== (previewQ.chapter ?? '').trim().toLowerCase() ? ` · ${previewQ.topic}` : ''}
                 </span>
@@ -537,7 +526,7 @@ export default function QuestionBankManagement() {
               ) : <span />}
               <div className="flex gap-2">
                 <button type="button" onClick={() => { const q = previewQ; setPreviewQ(null); openEdit(q); }} className="btn-outline btn-md">Edit</button>
-                <button type="button" onClick={() => setPreviewQ(null)} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>Close</button>
+                <button type="button" onClick={() => setPreviewQ(null)} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}>Close</button>
               </div>
             </div>
           </div>
@@ -551,7 +540,7 @@ export default function QuestionBankManagement() {
             <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
               <div>
                 <h3 className="text-title-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Edit Question</h3>
-                <span className="text-label-sm font-mono" style={{ color: '#5B4FE8' }}>{editQ.code ?? 'no code'}</span>
+                <span className="text-label-sm font-mono" style={{ color: 'var(--faculty-accent)' }}>{editQ.code ?? 'no code'}</span>
               </div>
               <button type="button" onClick={() => setEditQ(null)} className="icon-btn icon-btn-sm"><span className="material-symbols-outlined">close</span></button>
             </div>
@@ -560,7 +549,7 @@ export default function QuestionBankManagement() {
             </div>
             <div className="px-6 py-4 flex justify-end gap-2" style={{ borderTop: '1px solid var(--border)' }}>
               <button type="button" onClick={() => setEditQ(null)} className="btn-outline btn-md">Cancel</button>
-              <button type="button" onClick={saveEdit} disabled={busy} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>Save Changes</button>
+              <button type="button" onClick={saveEdit} disabled={busy} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}>Save Changes</button>
             </div>
           </div>
         </div>

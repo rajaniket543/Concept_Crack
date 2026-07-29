@@ -13,8 +13,8 @@ import { uploadChatAttachment } from '../lib/storage';
 
 const ROLE_COLOR: Record<string, string> = {
   student: '#6B5EF0',
-  faculty: '#0D9488',
-  parent:  '#EA580C',
+  faculty: '#14B8A6',
+  parent:  '#F97316',
   admin:   '#DB2777',
 };
 
@@ -81,9 +81,14 @@ export default function Messages() {
     setShowNew(false);
     const existing = threads.find(t => t.participants.includes(c.uid));
     if (existing) { setActive(existing); return; }
-    const thread = await getOrCreateThread(me, { uid: c.uid, name: c.name, role: c.role });
-    setThreads(prev => [thread, ...prev.filter(t => t.id !== thread.id)]);
-    setActive(thread);
+    try {
+      const thread = await getOrCreateThread(me, { uid: c.uid, name: c.name, role: c.role });
+      setThreads(prev => [thread, ...prev.filter(t => t.id !== thread.id)]);
+      setActive(thread);
+    } catch (e) {
+      console.error('getOrCreateThread failed', e);
+      toast(e instanceof Error ? e.message : 'Could not start this conversation — please try again.', 'error');
+    }
   }
 
   function pickAttachment(file: File | null) {

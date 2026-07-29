@@ -80,7 +80,7 @@ export default function AIGenerateTest() {
           <h1 className="text-display-sm font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             AI Test Generator
           </h1>
-          <span className="text-label-sm font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8' }}>{stream}</span>
+          <span className="text-label-sm font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(107,94,240,0.10)', color: 'var(--brand)' }}>{stream}</span>
         </div>
         <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
           Choose a subject, chapter and topic, then set exactly how many Easy, Medium and Hard questions you want.
@@ -147,7 +147,7 @@ export default function AIGenerateTest() {
           onClick={generate}
           disabled={generating || !available || !balanced}
           className="btn-primary btn-md w-full justify-center"
-          style={{ background: generating ? undefined : 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+          style={{ background: generating ? undefined : 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
         >
           {generating
             ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Generating {total} questions…</>

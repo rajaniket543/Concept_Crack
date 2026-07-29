@@ -1,4 +1,4 @@
-import { FormEvent, KeyboardEvent, useEffect, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useState, type InputHTMLAttributes, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   login as authLogin,
@@ -22,11 +22,27 @@ const roleDefs: { key: LoginRole; label: string; icon: string }[] = [
   { key: 'admin',   label: 'Admin',    icon: 'admin_panel_settings' },
 ];
 
-const leftPanelFeatures = [
-  { icon: 'psychology', label: 'AI Adaptive Learning', desc: 'Personalized to your strengths & gaps' },
-  { icon: 'analytics',  label: 'Real-time Analytics',  desc: 'Deep insights into your performance' },
-  { icon: 'quiz',       label: 'Smart Mock Tests',      desc: 'Full-length tests with anti-cheat' },
+const introPoints = [
+  { icon: 'psychology', text: 'AI understands your learning journey.' },
+  { icon: 'bar_chart',  text: 'Every mistake becomes an opportunity.' },
+  { icon: 'schedule',   text: 'Study smarter. Progress every single day.' },
 ];
+
+// Stable random ambient-particle layout, generated once per mount.
+function useParticles(count: number, opacity: number) {
+  return useMemo(
+    () =>
+      Array.from({ length: count }, () => ({
+        left: Math.random() * 100,
+        top: 20 + Math.random() * 70,
+        size: 2 + Math.random() * 3,
+        duration: 14 + Math.random() * 12,
+        delay: Math.random() * 10,
+        opacity,
+      })),
+    [count, opacity],
+  );
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -57,21 +73,38 @@ export default function Login() {
   const emailLooksValid = EMAIL_REGEX.test(trimmedId);
   const canSubmit = !loading && trimmedId.length > 0 && emailLooksValid && password.length > 0;
 
-  // Theme-aware tokens for the right (form) panel.
-  const t = {
-    panelBg:  isDark ? '#0F0E17' : '#FAFAFA',
-    cardBg:   isDark ? 'rgba(30,29,46,0.72)' : 'rgba(255,255,255,0.86)',
-    cardBorder: isDark ? '#2D2B42' : '#E5E7EB',
-    cardShadow: isDark ? '0 24px 80px rgba(0,0,0,0.35)' : '0 24px 80px rgba(17,24,39,0.08)',
-    heading:  isDark ? '#F9FAFB' : '#111827',
-    sub:      isDark ? '#6B7280' : '#9CA3AF',
-    label:    isDark ? '#D1D5DB' : '#374151',
-    muted:    isDark ? '#9CA3AF' : '#6B7280',
-    inputBg:  isDark ? '#1E1D2E' : '#FFFFFF',
-    inputBorder: isDark ? '#2D2B42' : '#E5E7EB',
-    chip:     isDark ? '#1E1D2E' : '#F3F4F6',
-    icon:     isDark ? '#4B5563' : '#9CA3AF',
-  };
+  const leftParticles = useParticles(14, 0.55);
+  const rightParticles = useParticles(6, 0.35);
+
+  // Theme-aware tokens for the right (form) panel. The left intro panel stays
+  // permanently dark (brand hero), matching how it's always styled elsewhere.
+  const t = isDark
+    ? {
+        panelBg:    '#0B0B13',
+        cardBg:     'rgba(23,23,34,0.72)',
+        cardBorder: 'rgba(255,255,255,0.06)',
+        cardShadow: '0 24px 60px rgba(0,0,0,0.45)',
+        heading:    '#FFFFFF',
+        sub:        '#A1A1AA',
+        label:      '#A1A1AA',
+        muted:      '#A1A1AA',
+        inputBg:    '#1D1D2E',
+        inputBorder:'rgba(255,255,255,0.06)',
+        icon:       '#A1A1AA',
+      }
+    : {
+        panelBg:    '#FAFAFA',
+        cardBg:     'rgba(255,255,255,0.86)',
+        cardBorder: '#E5E7EB',
+        cardShadow: '0 24px 60px rgba(17,24,39,0.10)',
+        heading:    '#111827',
+        sub:        '#6B7280',
+        label:      '#374151',
+        muted:      '#6B7280',
+        inputBg:    '#FFFFFF',
+        inputBorder:'#E5E7EB',
+        icon:       '#9CA3AF',
+      };
 
   // If the secure reset link from the email opens back in the app
   // (?mode=resetPassword&oobCode=…), complete the reset right here.
@@ -152,80 +185,150 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen grid lg:grid-cols-[40%_60%]"
-      style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: t.panelBg, color: t.heading }}
+      className="min-h-screen lg:h-screen lg:overflow-hidden grid lg:grid-cols-[40%_60%]"
+      style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
     >
-      {/* ── Left panel (always dark, brand hero) ── */}
+      <style>{`
+        @keyframes loginFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes loginMeshDrift { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(-2%, 2%) scale(1.06); } }
+        @keyframes loginMeshDriftR { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(3%, -2%) scale(1.05); } }
+        @keyframes loginParticleFloat { 0% { transform: translateY(0) translateX(0); opacity: 0; } 10% { opacity: var(--p-op, 0.5); } 90% { opacity: calc(var(--p-op, 0.5) * 0.7); } 100% { transform: translateY(-90px) translateX(12px); opacity: 0; } }
+        @keyframes loginCardIn { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes loginPulseGlow { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+        @keyframes loginBreathe { 0%, 100% { box-shadow: 0 8px 24px rgba(139,92,246,0.3); } 50% { box-shadow: 0 8px 30px rgba(139,92,246,0.42); } }
+        .login-particle { position: absolute; border-radius: 9999px; background: radial-gradient(circle, rgba(139,92,246,0.65), rgba(139,92,246,0) 70%); animation: loginParticleFloat linear infinite; }
+      `}</style>
+
+      {/* ── Left panel: emotional intro, always dark ── */}
       <aside
-        className="hidden lg:flex flex-col p-10 xl:p-12 relative overflow-hidden"
-        style={{ background: 'linear-gradient(160deg, #0F0E17 0%, #1A1929 100%)' }}
+        className="relative flex flex-col justify-between overflow-hidden p-8 lg:p-12 min-h-[280px] lg:min-h-0"
+        style={{
+          background:
+            'radial-gradient(circle at 18% 8%, rgba(37,99,235,0.16), transparent 45%), radial-gradient(circle at 78% 88%, rgba(139,92,246,0.18), transparent 50%), linear-gradient(160deg, #0D0D18 0%, #0B0B13 55%, #0A0A11 100%)',
+        }}
       >
-        {/* Gradient orbs */}
+        {/* Drifting mesh glow */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            inset: '-10%',
+            background:
+              'radial-gradient(ellipse 500px 400px at 30% 20%, rgba(37,99,235,0.10), transparent 60%), radial-gradient(ellipse 460px 380px at 75% 65%, rgba(139,92,246,0.12), transparent 60%), radial-gradient(ellipse 380px 340px at 15% 85%, rgba(56,189,248,0.06), transparent 60%)',
+            filter: 'blur(40px)',
+            animation: 'loginMeshDrift 22s ease-in-out infinite alternate',
+          }}
+          aria-hidden="true"
+        />
+        {/* Ambient particles */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-          <div className="absolute top-20 -left-10 w-64 h-64 rounded-full blur-3xl opacity-30" style={{ background: 'radial-gradient(circle, #5B4FE8, transparent)' }} />
-          <div className="absolute bottom-20 right-0 w-48 h-48 rounded-full blur-3xl opacity-20" style={{ background: 'radial-gradient(circle, #7C3AED, transparent)' }} />
-          <div className="absolute top-1/2 right-10 w-32 h-32 rounded-full blur-2xl opacity-15" style={{ background: 'radial-gradient(circle, #06B6D4, transparent)' }} />
+          {leftParticles.map((p, i) => (
+            <div
+              key={i}
+              className="login-particle"
+              style={{
+                width: p.size, height: p.size,
+                left: `${p.left}%`, top: `${p.top}%`,
+                animationDuration: `${p.duration}s`, animationDelay: `${p.delay}s`,
+                ['--p-op' as any]: p.opacity,
+              }}
+            />
+          ))}
         </div>
 
-        {/* Full-bleed hero photo covering the left half. */}
-        <img
-          src="/login-hero.jpg"
-          alt=""
-          aria-hidden="true"
-          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          className="absolute inset-0 w-full h-full object-cover scale-[1.02]"
-          style={{ objectPosition: 'center' }}
-        />
-        {/* Dark overlay so the headline and features stay readable */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          aria-hidden="true"
-          style={{ background: 'linear-gradient(160deg, rgba(15,14,23,0.90) 0%, rgba(26,25,41,0.78) 55%, rgba(15,14,23,0.92) 100%)' }}
-        />
-
-        {/* Logo — top */}
-        <div className="relative shrink-0">
-          <Link to={pathFor('landing')} className="flex items-center gap-2.5">
+        {/* Logo */}
+        <div className="relative shrink-0 z-[2]">
+          <Link to={pathFor('landing')} className="inline-flex items-center">
             <Logo size="lg" tone="onDark" />
           </Link>
         </div>
 
-        {/* Headline + features — vertically centred in the remaining space */}
-        <div className="relative flex-1 flex flex-col justify-center max-w-[460px]">
-          <h2 className="text-3xl xl:text-[2.5rem] font-bold leading-[1.15] text-white mb-3" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', letterSpacing: '-0.02em' }}>
-            Your path to the<br />top rank starts here
-          </h2>
-          <p className="text-sm xl:text-base mb-9" style={{ color: '#B4B7C4' }}>
-            AI-powered preparation for JEE and NEET.
+        {/* Headline + points */}
+        <div className="relative flex-1 flex flex-col justify-center max-w-[460px] py-8 lg:py-0 z-[2]">
+          <h1
+            className="font-bold leading-[1.18] mb-4 text-white"
+            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 'clamp(28px, 3vw, 38px)', letterSpacing: '-0.6px' }}
+          >
+            Your preparation deserves<br />
+            <span style={{ background: 'linear-gradient(90deg, #2563EB, var(--violet))', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+              more than practice.
+            </span>
+          </h1>
+          <p className="text-[13.5px] leading-relaxed max-w-[400px]" style={{ color: '#A1A1AA' }}>
+            Every session should make you better than yesterday — not just busier.
           </p>
-          <div className="space-y-4">
-            {leftPanelFeatures.map(feat => (
-              <div key={feat.label} className="flex items-center gap-4">
+
+          <div className="hidden lg:flex flex-col gap-3.5 mt-8">
+            {introPoints.map(pt => (
+              <div key={pt.text} className="flex items-center gap-3">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: 'rgba(91,79,232,0.20)', border: '1px solid rgba(91,79,232,0.30)' }}
+                  className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: 'rgba(139,92,246,0.12)', boxShadow: 'inset 0 0 0 1px rgba(139,92,246,0.18)' }}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#818CF8' }}>{feat.icon}</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--violet)' }}>{pt.icon}</span>
                 </div>
-                <div>
-                  <div className="text-sm xl:text-[15px] font-semibold text-white">{feat.label}</div>
-                  <div className="text-xs xl:text-[13px]" style={{ color: '#8A8FA3' }}>{feat.desc}</div>
-                </div>
+                <div className="text-[13px] font-semibold text-white">{pt.text}</div>
               </div>
             ))}
           </div>
         </div>
+
+        <div className="relative z-[2]">
+          <div
+            className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full w-fit"
+            style={{ color: 'var(--violet)', backgroundColor: 'rgba(139,92,246,0.1)', boxShadow: 'inset 0 0 0 1px rgba(139,92,246,0.2)' }}
+          >
+            JEE · NEET · UPSC · GATE · Boards
+          </div>
+        </div>
       </aside>
 
-      {/* ── Right panel (form) ── */}
-      <main className="relative flex items-center justify-center p-6 lg:p-10 xl:p-12" style={{ backgroundColor: t.panelBg }}>
+      {/* ── Right panel: auth card ── */}
+      <main
+        className="relative flex items-center justify-center overflow-hidden p-6 lg:p-10 xl:p-12"
+        style={{ backgroundColor: t.panelBg }}
+      >
+        {/* Ambient mesh + glow, theme-independent (card floats above it) */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            inset: '-15%',
+            background:
+              'radial-gradient(ellipse 480px 380px at 70% 25%, rgba(139,92,246,0.09), transparent 60%), radial-gradient(ellipse 420px 360px at 25% 80%, rgba(37,99,235,0.08), transparent 60%)',
+            filter: 'blur(50px)',
+            animation: 'loginMeshDriftR 26s ease-in-out infinite alternate',
+          }}
+          aria-hidden="true"
+        />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at 50% 45%, rgba(139,92,246,0.06), transparent 55%)',
+            animation: 'loginPulseGlow 6s ease-in-out infinite',
+          }}
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          {rightParticles.map((p, i) => (
+            <div
+              key={i}
+              className="login-particle"
+              style={{
+                width: p.size, height: p.size,
+                left: `${p.left}%`, top: `${p.top}%`,
+                animationDuration: `${p.duration}s`, animationDelay: `${p.delay}s`,
+                ['--p-op' as any]: p.opacity,
+              }}
+            />
+          ))}
+        </div>
+
         {/* Top-right controls: theme toggle + About */}
-        <div className="absolute top-4 right-4 flex items-center gap-2">
+        <div className="absolute top-4 right-4 flex items-center gap-2 z-[3]">
           <button
             type="button"
             onClick={toggleTheme}
             className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:opacity-80"
-            style={{ backgroundColor: t.chip, color: t.muted, border: `1px solid ${t.cardBorder}` }}
+            style={{ backgroundColor: t.inputBg, color: t.muted, border: `1px solid ${t.cardBorder}` }}
             title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             aria-label="Toggle theme"
           >
@@ -234,7 +337,7 @@ export default function Login() {
           <Link
             to={pathFor('landing')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:opacity-80"
-            style={{ backgroundColor: t.chip, color: t.muted, border: `1px solid ${t.cardBorder}` }}
+            style={{ backgroundColor: t.inputBg, color: t.muted, border: `1px solid ${t.cardBorder}` }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>info</span>
             About Us
@@ -242,37 +345,27 @@ export default function Login() {
         </div>
 
         <div
-          className="w-full max-w-[620px] rounded-[32px] p-6 sm:p-8 lg:p-10"
+          className="relative z-[2] w-full max-w-[560px] rounded-[20px] p-8 sm:p-10 lg:p-12"
           style={{
             backgroundColor: t.cardBg,
             border: `1px solid ${t.cardBorder}`,
             boxShadow: t.cardShadow,
-            backdropFilter: 'blur(18px)',
+            backdropFilter: 'blur(20px)',
+            animation: 'loginCardIn 0.7s cubic-bezier(.2,.8,.2,1) 0.1s both',
           }}
         >
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-8">
-            <Link to={pathFor('landing')} className="inline-flex items-center gap-2">
-              <Logo size="md" tone="theme" />
-            </Link>
-          </div>
-
           {/* ═══ SIGN IN ═══ */}
           {view === 'login' && (
             <>
               <h1 className="text-2xl font-bold mb-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: t.heading }}>
-                Welcome back
+                Welcome back, future topper.
               </h1>
-              <p className="text-sm mb-7" style={{ color: t.sub }}>
-                Sign in to continue your preparation
+              <p className="text-sm mb-6" style={{ color: t.sub }}>
+                Continue your AI-powered preparation.
               </p>
 
               {/* Role selector */}
-              <div
-                className="grid grid-cols-4 gap-1.5 p-1.5 rounded-xl mb-6"
-                style={{ backgroundColor: t.chip }}
-                role="tablist"
-              >
+              <div className="grid grid-cols-4 gap-2 mb-5" role="tablist">
                 {roleDefs.map(r => {
                   const active = role === r.key;
                   return (
@@ -282,14 +375,19 @@ export default function Login() {
                       role="tab"
                       aria-selected={active}
                       onClick={() => { setRole(r.key); clearMessages(); }}
-                      className="flex flex-col items-center gap-0.5 py-2.5 px-1 rounded-lg text-xs font-semibold transition-all duration-150"
+                      className="flex flex-col items-center justify-center gap-1.5 py-3 px-1.5 rounded-xl transition-all duration-200"
                       style={active
-                        ? { backgroundColor: '#5B4FE8', color: '#fff', boxShadow: '0 2px 8px rgba(91,79,232,0.30)' }
-                        : { color: t.muted, backgroundColor: 'transparent' }
+                        ? {
+                            background: 'linear-gradient(160deg, rgba(139,92,246,0.22), rgba(37,99,235,0.14))',
+                            boxShadow: 'inset 0 0 0 1px rgba(139,92,246,0.4), 0 0 24px rgba(139,92,246,0.18)',
+                          }
+                        : { backgroundColor: t.inputBg, border: `1px solid ${t.inputBorder}` }
                       }
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.transform = 'translateY(0)'; }}
                     >
-                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{r.icon}</span>
-                      {r.label}
+                      <span className="material-symbols-outlined" style={{ fontSize: '17px', color: active ? 'var(--violet)' : t.icon, opacity: active ? 1 : 0.75 }}>{r.icon}</span>
+                      <span className="text-[11px] font-semibold" style={{ color: active ? t.heading : t.muted }}>{r.label}</span>
                     </button>
                   );
                 })}
@@ -347,21 +445,21 @@ export default function Login() {
                   )}
                 </div>
                 <div className="flex items-center justify-between">
-                  <label className="inline-flex items-center gap-2 text-sm cursor-pointer" style={{ color: t.muted }}>
+                  <label className="inline-flex items-center gap-2 text-xs font-medium cursor-pointer" style={{ color: t.muted }}>
                     <input
                       type="checkbox"
                       checked={remember}
                       onChange={e => setRemember(e.target.checked)}
                       className="rounded border"
-                      style={{ accentColor: '#5B4FE8' }}
+                      style={{ accentColor: 'var(--violet)' }}
                     />
                     Remember me
                   </label>
                   <button
                     type="button"
                     onClick={() => { setView('forgot'); setForgotEmail(trimmedId); clearMessages(); }}
-                    className="text-sm font-semibold hover:underline"
-                    style={{ color: '#5B4FE8' }}
+                    className="text-xs font-semibold hover:underline"
+                    style={{ color: t.muted }}
                   >
                     Forgot password?
                   </button>
@@ -370,13 +468,21 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={!canSubmit}
-                  className="w-full h-11 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all hover:-translate-y-px disabled:opacity-60 disabled:pointer-events-none mt-2"
-                  style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
+                  className="w-full h-11 rounded-[13px] text-[13.5px] font-bold text-white flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:pointer-events-none disabled:hover:translate-y-0 mt-2"
+                  style={{
+                    background: 'linear-gradient(135deg, #2563EB, var(--violet))',
+                    animation: loading ? undefined : 'loginBreathe 4s ease-in-out 1.1s infinite',
+                  }}
                 >
                   {loading ? <Spinner size={16} /> : <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>login</span>}
                   {loading ? 'Signing in...' : 'Sign in'}
                 </button>
               </form>
+
+              <p className="text-xs text-center mt-4" style={{ color: t.sub }}>
+                Need help?{' '}
+                <Link to={pathFor('contact')} className="font-semibold hover:underline" style={{ color: 'var(--cyan)' }}>Contact Administrator</Link>
+              </p>
             </>
           )}
 
@@ -407,8 +513,8 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={loading || !EMAIL_REGEX.test(forgotEmail.trim())}
-                  className="w-full h-11 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all hover:-translate-y-px disabled:opacity-60 disabled:pointer-events-none"
-                  style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
+                  className="w-full h-11 rounded-[13px] text-[13.5px] font-bold text-white flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:pointer-events-none"
+                  style={{ background: 'linear-gradient(135deg, #2563EB, var(--violet))' }}
                 >
                   {loading ? <Spinner size={16} /> : <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>send</span>}
                   {loading ? 'Sending…' : 'Send reset link'}
@@ -424,7 +530,7 @@ export default function Login() {
                 ].map((step, i) => (
                   <li key={i} className="flex items-start gap-2.5 text-xs" style={{ color: t.muted }}>
                     <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                      style={{ backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8' }}>{i + 1}</span>
+                      style={{ backgroundColor: 'rgba(139,92,246,0.10)', color: 'var(--violet)' }}>{i + 1}</span>
                     {step}
                   </li>
                 ))}
@@ -449,16 +555,16 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => { setView('login'); clearMessages(); }}
-                  className="w-full h-11 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2"
-                  style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                  className="w-full h-11 rounded-[13px] text-[13.5px] font-bold text-white flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #2563EB, var(--violet))' }}
                 >
                   Back to sign in
                 </button>
                 <button
                   type="button"
                   onClick={() => setView('forgot')}
-                  className="w-full h-11 rounded-xl text-sm font-semibold"
-                  style={{ backgroundColor: t.chip, color: t.muted, border: `1px solid ${t.cardBorder}` }}
+                  className="w-full h-11 rounded-[13px] text-[13.5px] font-semibold"
+                  style={{ backgroundColor: t.inputBg, color: t.muted, border: `1px solid ${t.cardBorder}` }}
                 >
                   Didn't get it? Send again
                 </button>
@@ -514,8 +620,8 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={loading || newPassword.length === 0 || confirmNew.length === 0}
-                  className="w-full h-11 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:pointer-events-none"
-                  style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
+                  className="w-full h-11 rounded-[13px] text-[13.5px] font-bold text-white flex items-center justify-center gap-2 transition-transform disabled:opacity-60 disabled:pointer-events-none"
+                  style={{ background: 'linear-gradient(135deg, #2563EB, var(--violet))' }}
                 >
                   {loading ? <Spinner size={16} /> : <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check</span>}
                   {loading ? 'Saving…' : 'Change password'}
@@ -539,22 +645,14 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => { setView('login'); clearMessages(); navigate('/login', { replace: true }); }}
-                className="w-full h-11 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2"
-                style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                className="w-full h-11 rounded-[13px] text-[13.5px] font-bold text-white flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #2563EB, var(--violet))' }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>login</span>
                 Back to sign in
               </button>
             </>
           )}
-
-          {view === 'login' && (
-            <p className="text-xs text-center mt-4" style={{ color: t.sub }}>
-              Trouble signing in?{' '}
-              <Link to={pathFor('contact')} className="font-semibold hover:underline" style={{ color: '#5B4FE8' }}>Contact admin</Link>
-            </p>
-          )}
-
         </div>
       </main>
     </div>
@@ -607,8 +705,8 @@ function InputField({
         style={{ backgroundColor: tokens.inputBg, border: `1px solid ${tokens.inputBorder}` }}
         onFocusCapture={e => {
           const el = e.currentTarget as HTMLElement;
-          el.style.borderColor = '#5B4FE8';
-          el.style.boxShadow = '0 0 0 3px rgba(91,79,232,0.12)';
+          el.style.borderColor = 'rgba(139,92,246,0.45)';
+          el.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.14)';
         }}
         onBlurCapture={e => {
           const el = e.currentTarget as HTMLElement;

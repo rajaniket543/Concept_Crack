@@ -165,7 +165,7 @@ export default function QuestionReviewPanel({
         return (
           <div key={i} className="rounded-2xl p-4 space-y-3" style={{ backgroundColor: 'var(--surface)', border: `1.5px solid ${bad ? 'rgba(239,68,68,0.5)' : 'var(--border)'}` }}>
             <div className="flex items-center justify-between">
-              <span className="text-label-sm font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(20,184,166,0.10)', color: '#0D9488' }}>Q{i + 1}</span>
+              <span className="text-label-sm font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--faculty-accent-muted)', color: 'var(--faculty-accent-hover)' }}>Q{i + 1}</span>
               <button type="button" onClick={() => removeItem(i)} className="text-label-sm font-semibold" style={{ color: '#EF4444' }}>Remove</button>
             </div>
             <textarea value={it.question} onChange={e => updateItem(i, { question: e.target.value })} rows={2} placeholder="Question text" className="input-field w-full resize-none" style={inputStyle} />
@@ -230,7 +230,7 @@ export default function QuestionReviewPanel({
                   <option value="faculty_batch">Batch test (activate now)</option>
                   <option value="faculty_coaching">Coaching test (needs approval)</option>
                 </select>
-                <button type="button" onClick={createTestOnly} disabled={saving} className="btn-primary btn-md w-full justify-center" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                <button type="button" onClick={createTestOnly} disabled={saving} className="btn-primary btn-md w-full justify-center" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
                   {saving ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create Private Test'}
                 </button>
               </div>
@@ -244,7 +244,7 @@ export default function QuestionReviewPanel({
           <div className="rounded-xl p-4" style={{ border: '1px solid var(--border)', backgroundColor: 'var(--surface-muted)' }}>
             <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Contribute to Question Bank</div>
             <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Adds these questions to the permanent repository (each gets a unique code) for reuse by AI, other faculty and admins.</p>
-            <button type="button" onClick={addToBank} disabled={saving} className="btn-primary btn-md w-full justify-center" style={{ background: 'linear-gradient(135deg, #14B8A6, #0D9488)' }}>
+            <button type="button" onClick={addToBank} disabled={saving} className="btn-primary btn-md w-full justify-center" style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}>
               {saving ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><span className="material-symbols-outlined" style={{ fontSize: 18 }}>library_add</span> Add to Bank</>}
             </button>
           </div>

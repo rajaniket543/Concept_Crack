@@ -71,8 +71,8 @@ export default function ChangePassword() {
 
   function focusRing(e: React.FocusEvent) {
     const el = e.currentTarget as HTMLElement;
-    el.style.borderColor = '#5B4FE8';
-    el.style.boxShadow   = '0 0 0 3px rgba(91,79,232,0.12)';
+    el.style.borderColor = 'var(--brand)';
+    el.style.boxShadow   = '0 0 0 3px rgba(107,94,240,0.12)';
   }
   function blurRing(e: React.FocusEvent) {
     const el = e.currentTarget as HTMLElement;
@@ -151,7 +151,7 @@ export default function ChangePassword() {
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+            style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
             <span className="material-symbols-outlined text-white" style={{ fontSize: '22px' }}>lock_reset</span>
           </div>
           <div>
@@ -166,9 +166,9 @@ export default function ChangePassword() {
 
         {/* Info banner */}
         <div className="flex items-start gap-3 rounded-xl p-4 mb-6"
-          style={{ backgroundColor: 'rgba(91,79,232,0.08)', border: '1px solid rgba(91,79,232,0.20)' }}>
-          <span className="material-symbols-outlined shrink-0" style={{ fontSize: '18px', color: '#5B4FE8', marginTop: 1 }}>info</span>
-          <p className="text-sm" style={{ color: isDark ? '#C4B5FD' : '#5B4FE8' }}>
+          style={{ backgroundColor: 'rgba(107,94,240,0.08)', border: '1px solid rgba(107,94,240,0.20)' }}>
+          <span className="material-symbols-outlined shrink-0" style={{ fontSize: '18px', color: 'var(--brand)', marginTop: 1 }}>info</span>
+          <p className="text-sm" style={{ color: isDark ? '#C4B5FD' : 'var(--brand)' }}>
             Your account was set up with a temporary password. This step is required and can't be skipped.
           </p>
         </div>
@@ -235,7 +235,7 @@ export default function ChangePassword() {
             type="submit"
             disabled={!canSubmit}
             className="w-full h-11 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all hover:-translate-y-px disabled:opacity-60 disabled:pointer-events-none mt-2"
-            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
+            style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)', boxShadow: '0 4px 12px rgba(107,94,240,0.35)' }}
           >
             {loading
               ? <><Spinner size={16} /> Saving…</>
