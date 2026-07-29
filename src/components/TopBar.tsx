@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { getAuthSession, logout } from '../lib/auth';
 import { pathFor } from '../lib/pages';
 import { getUserNotifications, markNotificationsRead, type AppNotification } from '../lib/db';
+import { getStudentXP, type XPBreakdown } from '../lib/xp';
 import { useConfirm } from './ConfirmDialog';
 import { useTheme } from '../lib/theme';
 
@@ -43,10 +42,12 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
   const { isDark, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [xpOpen, setXpOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [streakDays, setStreakDays] = useState<number | null>(null);
+  const [xp, setXp] = useState<XPBreakdown | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const xpRef = useRef<HTMLDivElement>(null);
 
   const userInitials = session?.user?.name
     ? session.user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
@@ -60,9 +61,7 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
   useEffect(() => {
     if (userRole !== 'student' || !uid) return;
     let cancelled = false;
-    getDoc(doc(db, 'studentProgress', uid))
-      .then(snap => { if (!cancelled) setStreakDays((snap.data()?.streakDays as number) ?? 0); })
-      .catch(() => { if (!cancelled) setStreakDays(0); });
+    getStudentXP(uid).then(b => { if (!cancelled) setXp(b); }).catch(() => undefined);
     return () => { cancelled = true; };
   }, [userRole, uid]);
 
@@ -77,10 +76,14 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
     function handler(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+      if (xpRef.current && !xpRef.current.contains(e.target as Node)) setXpOpen(false);
     }
-    if (menuOpen || notifOpen) document.addEventListener('mousedown', handler);
+    if (menuOpen || notifOpen || xpOpen) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [menuOpen, notifOpen]);
+  }, [menuOpen, notifOpen, xpOpen]);
+
+  const fmtDate = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : '';
 
   function openNotifications() {
     const next = !notifOpen;
@@ -146,15 +149,58 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
           <h1 className="text-title-lg font-headline truncate" style={{ color: 'var(--text-primary)' }}>{title}</h1>
         ) : null}
 
-        {userRole === 'student' && streakDays !== null && (
-          <span
-            className="inline-flex items-center gap-1.5 text-label-sm font-bold px-2.5 py-1 rounded-full shrink-0"
-            style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#F6B53F' }}
-            title={streakDays > 0 ? 'Keep it going today' : 'Start a streak today'}
-          >
-            <span className="material-symbols-outlined filled" style={{ fontSize: 14 }}>local_fire_department</span>
-            {streakDays > 0 ? `${streakDays} day streak` : 'No active streak'}
-          </span>
+        {userRole === 'student' && xp && (
+          <div className="relative shrink-0" ref={xpRef}>
+            <button
+              type="button"
+              onClick={() => setXpOpen(o => !o)}
+              className="inline-flex items-center gap-1.5 text-label-sm font-bold px-2.5 py-1 rounded-full transition-opacity hover:opacity-80"
+              style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#F6B53F' }}
+              title="See how your XP was earned"
+              aria-expanded={xpOpen}
+            >
+              <span className="material-symbols-outlined filled" style={{ fontSize: 14 }}>local_fire_department</span>
+              {xp.streakDays > 0 ? `${xp.streakDays} day streak` : 'No active streak'}
+              <span style={{ opacity: 0.5 }}>·</span>
+              {xp.total} XP
+            </button>
+
+            {xpOpen && (
+              <div className="dropdown left-0 mt-1 overflow-hidden" style={{ width: '320px' }}>
+                <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
+                  <div className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>How you earned {xp.total} XP</div>
+                  <div className="text-label-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>Calculated from your real activity — nothing fabricated</div>
+                </div>
+                <div className="px-4 py-3 space-y-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                  {xp.sources.map(s => (
+                    <div key={s.key} className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-body-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{s.label}</div>
+                        <div className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{s.detail}</div>
+                      </div>
+                      <div className="text-body-sm font-bold shrink-0" style={{ color: '#F6B53F' }}>+{s.points}</div>
+                    </div>
+                  ))}
+                </div>
+                {xp.recentTests.length > 0 && (
+                  <div className="px-4 py-3 max-h-48 overflow-y-auto">
+                    <div className="text-label-sm font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-faint)' }}>Recent tests</div>
+                    <div className="space-y-2">
+                      {xp.recentTests.map((t, i) => (
+                        <div key={i} className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-label-lg truncate" style={{ color: 'var(--text-secondary)' }}>{t.title}</div>
+                            <div className="text-[11px]" style={{ color: 'var(--text-faint)' }}>{t.correctCount} correct{t.date ? ` · ${fmtDate(t.date)}` : ''}</div>
+                          </div>
+                          <div className="text-label-sm font-bold shrink-0" style={{ color: 'var(--text-muted)' }}>+{t.points}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
