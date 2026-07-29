@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { getAuthSession, logout } from '../lib/auth';
 import { pathFor } from '../lib/pages';
 import { getUserNotifications, markNotificationsRead, type AppNotification } from '../lib/db';
@@ -42,6 +44,7 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [streakDays, setStreakDays] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +56,15 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
   const uid = session?.user?.id ?? '';
 
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    if (userRole !== 'student' || !uid) return;
+    let cancelled = false;
+    getDoc(doc(db, 'studentProgress', uid))
+      .then(snap => { if (!cancelled) setStreakDays((snap.data()?.streakDays as number) ?? 0); })
+      .catch(() => { if (!cancelled) setStreakDays(0); });
+    return () => { cancelled = true; };
+  }, [userRole, uid]);
 
   useEffect(() => {
     if (!uid) return;
@@ -108,7 +120,7 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
       }}
     >
       {/* Breadcrumb / Title */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex items-center gap-3">
         {breadcrumb && breadcrumb.length > 0 ? (
           <nav className="flex items-center gap-1.5 text-body-sm" style={{ color: 'var(--text-muted)' }}>
             {breadcrumb.map((crumb, i) => (
@@ -133,6 +145,17 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
         ) : title ? (
           <h1 className="text-title-lg font-headline truncate" style={{ color: 'var(--text-primary)' }}>{title}</h1>
         ) : null}
+
+        {userRole === 'student' && streakDays !== null && (
+          <span
+            className="inline-flex items-center gap-1.5 text-label-sm font-bold px-2.5 py-1 rounded-full shrink-0"
+            style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#F6B53F' }}
+            title={streakDays > 0 ? 'Keep it going today' : 'Start a streak today'}
+          >
+            <span className="material-symbols-outlined filled" style={{ fontSize: 14 }}>local_fire_department</span>
+            {streakDays > 0 ? `${streakDays} day streak` : 'No active streak'}
+          </span>
+        )}
       </div>
 
       {/* Right actions */}
@@ -221,11 +244,7 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
             <div className="avatar avatar-md" aria-hidden="true">
               {userInitials}
             </div>
-            <div className="hidden sm:block text-left min-w-0">
-              <div className="text-label-lg leading-tight truncate max-w-28" style={{ color: 'var(--text-primary)' }}>{userName}</div>
-              <div className="text-label-sm capitalize" style={{ color: 'var(--text-muted)' }}>{userRole}</div>
-            </div>
-            <span className="material-symbols-outlined text-[16px] hidden sm:block" style={{ color: 'var(--text-muted)' }}>expand_more</span>
+            <span className="material-symbols-outlined text-[16px]" style={{ color: 'var(--text-muted)' }}>expand_more</span>
           </button>
 
           {menuOpen && (

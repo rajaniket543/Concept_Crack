@@ -12,6 +12,9 @@ interface LogoProps {
   showText?: boolean;
   /** Show the "Every lesson, mastered." motto under the wordmark. */
   showTagline?: boolean;
+  /** Ellipsize the wordmark/motto to one line (default). Set false to let
+   *  them wrap instead — for spots with a tall but narrow container. */
+  truncate?: boolean;
   className?: string;
   style?: CSSProperties;
 }
@@ -44,11 +47,13 @@ export default function Logo({
   tone = 'theme',
   showText = true,
   showTagline = true,
+  truncate = true,
   className = '',
   style,
 }: LogoProps) {
   const s = SIZES[size];
   const c = TONES[tone];
+  const clip = truncate ? 'truncate' : '';
   return (
     <span className={`inline-flex items-center ${className}`} style={{ gap: s.gap, ...style }}>
       <img
@@ -62,14 +67,14 @@ export default function Logo({
       {showText && (
         <span className="min-w-0" style={{ lineHeight: 1.1 }}>
           <span
-            className="block font-headline font-bold tracking-tight truncate"
+            className={`block font-headline font-bold tracking-tight ${clip}`}
             style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: c.title, fontSize: s.title }}
           >
             Concept Crack
           </span>
           {showTagline && (
             <span
-              className="block truncate"
+              className={`block ${clip}`}
               style={{
                 color: c.motto,
                 fontSize: s.motto,

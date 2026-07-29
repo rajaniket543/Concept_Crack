@@ -93,12 +93,10 @@ export default function AssignedTests() {
           ))}
         </div>
 
-        {test.endAt && (
-          <div className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>schedule</span>
-            Ends {new Date(test.endAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>schedule</span>
+          Ends {test.endAt ? new Date(test.endAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
+        </div>
 
         {test.instructions && (
           <p className="text-sm rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(107,94,240,0.05)', color: 'var(--text-secondary)', border: '1px solid rgba(107,94,240,0.12)' }}>

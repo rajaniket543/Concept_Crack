@@ -37,6 +37,7 @@ export interface ExamQuestion {
   chapter?: string;
   imageUrl?: string;
   bodyBlocks?: BodyBlock[];
+  explanation?: string;
 }
 
 /** A stored question with no questionType is a plain single-answer MCQ. */
@@ -94,6 +95,7 @@ export async function getQuestionsByIds(ids: string[]): Promise<ExamQuestion[]> 
         chapter: (d.chapter as string) || undefined,
         imageUrl: (d.imageUrl as string) || undefined,
         bodyBlocks: (d.bodyBlocks as BodyBlock[]) || undefined,
+        explanation: (d.explanation as string) || undefined,
       });
     });
   }
@@ -162,6 +164,7 @@ export async function getQuestionsForCustomTest(config: {
         chapter,
         imageUrl: (d.imageUrl as string) || undefined,
         bodyBlocks: (d.bodyBlocks as BodyBlock[]) || undefined,
+        explanation: (d.explanation as string) || undefined,
       });
     });
   }));
@@ -205,6 +208,7 @@ export async function getQuestionsForChapter(
         chapter,
         imageUrl: (d.imageUrl as string) || undefined,
         bodyBlocks: (d.bodyBlocks as BodyBlock[]) || undefined,
+        explanation: (d.explanation as string) || undefined,
       } as ExamQuestion;
     });
   return dedupeQuestions(list);

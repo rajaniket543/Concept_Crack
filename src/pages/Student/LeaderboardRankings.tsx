@@ -70,38 +70,44 @@ export default function LeaderboardRankings() {
           </div>
         </div>
 
-        {/* Main content: podium + table */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Podium */}
+        {/* Podium — top 3 this period */}
+        {top3.length > 0 && (
           <Card title="Top 3 — This Period" subtitle={`${period} leaderboard`}>
-            <div className="flex items-end justify-center gap-3 mt-4 mb-6">
+            <div className="flex items-end justify-center gap-5 sm:gap-10 py-4">
               {top3.map((student: any, idx) => {
-                const podiumOrder = [1, 0, 2]; // 2nd, 1st, 3rd
+                const podiumOrder = [1, 0, 2]; // display order: 2nd, 1st, 3rd
                 const rank = podiumOrder[idx] + 1;
                 const colorIdx = rank - 1;
+                const color = PODIUM_COLORS[colorIdx];
+                const isFirst = rank === 1;
                 return (
-                  <div key={student?.name ?? idx} className="flex flex-col items-center gap-2">
+                  <div key={student?.name ?? idx} className="flex flex-col items-center gap-2.5">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white`}
-                      style={{ background: `linear-gradient(135deg, ${PODIUM_COLORS[colorIdx]}cc, ${PODIUM_COLORS[colorIdx]})` }}
+                      className="rounded-full flex items-center justify-center font-bold text-white shrink-0"
+                      style={{
+                        width: isFirst ? 64 : 52, height: isFirst ? 64 : 52,
+                        fontSize: isFirst ? 20 : 16,
+                        background: `linear-gradient(135deg, ${color}, ${color}cc)`,
+                        boxShadow: isFirst ? `0 0 0 4px ${color}30, 0 8px 20px ${color}40` : `0 6px 16px ${color}30`,
+                      }}
                     >
                       {student?.initials ?? student?.name?.slice(0, 2)}
                     </div>
-                    <div className="text-xs text-center">
-                      <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>{student?.name?.split(' ')[0]}</div>
-                      <div style={{ color: PODIUM_COLORS[colorIdx] }}>{student?.score ?? student?.points}pts</div>
+                    <div className="text-center">
+                      <div className="font-semibold text-body-sm" style={{ color: 'var(--text-primary)' }}>{student?.name?.split(' ')[0] ?? '—'}</div>
+                      <div className="text-label-sm font-bold mt-0.5" style={{ color }}>{student?.score ?? student?.points ?? 0} pts</div>
                     </div>
                     <div
-                      className={`w-16 ${PODIUM_HEIGHT[rank - 1]} rounded-t-lg flex items-end justify-center pb-2`}
-                      style={{ backgroundColor: `${PODIUM_COLORS[colorIdx]}20`, border: `1px solid ${PODIUM_COLORS[colorIdx]}40` }}
+                      className={`${PODIUM_HEIGHT[rank - 1]} rounded-t-xl flex flex-col items-center justify-end gap-1 pb-3`}
+                      style={{ width: isFirst ? 96 : 80, backgroundColor: `${color}18`, border: `1px solid ${color}40`, borderBottom: 'none' }}
                     >
-                      <span className="material-symbols-outlined filled" style={{ fontSize: '20px', color: PODIUM_COLORS[colorIdx] }}>
+                      <span className="material-symbols-outlined filled" style={{ fontSize: isFirst ? 26 : 20, color }}>
                         {MEDAL_ICONS[rank - 1]}
                       </span>
                     </div>
                     <div
-                      className="w-16 h-6 rounded-b-lg flex items-center justify-center text-xs font-bold text-white"
-                      style={{ backgroundColor: PODIUM_COLORS[colorIdx] }}
+                      className="h-7 rounded-b-xl flex items-center justify-center text-sm font-bold text-white -mt-2.5"
+                      style={{ width: isFirst ? 96 : 80, backgroundColor: color }}
                     >
                       #{rank}
                     </div>
@@ -109,10 +115,14 @@ export default function LeaderboardRankings() {
                 );
               })}
             </div>
+          </Card>
+        )}
 
-            {/* Subject breakdown */}
+        {/* Main content: subject breakdown + table */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Subject breakdown */}
+          <Card title="Top Subjects" subtitle={`${period} performance`}>
             <div className="space-y-2">
-              <p className="text-label-sm font-semibold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Top subjects</p>
               {['Physics', 'Chemistry', 'Mathematics'].map((s, i) => {
                 const colors = ['var(--brand)', '#8B5CF6', '#10B981'];
                 const scores = [82, 76, 88];

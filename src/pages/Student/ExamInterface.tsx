@@ -13,7 +13,7 @@ import {
 } from '../../mocks/student';
 import { getQuestionsForChapter, getQuestionsByIds, type ExamQuestion as FirestoreQuestion } from '../../lib/questions';
 import { getTest, saveTestAttempt, type LockMode, type AttemptType } from '../../lib/tests';
-import { enterFullscreen } from '../../lib/fullscreen';
+import { enterFullscreen, exitFullscreen } from '../../lib/fullscreen';
 import { updateWeakTopics } from '../../lib/weakTopics';
 import { getChapterFormulas, getSubjectHighlights, generateFormulasAI, type FormulaGroup } from '../../lib/formulas';
 import { hasAI } from '../../lib/ai';
@@ -727,6 +727,7 @@ export default function ExamInterface() {
       });
     } finally {
       submittingRef.current = false;
+      void exitFullscreen();
     }
   }
 

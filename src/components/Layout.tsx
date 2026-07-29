@@ -1,10 +1,10 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { PageKey, pathFor } from '../lib/pages';
-import { logout } from '../lib/auth';
-import Logo from './Logo';
-import { useEffect, useState } from 'react';
+import { getAuthSession } from '../lib/auth';
+import { useEffect, useState, type CSSProperties } from 'react';
 import AICompanion from './AICompanion';
-import { useConfirm } from './ConfirmDialog';
+import Logo from './Logo';
+import { getStudentStream } from '../lib/stream';
 
 interface NavSection {
   label?: string;
@@ -31,9 +31,17 @@ function isNavSection(x: NavItem | NavSection): x is NavSection {
 export default function Layout({ brand, role = 'student', nav, variant = 'default' }: LayoutProps) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const confirm = useConfirm();
-  const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const session = getAuthSession();
+  const studentStream = role === 'student' ? getStudentStream() : null;
+  const footerMeta =
+    role === 'student'
+      ? `${studentStream ?? 'JEE'} 2027 · Student`
+      : role === 'faculty'
+        ? 'Faculty Portal'
+        : role === 'parent'
+          ? 'Parent Portal'
+          : 'Admin Portal';
 
   const roleAccent: Record<string, string> = {
     student: '#6B5EF0',
@@ -83,8 +91,6 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
   const mainSections    = sections.filter(s => s.label !== 'Account');
   const accountSections = sections.filter(s => s.label === 'Account');
 
-  const sidebarWidth = collapsed ? '60px' : '260px';
-
   // Highlight only the MOST specific matching nav item, so that e.g.
   // /student/assigned-tests does not also light up the /student dashboard item.
   const activeKey = sections
@@ -95,19 +101,6 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
       return matches && t.length > best.len ? { key: it.key, len: t.length } : best;
     }, { key: '', len: -1 }).key;
 
-  async function handleSignOut() {
-    const ok = await confirm({
-      title: 'Sign out?',
-      message: 'You will be returned to the login page.',
-      confirmLabel: 'Sign out',
-      tone: 'danger',
-      icon: 'logout',
-    });
-    if (!ok) return;
-    await logout();
-    navigate(pathFor('login'));
-  }
-
   function renderNavItem(item: NavItem) {
     const target = pathFor(item.key);
     const active = item.key === activeKey;
@@ -115,19 +108,35 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
       <Link
         key={item.key}
         to={target}
-        title={collapsed ? item.label : undefined}
         className={`sidebar-item ${active ? 'active' : ''}`}
-        style={active ? { backgroundColor: accent } : undefined}
         onClick={() => setMobileNavOpen(false)}
       >
         <span className="material-symbols-outlined item-icon">{item.icon}</span>
-        {!collapsed && <span className="truncate text-sm">{item.label}</span>}
+        <span className="truncate text-sm">{item.label}</span>
       </Link>
     );
   }
 
+  const shellStyle = {
+    backgroundColor: '#0B0B13',
+    '--bg': '#0B0B13',
+    '--surface': '#15151F',
+    '--surface-muted': '#1D1D2E',
+    '--surface-hover': '#232338',
+    '--border': 'rgba(255,255,255,0.06)',
+    '--border-muted': 'rgba(255,255,255,0.04)',
+    '--text-primary': '#F5F5F8',
+    '--text-secondary': '#C7C7D4',
+    '--text-muted': '#A1A1AA',
+    '--text-faint': '#6B7280',
+    '--topbar-bg': 'rgba(11,11,19,0.75)',
+    '--topbar-border': 'rgba(255,255,255,0.06)',
+    '--brand-light': 'rgba(107,94,240,0.18)',
+    '--brand-muted': 'rgba(107,94,240,0.14)',
+  } as CSSProperties;
+
   return (
-    <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="min-h-screen flex" style={shellStyle}>
       {mobileNavOpen && (
         <button
           type="button"
@@ -139,81 +148,51 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
 
       {/* Sidebar */}
       <aside
-        className="sidebar shrink-0 flex flex-col h-screen sticky top-0 overflow-y-auto transition-transform duration-200 lg:transition-all"
+        className={`sidebar shrink-0 flex flex-col h-screen sticky top-0 overflow-y-auto transition-transform duration-200 lg:transition-all sidebar-${role}`}
         data-mobile-open={mobileNavOpen ? 'true' : 'false'}
         style={{
-          width: sidebarWidth,
-          backgroundColor: 'var(--sidebar-bg)',
-          borderRight: '1px solid var(--sidebar-border)',
+          width: '278px',
+          minWidth: '278px',
           zIndex: 40,
-        }}
+          '--sidebar-accent': accent,
+        } as CSSProperties}
       >
-        {/* Logo */}
-        <div
-          className="flex items-center gap-3 px-4 shrink-0"
-          style={{ height: '68px', borderBottom: '1px solid var(--sidebar-border)' }}
-        >
-          <Link to={homePath} className="flex items-center gap-3 min-w-0" title="Go to dashboard">
-            <Logo size="md" tone="onDark" showText={!collapsed} />
+        <div className="brand">
+          <Link to={homePath} className="flex items-center min-w-0" title={`Go to ${brand}`}>
+            <Logo size="md" tone="onDark" truncate={false} />
           </Link>
-          {!collapsed && (
-            <button
-              type="button"
-              onClick={() => setCollapsed(true)}
-              className="ml-auto w-6 h-6 flex items-center justify-center rounded transition-colors"
-              style={{ color: 'var(--sidebar-text-muted)' }}
-              title="Collapse sidebar"
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_left</span>
-            </button>
-          )}
         </div>
 
-        {/* Collapsed expand button */}
-          {collapsed && (
-            <button
-              type="button"
-              onClick={() => setCollapsed(false)}
-              className="mx-auto mt-3 w-8 h-8 flex items-center justify-center rounded-md transition-colors"
-            style={{ color: 'var(--sidebar-text-muted)', backgroundColor: 'var(--sidebar-hover)' }}
-            title="Expand sidebar"
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>chevron_right</span>
-          </button>
-        )}
-
-        {/* Navigation */}
-        <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-0.5">
+        <div className="nav-scroll-guard">
           {mainSections.map((section, si) => (
-            <div key={si}>
-              {section.label && !collapsed && (
-                <div
-                  className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-widest font-semibold"
-                  style={{ color: 'var(--sidebar-text-muted)' }}
-                >
-                  {section.label}
-                </div>
+            <div key={si} className="nav-group">
+              {section.label && (
+                <div className="nav-label">{section.label}</div>
               )}
               {section.items.map(renderNavItem)}
             </div>
           ))}
-        </nav>
+          <div className="nav-group" style={{ marginTop: 'auto' }}>
+            {accountSections.flatMap(s => s.items).map(renderNavItem)}
+          </div>
+        </div>
 
-        {/* Footer — Account section (Settings etc.), then sign out.
-            The light/dark toggle lives in the top bar and in Settings only. */}
-        <div
-          className="px-2 py-3 space-y-0.5 shrink-0"
-          style={{ borderTop: '1px solid var(--sidebar-border)' }}
-        >
-          {accountSections.flatMap(s => s.items).map(renderNavItem)}
+        <div className="nav-footer">
           <button
             type="button"
-            title={collapsed ? 'Sign out' : undefined}
-            onClick={handleSignOut}
-            className="sidebar-item w-full"
+            onClick={() => navigate(pathFor('settings'))}
+            className="user-chip"
+            title="Open settings"
           >
-            <span className="material-symbols-outlined item-icon">logout</span>
-            {!collapsed && <span className="text-sm">Sign out</span>}
+            <div className="user-avatar">
+              {session?.user?.name
+                ? session.user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+                : 'CC'}
+            </div>
+            <div className="user-meta">
+              <div className="u-name">{session?.user?.name ?? 'Concept Crack'}</div>
+              <div className="u-role">{footerMeta}</div>
+            </div>
           </button>
         </div>
       </aside>

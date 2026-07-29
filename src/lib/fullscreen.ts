@@ -24,3 +24,22 @@ export async function enterFullscreen(): Promise<boolean> {
   }
   return false;
 }
+
+export async function exitFullscreen(): Promise<void> {
+  if (typeof document === 'undefined') return;
+  const doc = document as Document & {
+    webkitExitFullscreen?: () => Promise<void> | void;
+    msExitFullscreen?: () => Promise<void> | void;
+    webkitFullscreenElement?: Element | null;
+    msFullscreenElement?: Element | null;
+  };
+
+  try {
+    if (!doc.fullscreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) return;
+    if (doc.exitFullscreen) await doc.exitFullscreen();
+    else if (doc.webkitExitFullscreen) await doc.webkitExitFullscreen();
+    else if (doc.msExitFullscreen) await doc.msExitFullscreen();
+  } catch {
+    // Nothing to do if the browser refuses — the tab just stays fullscreen.
+  }
+}

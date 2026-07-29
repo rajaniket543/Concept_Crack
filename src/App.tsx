@@ -119,15 +119,17 @@ const facultyNav = [
     items: [
       { key: 'createTest' as PageKey,   label: 'Create Test',      icon: 'add_circle' },
       { key: 'manageTests' as PageKey,  label: 'My Tests',         icon: 'quiz' },
+      { key: 'aiGenerate' as PageKey,   label: 'AI Test Generator', icon: 'auto_awesome' },
+      { key: 'buildTest' as PageKey,    label: 'Build Test',        icon: 'construction' },
     ],
   },
   {
     label: 'Manage',
     items: [
-      { key: 'questionBank' as PageKey,    label: 'Question Bank',   icon: 'library_books' },
+      { key: 'questionBank' as PageKey,    label: 'Question Bank',    icon: 'library_books' },
       { key: 'uploadQuestions' as PageKey, label: 'Upload Questions', icon: 'upload_file' },
-      { key: 'verifications' as PageKey,   label: 'Verifications',   icon: 'fact_check' },
-      { key: 'messages' as PageKey,        label: 'Messages',        icon: 'chat' },
+      { key: 'verifications' as PageKey,   label: 'Verifications',    icon: 'fact_check' },
+      { key: 'messages' as PageKey,        label: 'Messages',         icon: 'chat' },
     ],
   },
   {
