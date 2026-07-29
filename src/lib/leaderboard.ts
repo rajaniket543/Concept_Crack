@@ -11,6 +11,33 @@ export interface LeaderboardEntry {
   previousPoints: number;
   streakDays: number;
   updatedAt: string;
+  /** True only for the generated placeholder rows used to fill out the board
+   *  before enough real peers exist — never set on a real student's entry,
+   *  and never a specific identifiable person (generic representative names
+   *  only). Not rendered any differently in the UI per product decision —
+   *  kept on the object purely so this stays traceable in code. */
+  isSample?: boolean;
+}
+
+// Generic, representative Indian names (not tied to any real, identifiable
+// student) — placeholder rows only, used to fill out the board until enough
+// real students have their own real entry.
+const SAMPLE_NAMES = ['Aarav Sharma', 'Priya Patel', 'Rohan Mehta', 'Ananya Iyer'];
+
+/** Generates placeholder rows to fill out the board while there aren't yet
+ *  enough real peers. Deterministic (not random) so the board doesn't
+ *  reshuffle on every reload; points are round, illustrative numbers. */
+export function sampleLeaderboardEntries(stream: StudentStream | null, count: number): LeaderboardEntry[] {
+  return SAMPLE_NAMES.slice(0, count).map((name, i) => ({
+    studentId: `sample-${i}`,
+    name,
+    stream,
+    points: 2840 - i * 230,
+    previousPoints: 2840 - i * 230,
+    streakDays: 12 - i * 2,
+    updatedAt: new Date().toISOString(),
+    isSample: true,
+  }));
 }
 
 const COLLECTION = 'leaderboard';

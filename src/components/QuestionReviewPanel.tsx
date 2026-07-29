@@ -2,7 +2,7 @@ import { useState, type Dispatch, type SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthSession } from '../lib/auth';
 import { useToast } from './Toast';
-import { createBankQuestions, type BankQuestionInput, type QuestionOrigin } from '../lib/questionBank';
+import { createBankQuestions, QUESTION_ORIGINS, type BankQuestionInput, type QuestionOrigin } from '../lib/questionBank';
 import { createTest } from '../lib/tests';
 import { pathFor } from '../lib/pages';
 import { uploadQuestionImage } from '../lib/storage';
@@ -38,6 +38,11 @@ export default function QuestionReviewPanel({
   const [testTitle, setTestTitle]   = useState('');
   const [testType, setTestType]     = useState<'faculty_batch' | 'faculty_coaching'>('faculty_batch');
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
+  // Real institute/source tag, editable at save time — defaults to whatever
+  // the parent page passed (e.g. "Concept Crack AI" for AI generation) but a
+  // faculty upload should be attributed to the real coaching institute the
+  // material actually came from, not a generic literal.
+  const [selectedOrigin, setSelectedOrigin] = useState<QuestionOrigin>(origin);
 
   const inputStyle = { backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' } as const;
 
@@ -77,7 +82,8 @@ export default function QuestionReviewPanel({
       subject:    it.subject || defaultSubject || 'Physics',
       chapter:    it.chapter,
       topic:      it.topic,
-      origin,
+      stream,
+      origin:     selectedOrigin,
       uploadedBy: uid,
       uploadedByName: uname,
       explanation: it.explanation,
@@ -158,6 +164,15 @@ export default function QuestionReviewPanel({
             {incomplete.length} need attention
           </span>
         )}
+      </div>
+
+      {/* Real source attribution — applies to the whole batch being saved */}
+      <div className="rounded-xl p-3 flex items-center gap-3 flex-wrap" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+        <span className="text-label-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Source institute</span>
+        <select value={selectedOrigin} onChange={e => setSelectedOrigin(e.target.value as QuestionOrigin)} className="input-field" style={inputStyle}>
+          {QUESTION_ORIGINS.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <span className="text-label-sm ml-auto" style={{ color: 'var(--text-faint)' }}>Stream: <strong style={{ color: 'var(--text-secondary)' }}>{stream}</strong></span>
       </div>
 
       {items.map((it, i) => {

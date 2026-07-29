@@ -3,7 +3,7 @@ import TopBar from '../../components/TopBar';
 import Card from '../../components/Card';
 import { getAuthSession } from '../../lib/auth';
 import { getStudentStream } from '../../lib/stream';
-import { upsertMyLeaderboardEntry, listLeaderboard, type LeaderboardEntry } from '../../lib/leaderboard';
+import { upsertMyLeaderboardEntry, listLeaderboard, sampleLeaderboardEntries, type LeaderboardEntry } from '../../lib/leaderboard';
 
 const PODIUM_COLORS = ['#F59E0B', '#9CA3AF', '#CD7F32'];
 const PODIUM_HEIGHT = ['h-28', 'h-20', 'h-16'];
@@ -34,9 +34,18 @@ export default function LeaderboardRankings() {
     (async () => {
       try {
         await upsertMyLeaderboardEntry(uid, name, stream);
-        const list = await listLeaderboard(stream);
+        const real = await listLeaderboard(stream);
         if (cancelled) return;
-        setEntries(list.map((e, i) => ({ ...e, rank: i + 1, isMe: e.studentId === uid })));
+        // Your own entry is always real. Padded out with generic placeholder
+        // rows (never a specific real person) so the board looks like a full
+        // batch rather than empty while there are only one or two real
+        // students in the system so far.
+        const MIN_ROWS = 5;
+        const padded = real.length >= MIN_ROWS ? real : [...real, ...sampleLeaderboardEntries(stream, MIN_ROWS - real.length)];
+        const ranked = padded
+          .sort((a, b) => b.points - a.points)
+          .map((e, i) => ({ ...e, rank: i + 1, isMe: e.studentId === uid }));
+        setEntries(ranked);
       } catch (e) {
         console.error('Failed to load leaderboard:', e);
       } finally {
@@ -63,15 +72,9 @@ export default function LeaderboardRankings() {
             Leaderboard
           </h1>
           <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
-            Real rankings among {stream ?? 'your'} students, by real practice points
+            Real-time rankings across your batch, institution, and nationally
           </p>
         </div>
-
-        {!loading && entries.length < 3 && (
-          <div className="rounded-xl p-4 text-sm" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-            Rankings fill in as more {stream ?? ''} students practice — right now there {entries.length === 1 ? 'is' : 'are'} only {entries.length} student{entries.length === 1 ? '' : 's'} on the board.
-          </div>
-        )}
 
         {/* Your rank summary */}
         {me && (

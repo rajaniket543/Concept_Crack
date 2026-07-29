@@ -40,6 +40,9 @@ export interface BankQuestion {
   subject:            string;
   chapter:            string;
   topic?:             string;
+  // 'BOTH' for content shared across JEE and NEET (e.g. most Physics/Chemistry);
+  // 'JEE' or 'NEET' only when the content is genuinely stream-specific.
+  stream?:            string;
   origin?:            string;
   uploadedBy?:        string;
   uploadedByName?:    string;
@@ -59,6 +62,7 @@ export interface BankQuestionInput {
   subject:            string;
   chapter:            string;
   topic?:             string;
+  stream?:            string;
   origin:             QuestionOrigin;
   uploadedBy:         string;
   uploadedByName?:    string;
@@ -89,6 +93,7 @@ function docToBankQuestion(id: string, d: Record<string, unknown>): BankQuestion
     subject:            (d.subject as string) ?? '',
     chapter:            (d.chapter as string) ?? '',
     topic:              (d.topic as string) || undefined,
+    stream:             (d.stream as string) || undefined,
     origin:             (d.origin as string) || (d.source as string) || undefined,
     uploadedBy:         (d.uploadedBy as string) || undefined,
     uploadedByName:     (d.uploadedByName as string) || undefined,
@@ -134,6 +139,7 @@ export async function createBankQuestion(input: BankQuestionInput): Promise<{ id
     subject:            input.subject,
     chapter:            input.chapter,
     topic:              input.topic ?? '',
+    stream:             input.stream ?? 'BOTH',
     origin:             input.origin,
     source:             input.origin,   // keep legacy `source` in sync for existing readers
     uploadedBy:         input.uploadedBy,

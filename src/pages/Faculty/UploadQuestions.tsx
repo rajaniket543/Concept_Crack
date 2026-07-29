@@ -4,6 +4,11 @@ import QuestionReviewPanel from '../../components/QuestionReviewPanel';
 import { extractQuestionsFromFiles, extractionAvailable, type ExtractedQuestion } from '../../lib/extract';
 
 const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
+// 'BOTH' covers content genuinely shared across JEE and NEET (most Physics/
+// Chemistry material) — only pick JEE/NEET when the content is actually
+// stream-specific, so the same upload doesn't wrongly get excluded from the
+// other stream's students later.
+const STREAMS = ['BOTH', 'JEE', 'NEET'] as const;
 
 const UPLOAD_OPTIONS = [
   { icon: 'picture_as_pdf', title: 'Complete PDF', desc: 'Allen / Aakash paper, coaching module or question booklet — every question is detected.' },
@@ -17,6 +22,7 @@ export default function UploadQuestions() {
   const [files, setFiles]             = useState<File[]>([]);
   const [hintSubject, setHintSubject] = useState('');
   const [hintChapter, setHintChapter] = useState('');
+  const [hintStream, setHintStream]   = useState<typeof STREAMS[number]>('BOTH');
   const [extracting, setExtracting]   = useState(false);
   const [items, setItems]             = useState<ExtractedQuestion[]>([]);
 
@@ -100,7 +106,7 @@ export default function UploadQuestions() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Subject hint (optional)</label>
             <select value={hintSubject} onChange={e => setHintSubject(e.target.value)} className="input-field w-full" style={inputStyle}>
@@ -111,6 +117,12 @@ export default function UploadQuestions() {
           <div>
             <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Chapter hint (optional)</label>
             <input type="text" value={hintChapter} onChange={e => setHintChapter(e.target.value)} placeholder="e.g. Electrostatics" className="input-field w-full" style={inputStyle} />
+          </div>
+          <div>
+            <label className="text-label-sm font-semibold mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Stream</label>
+            <select value={hintStream} onChange={e => setHintStream(e.target.value as typeof STREAMS[number])} className="input-field w-full" style={inputStyle}>
+              {STREAMS.map(s => <option key={s} value={s}>{s === 'BOTH' ? 'Shared (JEE + NEET)' : s}</option>)}
+            </select>
           </div>
         </div>
 
@@ -128,7 +140,7 @@ export default function UploadQuestions() {
       </div>
 
       {/* Review & save (shared with AI generation) */}
-      <QuestionReviewPanel items={items} setItems={setItems} origin="Faculty Upload" defaultSubject={hintSubject || undefined} />
+      <QuestionReviewPanel items={items} setItems={setItems} origin="Faculty Upload" defaultSubject={hintSubject || undefined} stream={hintStream} />
     </div>
   );
 }
