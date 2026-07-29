@@ -7,6 +7,7 @@ import { getQuestionsForCustomTest } from '../../lib/questions';
 import { createTest } from '../../lib/tests';
 import { pathFor } from '../../lib/pages';
 import { useToast } from '../../components/Toast';
+import SelectableChip from '../../components/SelectableChip';
 
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard', 'Mixed'] as const;
 const COUNTS       = [10, 20, 30, 40, 50] as const;
@@ -149,10 +150,10 @@ export default function CustomTest() {
   const StepDot = ({ label, active, done }: { label: string; active: boolean; done: boolean }) => (
     <div className="flex items-center gap-2">
       <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-        style={{ backgroundColor: done || active ? '#5B4FE8' : 'var(--surface-muted)', color: done || active ? '#fff' : 'var(--text-muted)' }}>
+        style={{ backgroundColor: done || active ? 'var(--brand)' : 'var(--surface-muted)', color: done || active ? '#fff' : 'var(--text-muted)' }}>
         {done ? <span className="material-symbols-outlined" style={{ fontSize: 14 }}>check</span> : label.charAt(0).toUpperCase()}
       </div>
-      <span className="text-sm font-medium hidden sm:block" style={{ color: active ? '#5B4FE8' : 'var(--text-muted)' }}>{label}</span>
+      <span className="text-sm font-medium hidden sm:block" style={{ color: active ? 'var(--brand)' : 'var(--text-muted)' }}>{label}</span>
     </div>
   );
 
@@ -169,9 +170,9 @@ export default function CustomTest() {
 
       {/* Steps */}
       <div className="flex items-center gap-3">
-        {(['subjects', 'chapters', 'config'] as Step[]).map((s, i, arr) => (
+        {(['subjects', 'chapters', 'config'] as Step[]).map((s, i) => (
           <div key={s} className="flex items-center gap-3">
-            {i > 0 && <div className="h-px w-8" style={{ backgroundColor: step !== 'subjects' && i <= (['subjects','chapters','config'] as Step[]).indexOf(step) ? '#5B4FE8' : 'var(--border)' }} />}
+            {i > 0 && <div className="h-px w-8" style={{ backgroundColor: step !== 'subjects' && i <= (['subjects','chapters','config'] as Step[]).indexOf(step) ? 'var(--brand)' : 'var(--border)' }} />}
             <StepDot label={s} active={step === s} done={step !== 'generating' && (['subjects','chapters','config'] as Step[]).indexOf(step) > i} />
           </div>
         ))}
@@ -184,35 +185,21 @@ export default function CustomTest() {
             Choose Subjects ({selectedSubjects.size} selected)
           </h2>
           <div className="space-y-3">
-            {subjects.map(s => {
-              const on = selectedSubjects.has(s);
-              return (
-                <button key={s} type="button" onClick={() => toggleSubject(s)}
-                  className="w-full text-left rounded-2xl p-4 flex items-center gap-4 transition-all"
-                  style={{
-                    backgroundColor: on ? 'rgba(91,79,232,0.06)' : 'var(--surface)',
-                    border: `1.5px solid ${on ? '#5B4FE8' : 'var(--border)'}`,
-                    boxShadow: 'var(--shadow-sm)',
-                  }}>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: on ? 'linear-gradient(135deg, #5B4FE8, #7C3AED)' : 'var(--surface-muted)' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 20, color: on ? '#fff' : 'var(--text-muted)' }}>{subjectIcon(s)}</span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-semibold" style={{ color: on ? '#5B4FE8' : 'var(--text-primary)' }}>{s}</div>
-                    <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{stream} · Select chapters after</div>
-                  </div>
-                  <div className="w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0"
-                    style={{ borderColor: on ? '#5B4FE8' : 'var(--border)', backgroundColor: on ? '#5B4FE8' : 'transparent' }}>
-                    {on && <span className="material-symbols-outlined text-white" style={{ fontSize: 13 }}>check</span>}
-                  </div>
-                </button>
-              );
-            })}
+            {subjects.map(s => (
+              <SelectableChip
+                key={s}
+                variant="row"
+                label={s}
+                subtitle={`${stream} · Select chapters after`}
+                icon={subjectIcon(s)}
+                selected={selectedSubjects.has(s)}
+                onClick={() => toggleSubject(s)}
+              />
+            ))}
           </div>
           <button type="button" onClick={goToChapters} disabled={selectedSubjects.size === 0}
             className="btn-primary btn-md w-full justify-center"
-            style={{ background: selectedSubjects.size > 0 ? 'linear-gradient(135deg, #5B4FE8, #7C3AED)' : undefined }}>
+            style={{ background: selectedSubjects.size > 0 ? 'linear-gradient(135deg, var(--brand), var(--violet))' : undefined }}>
             Continue to Chapters
             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>chevron_right</span>
           </button>
@@ -231,15 +218,14 @@ export default function CustomTest() {
           {/* Subject tabs */}
           <div className="flex gap-2 overflow-x-auto pb-1">
             {subjectList.map(s => (
-              <button key={s} type="button" onClick={() => setActiveSubjectTab(s)}
-                className="px-4 py-2 rounded-xl text-sm font-semibold shrink-0 transition-all"
-                style={{
-                  backgroundColor: activeSubjectTab === s ? '#5B4FE8' : 'var(--surface)',
-                  color:           activeSubjectTab === s ? '#fff'    : 'var(--text-muted)',
-                  border:          `1.5px solid ${activeSubjectTab === s ? '#5B4FE8' : 'var(--border)'}`,
-                }}>
-                {s} ({(selectedChapters[s]?.size ?? 0)})
-              </button>
+              <SelectableChip
+                key={s}
+                variant="tab"
+                label={s}
+                count={selectedChapters[s]?.size ?? 0}
+                selected={activeSubjectTab === s}
+                onClick={() => setActiveSubjectTab(s)}
+              />
             ))}
           </div>
 
@@ -258,24 +244,17 @@ export default function CustomTest() {
                 </button>
               </div>
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {(chaptersBySubject[activeSubjectTab] ?? []).map(ch => {
-                  const on = selectedChapters[activeSubjectTab]?.has(ch.chapter) ?? false;
-                  return (
-                    <button key={ch.id} type="button" onClick={() => toggleChapter(activeSubjectTab, ch.chapter)}
-                      className="w-full text-left rounded-xl px-4 py-3 flex items-center gap-3 transition-all"
-                      style={{
-                        backgroundColor: on ? 'rgba(91,79,232,0.06)' : 'var(--surface)',
-                        border: `1.5px solid ${on ? '#5B4FE8' : 'var(--border)'}`,
-                      }}>
-                      <div className="w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0"
-                        style={{ borderColor: on ? '#5B4FE8' : 'var(--border)', backgroundColor: on ? '#5B4FE8' : 'transparent' }}>
-                        {on && <span className="material-symbols-outlined text-white" style={{ fontSize: 13 }}>check</span>}
-                      </div>
-                      <span className="flex-1 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{ch.chapter}</span>
-                      <span className="text-xs" style={{ color: 'var(--text-faint)' }}>{ch.questionCount}q</span>
-                    </button>
-                  );
-                })}
+                {(chaptersBySubject[activeSubjectTab] ?? []).map(ch => (
+                  <SelectableChip
+                    key={ch.id}
+                    variant="row"
+                    size="sm"
+                    label={ch.chapter}
+                    count={`${ch.questionCount}q`}
+                    selected={selectedChapters[activeSubjectTab]?.has(ch.chapter) ?? false}
+                    onClick={() => toggleChapter(activeSubjectTab, ch.chapter)}
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -284,7 +263,7 @@ export default function CustomTest() {
             <button type="button" onClick={() => setStep('subjects')} className="btn-outline btn-md flex-1">Back</button>
             <button type="button" onClick={() => setStep('config')} disabled={totalSelected === 0}
               className="btn-primary btn-md flex-1"
-              style={{ background: totalSelected > 0 ? 'linear-gradient(135deg, #5B4FE8, #7C3AED)' : undefined }}>
+              style={{ background: totalSelected > 0 ? 'linear-gradient(135deg, var(--brand), var(--violet))' : undefined }}>
               Configure Test
             </button>
           </div>
@@ -298,15 +277,7 @@ export default function CustomTest() {
             <h2 className="text-label-lg font-bold mb-3" style={{ color: 'var(--text-secondary)' }}>Level</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {LEVELS.map(l => (
-                <button key={l.id} type="button" onClick={() => setLevel(l.id)}
-                  className="py-2.5 rounded-xl text-sm font-semibold transition-all"
-                  style={{
-                    backgroundColor: level === l.id ? '#5B4FE8' : 'var(--surface)',
-                    color:           level === l.id ? '#fff'    : 'var(--text-muted)',
-                    border:          `1.5px solid ${level === l.id ? '#5B4FE8' : 'var(--border)'}`,
-                  }}>
-                  {l.label}
-                </button>
+                <SelectableChip key={l.id} label={l.label} selected={level === l.id} onClick={() => setLevel(l.id)} fullWidth />
               ))}
             </div>
             <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
@@ -318,15 +289,7 @@ export default function CustomTest() {
             <h2 className="text-label-lg font-bold mb-3" style={{ color: 'var(--text-secondary)' }}>Difficulty</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {DIFFICULTIES.map(d => (
-                <button key={d} type="button" onClick={() => setDifficulty(d)}
-                  className="py-2.5 rounded-xl text-sm font-semibold transition-all"
-                  style={{
-                    backgroundColor: difficulty === d ? '#5B4FE8' : 'var(--surface)',
-                    color:           difficulty === d ? '#fff'    : 'var(--text-muted)',
-                    border:          `1.5px solid ${difficulty === d ? '#5B4FE8' : 'var(--border)'}`,
-                  }}>
-                  {d}
-                </button>
+                <SelectableChip key={d} label={d} selected={difficulty === d} onClick={() => setDifficulty(d)} fullWidth />
               ))}
             </div>
           </div>
@@ -335,22 +298,14 @@ export default function CustomTest() {
             <h2 className="text-label-lg font-bold mb-3" style={{ color: 'var(--text-secondary)' }}>Questions</h2>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {COUNTS.map(n => (
-                <button key={n} type="button" onClick={() => setCount(n)}
-                  className="py-2.5 rounded-xl text-sm font-bold transition-all"
-                  style={{
-                    backgroundColor: count === n ? '#5B4FE8' : 'var(--surface)',
-                    color:           count === n ? '#fff'    : 'var(--text-muted)',
-                    border:          `1.5px solid ${count === n ? '#5B4FE8' : 'var(--border)'}`,
-                  }}>
-                  {n}
-                </button>
+                <SelectableChip key={n} label={n} selected={count === n} onClick={() => setCount(n)} fullWidth />
               ))}
             </div>
           </div>
 
           {/* Summary */}
-          <div className="rounded-2xl p-4 space-y-2" style={{ backgroundColor: 'rgba(91,79,232,0.06)', border: '1px solid rgba(91,79,232,0.15)' }}>
-            <h3 className="text-sm font-bold" style={{ color: '#5B4FE8' }}>Test Summary</h3>
+          <div className="rounded-2xl p-4 space-y-2" style={{ backgroundColor: 'var(--brand-muted)', border: '1px solid rgba(107,94,240,0.15)' }}>
+            <h3 className="text-sm font-bold" style={{ color: 'var(--brand)' }}>Test Summary</h3>
             {[
               ['Subjects', subjectList.join(', ')],
               ['Chapters', `${totalSelected} selected across ${subjectList.length} subject${subjectList.length !== 1 ? 's' : ''}`],
@@ -375,7 +330,7 @@ export default function CustomTest() {
                 <div key={s} className="rounded-xl px-4 py-3 flex items-center justify-between"
                   style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#5B4FE8' }}>{subjectIcon(s)}</span>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--brand)' }}>{subjectIcon(s)}</span>
                     <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{s}</span>
                   </div>
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -390,7 +345,7 @@ export default function CustomTest() {
             <button type="button" onClick={() => setStep('chapters')} className="btn-outline btn-md flex-1">Back</button>
             <button type="button" onClick={generateTest}
               className="btn-primary btn-md flex-1"
-              style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+              style={{ background: 'linear-gradient(135deg, var(--brand), var(--violet))' }}>
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>play_arrow</span>
               Generate & Start
             </button>
@@ -401,7 +356,7 @@ export default function CustomTest() {
       {/* Generating */}
       {step === 'generating' && (
         <div className="py-16 text-center space-y-4">
-          <div className="w-14 h-14 rounded-full animate-spin mx-auto" style={{ border: '3px solid rgba(91,79,232,0.2)', borderTopColor: '#5B4FE8' }} />
+          <div className="w-14 h-14 rounded-full animate-spin mx-auto" style={{ border: '3px solid var(--brand-muted)', borderTopColor: 'var(--brand)' }} />
           <p className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>Generating your test…</p>
           <p className="text-body-sm" style={{ color: 'var(--text-muted)' }}>
             Sampling {count} questions from {totalSelected} chapters across {subjectList.length} subject{subjectList.length !== 1 ? 's' : ''}

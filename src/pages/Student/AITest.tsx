@@ -122,7 +122,7 @@ export default function AITest() {
           <h1 className="text-display-sm font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
             AI-Powered Test
           </h1>
-          <span className="text-label-sm font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8' }}>
+          <span className="text-label-sm font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--brand-muted)', color: 'var(--brand)' }}>
             {stream}
           </span>
         </div>
@@ -142,7 +142,7 @@ export default function AITest() {
             type="button"
             onClick={() => navigate(pathFor('practice'))}
             className="btn-primary btn-md mt-4 mx-auto"
-            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+            style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
           >
             Go Practice
           </button>
@@ -150,8 +150,8 @@ export default function AITest() {
       ) : (
         <>
           {/* How it works */}
-          <div className="rounded-2xl p-4 flex gap-4 items-start" style={{ backgroundColor: 'rgba(91,79,232,0.06)', border: '1px solid rgba(91,79,232,0.15)' }}>
-            <span className="material-symbols-outlined shrink-0 mt-0.5" style={{ color: '#5B4FE8', fontSize: 22 }}>info</span>
+          <div className="rounded-2xl p-4 flex gap-4 items-start" style={{ backgroundColor: 'rgba(107,94,240,0.06)', border: '1px solid rgba(107,94,240,0.15)' }}>
+            <span className="material-symbols-outlined shrink-0 mt-0.5" style={{ color: 'var(--brand)', fontSize: 22 }}>info</span>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               The AI selects your 5 weakest chapters, samples {AI_TEST_COUNT} questions from them, and creates a focused test. After you complete it, your weak topic scores update automatically.
             </p>
@@ -170,7 +170,7 @@ export default function AITest() {
                   style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
                 >
                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                    style={{ backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8' }}>
+                    style={{ backgroundColor: 'var(--brand-muted)', color: 'var(--brand)' }}>
                     {i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -203,7 +203,7 @@ export default function AITest() {
             onClick={generateAITest}
             disabled={generating}
             className="btn-primary btn-lg w-full justify-center"
-            style={{ background: generating ? undefined : 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+            style={{ background: generating ? undefined : 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
           >
             {generating ? (
               <>

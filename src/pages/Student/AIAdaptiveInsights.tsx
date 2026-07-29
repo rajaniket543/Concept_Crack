@@ -14,7 +14,7 @@ import { apiRequest } from '../../lib/api';
 type Scope = 'Institution' | 'Cohort A' | 'Individual';
 
 const METRIC_COLORS: Record<InsightsMetric['tone'], { color: string; bg: string }> = {
-  primary:   { color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+  primary:   { color: 'var(--brand)', bg: 'rgba(107,94,240,0.12)' },
   secondary: { color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
   tertiary:  { color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
 };
@@ -22,7 +22,7 @@ const METRIC_COLORS: Record<InsightsMetric['tone'], { color: string; bg: string 
 const PRIORITY_META: Record<string, { color: string; bg: string; label: string }> = {
   critical: { color: '#EF4444', bg: 'rgba(239,68,68,0.10)', label: 'Critical' },
   high:     { color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', label: 'High' },
-  medium:   { color: '#5B4FE8', bg: 'rgba(91,79,232,0.10)', label: 'Medium' },
+  medium:   { color: 'var(--brand)', bg: 'rgba(107,94,240,0.10)', label: 'Medium' },
   done:     { color: '#10B981', bg: 'rgba(16,185,129,0.10)', label: 'Done' },
 };
 
@@ -87,7 +87,7 @@ export default function AIAdaptiveInsights() {
       <TopBar
         breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'AI Insights' }]}
         actions={
-          <Link to={pathFor('practice')} className="btn-primary btn-md flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+          <Link to={pathFor('practice')} className="btn-primary btn-md flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit_note</span>
             Start Practice
           </Link>
@@ -99,7 +99,7 @@ export default function AIAdaptiveInsights() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
                 <span className="material-symbols-outlined filled text-white" style={{ fontSize: '18px' }}>auto_awesome</span>
               </div>
               <h1 className="text-display-sm font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
@@ -122,15 +122,15 @@ export default function AIAdaptiveInsights() {
         <div
           className="rounded-xl p-5"
           style={{
-            background: 'linear-gradient(135deg, rgba(91,79,232,0.08), rgba(124,58,237,0.06))',
-            border: '1px solid rgba(91,79,232,0.20)',
-            borderLeft: '3px solid #5B4FE8',
+            background: 'linear-gradient(135deg, rgba(107,94,240,0.08), rgba(124,58,237,0.06))',
+            border: '1px solid rgba(107,94,240,0.20)',
+            borderLeft: '3px solid var(--brand)',
           }}
         >
           <div className="flex items-start gap-4">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+              style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
             >
               <span className="material-symbols-outlined filled text-white" style={{ fontSize: '20px' }}>auto_awesome</span>
             </div>
@@ -138,7 +138,7 @@ export default function AIAdaptiveInsights() {
               <h3 className="text-title-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
                 AI Performance Summary — {scope}
               </h3>
-              <p className="text-label-sm font-semibold uppercase tracking-widest mb-2" style={{ color: '#5B4FE8' }}>
+              <p className="text-label-sm font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--brand)' }}>
                 {SCOPE_INFO[scope].context}
               </p>
               <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}>
@@ -172,7 +172,7 @@ export default function AIAdaptiveInsights() {
             action={
               <div className="flex items-center gap-1.5">
                 {[0.10, 0.30, 0.55, 0.85].map((o, i) => (
-                  <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: `rgba(91,79,232,${o})` }} />
+                  <div key={i} className="w-3 h-3 rounded-sm" style={{ backgroundColor: `rgba(107,94,240,${o})` }} />
                 ))}
                 <span className="text-label-sm ml-1" style={{ color: 'var(--text-faint)' }}>Mastery</span>
               </div>
@@ -206,7 +206,7 @@ export default function AIAdaptiveInsights() {
             <Link
               to={pathFor('practice')}
               className="flex items-center justify-center gap-2 w-full h-9 rounded-lg mt-4 text-sm font-semibold transition-all hover:opacity-80"
-              style={{ backgroundColor: 'rgba(91,79,232,0.08)', color: '#5B4FE8', border: '1px solid rgba(91,79,232,0.15)' }}
+              style={{ backgroundColor: 'rgba(107,94,240,0.08)', color: 'var(--brand)', border: '1px solid rgba(107,94,240,0.15)' }}
             >
               Practice all weak topics
               <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_forward</span>
@@ -254,7 +254,7 @@ function CircularProgressMeter({ value, color, size = 96 }: { value: number; col
 
 // ── Insights Heatmap ─────────────────────────────────────────────────────────
 function InsightsHeatmap({ cells, cols }: { cells: any[]; cols: number }) {
-  const LEVELS = ['rgba(91,79,232,0.06)', 'rgba(91,79,232,0.18)', 'rgba(91,79,232,0.38)', 'rgba(91,79,232,0.62)', 'rgba(91,79,232,0.90)'];
+  const LEVELS = ['rgba(107,94,240,0.06)', 'rgba(107,94,240,0.18)', 'rgba(107,94,240,0.38)', 'rgba(107,94,240,0.62)', 'rgba(107,94,240,0.90)'];
   return (
     <div className="grid gap-1.5 mt-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
       {cells.map((c: any, i: number) => {
@@ -299,8 +299,8 @@ function LearningTrendChart() {
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: `${H}px` }}>
         <defs>
           <linearGradient id="trend-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#5B4FE8" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#5B4FE8" stopOpacity="0.00" />
+            <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="var(--brand)" stopOpacity="0.00" />
           </linearGradient>
         </defs>
         {[25, 50, 75].map(v => {
@@ -308,9 +308,9 @@ function LearningTrendChart() {
           return <line key={v} x1={pad.l} y1={y} x2={W - pad.r} y2={y} stroke="var(--border)" strokeWidth="1" strokeDasharray="4 4" />;
         })}
         <path d={areaPath} fill="url(#trend-grad)" />
-        <path d={linePath} fill="none" stroke="#5B4FE8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={linePath} fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         {/* Current point */}
-        <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="4" fill="#5B4FE8" stroke="white" strokeWidth="2" />
+        <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="4" fill="var(--brand)" stroke="white" strokeWidth="2" />
       </svg>
     </div>
   );

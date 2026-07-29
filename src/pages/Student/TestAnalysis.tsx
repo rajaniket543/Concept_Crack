@@ -27,7 +27,7 @@ export default function TestAnalysis() {
         <TopBar breadcrumb={[{ label: 'Dashboard', href: '/student' }, { label: 'Test Analysis' }]} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-3">
-            <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mx-auto" style={{ borderColor: '#5B4FE8', borderTopColor: 'transparent' }} />
+            <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mx-auto" style={{ borderColor: 'var(--brand)', borderTopColor: 'transparent' }} />
             <p className="text-body-md" style={{ color: 'var(--text-muted)' }}>Loading your results…</p>
           </div>
         </div>
@@ -71,7 +71,7 @@ export default function TestAnalysis() {
       label: 'Score',
       value: String(result.score),
       sub:   `Out of ${result.totalQuestions * 4}`,
-      icon:  'stars', color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)',
+      icon:  'stars', color: 'var(--brand)', bg: 'var(--brand-muted)',
     },
     {
       label: 'Time Taken',
@@ -228,7 +228,7 @@ export default function TestAnalysis() {
             title="AI Improvement Plan"
             subtitle="Personalized next steps"
             action={
-              <Link to="/student/insights" className="text-label-md font-semibold hover:underline" style={{ color: '#5B4FE8' }}>
+              <Link to="/student/insights" className="text-label-md font-semibold hover:underline" style={{ color: 'var(--brand)' }}>
                 Full insights →
               </Link>
             }
@@ -236,7 +236,7 @@ export default function TestAnalysis() {
           >
             <div className="ai-panel mb-4">
               <div className="flex items-center gap-2 mb-2">
-                <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#5B4FE8' }}>auto_awesome</span>
+                <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: 'var(--brand)' }}>auto_awesome</span>
                 <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>AI Analysis Summary</span>
               </div>
               <p className="text-body-md" style={{ color: 'var(--text-secondary)' }}>

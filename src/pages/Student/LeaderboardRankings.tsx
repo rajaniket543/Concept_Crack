@@ -48,11 +48,11 @@ export default function LeaderboardRankings() {
         {/* Your rank summary */}
         <div
           className="rounded-xl p-5"
-          style={{ background: 'linear-gradient(135deg, rgba(91,79,232,0.08), rgba(124,58,237,0.05))', border: '1px solid rgba(91,79,232,0.20)', borderLeft: '3px solid #5B4FE8' }}
+          style={{ background: 'linear-gradient(135deg, rgba(107,94,240,0.08), rgba(124,58,237,0.05))', border: '1px solid rgba(107,94,240,0.20)', borderLeft: '3px solid var(--brand)' }}
         >
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
             {[
-              { label: 'Your Rank',      value: `#${data.myRank ?? 247}`,      color: '#5B4FE8', icon: 'person' },
+              { label: 'Your Rank',      value: `#${data.myRank ?? 247}`,      color: '#6B5EF0', icon: 'person' }, // hex literal — concatenated with an alpha suffix below
               { label: 'Batch Rank',     value: `#${data.batchRank ?? 12}`,    color: '#10B981', icon: 'group' },
               { label: 'Percentile',     value: `${data.percentile ?? 94}th`,  color: '#F59E0B', icon: 'trending_up' },
               { label: 'Points',         value: `${data.points ?? 8420}`,      color: '#8B5CF6', icon: 'stars' },
@@ -114,7 +114,7 @@ export default function LeaderboardRankings() {
             <div className="space-y-2">
               <p className="text-label-sm font-semibold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Top subjects</p>
               {['Physics', 'Chemistry', 'Mathematics'].map((s, i) => {
-                const colors = ['#5B4FE8', '#8B5CF6', '#10B981'];
+                const colors = ['var(--brand)', '#8B5CF6', '#10B981'];
                 const scores = [82, 76, 88];
                 return (
                   <div key={s} className="flex items-center gap-3">
@@ -155,7 +155,7 @@ export default function LeaderboardRankings() {
                     return (
                       <tr
                         key={student.name}
-                        style={isMe ? { backgroundColor: 'rgba(91,79,232,0.06)' } : undefined}
+                        style={isMe ? { backgroundColor: 'var(--brand-muted)' } : undefined}
                       >
                         <td>
                           <div className="flex items-center gap-2">
@@ -170,7 +170,7 @@ export default function LeaderboardRankings() {
                           <div className="flex items-center gap-3">
                             <div
                               className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                              style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                              style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
                             >
                               {student.initials ?? student.name?.slice(0, 2)}
                             </div>

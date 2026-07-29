@@ -12,7 +12,7 @@ import {
 import { uploadChatAttachment } from '../lib/storage';
 
 const ROLE_COLOR: Record<string, string> = {
-  student: '#5B4FE8',
+  student: '#6B5EF0',
   faculty: '#0D9488',
   parent:  '#EA580C',
   admin:   '#DB2777',
@@ -190,7 +190,7 @@ export default function Messages() {
                       onClick={() => void openContact(c)}
                       className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors hover:bg-[var(--surface-muted)]"
                     >
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: ROLE_COLOR[c.role] ?? '#5B4FE8' }}>
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: ROLE_COLOR[c.role] ?? 'var(--brand)' }}>
                         {initialsOf(c.name)}
                       </div>
                       <div className="min-w-0">
@@ -202,7 +202,7 @@ export default function Messages() {
                 </div>
               ) : loading ? (
                 <div className="flex items-center justify-center py-10">
-                  <Spinner size={20} color="#5B4FE8" />
+                  <Spinner size={20} color="var(--brand)" />
                 </div>
               ) : threads.length === 0 ? (
                 <div className="text-center py-10 px-4">
@@ -222,9 +222,9 @@ export default function Messages() {
                       type="button"
                       onClick={() => setActive(t)}
                       className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
-                      style={{ backgroundColor: isActive ? 'rgba(91,79,232,0.06)' : 'transparent', borderLeft: `3px solid ${isActive ? '#5B4FE8' : 'transparent'}` }}
+                      style={{ backgroundColor: isActive ? 'rgba(107,94,240,0.06)' : 'transparent', borderLeft: `3px solid ${isActive ? 'var(--brand)' : 'transparent'}` }}
                     >
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: ROLE_COLOR[other.role] ?? '#5B4FE8' }}>
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: ROLE_COLOR[other.role] ?? 'var(--brand)' }}>
                         {initialsOf(other.name)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -248,7 +248,7 @@ export default function Messages() {
                   const other = otherOf(active);
                   return (
                     <div className="px-5 py-3 flex items-center gap-3 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: ROLE_COLOR[other.role] ?? '#5B4FE8' }}>
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: ROLE_COLOR[other.role] ?? 'var(--brand)' }}>
                         {initialsOf(other.name)}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -276,7 +276,7 @@ export default function Messages() {
                         <div
                           className="max-w-[75%] overflow-hidden text-sm leading-relaxed"
                           style={{
-                            backgroundColor: mine ? '#5B4FE8' : 'var(--surface)',
+                            backgroundColor: mine ? 'var(--brand)' : 'var(--surface)',
                             color: mine ? '#fff' : 'var(--text-primary)',
                             border: mine ? 'none' : '1px solid var(--border)',
                             borderRadius: mine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
@@ -355,7 +355,7 @@ export default function Messages() {
                     onClick={() => void send()}
                     disabled={(!input.trim() && !attachFile) || sending}
                     className="w-11 h-11 rounded-xl flex items-center justify-center text-white transition-all disabled:opacity-50"
-                    style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                    style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
                     aria-label="Send message"
                   >
                     {sending ? <Spinner size={16} color="#fff" /> : <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>send</span>}
@@ -369,7 +369,7 @@ export default function Messages() {
                   {loading ? 'Loading conversations…' : 'Select a conversation or start a new one'}
                 </p>
                 {!loading && (
-                  <button type="button" onClick={() => setShowNew(true)} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                  <button type="button" onClick={() => setShowNew(true)} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit_square</span>
                     New conversation
                   </button>

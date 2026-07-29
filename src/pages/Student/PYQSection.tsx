@@ -92,7 +92,7 @@ export default function PYQSection() {
                   { icon: 'timer', label: 'Duration', val: formatDuration(test.durationSeconds) },
                 ].map(({ icon, label, val }) => (
                   <div key={label} className="rounded-xl p-3 text-center" style={{ backgroundColor: 'var(--surface-muted)' }}>
-                    <span className="material-symbols-outlined block mb-1" style={{ fontSize: 18, color: '#5B4FE8' }}>{icon}</span>
+                    <span className="material-symbols-outlined block mb-1" style={{ fontSize: 18, color: 'var(--brand)' }}>{icon}</span>
                     <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{val}</div>
                     <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>{label}</div>
                   </div>
@@ -104,7 +104,7 @@ export default function PYQSection() {
                 onClick={() => startPaper(test)}
                 disabled={attempted}
                 className="btn-primary btn-md w-full justify-center"
-                style={attempted ? { opacity: 0.5, cursor: 'not-allowed', background: 'var(--surface-muted)' } : { background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                style={attempted ? { opacity: 0.5, cursor: 'not-allowed', background: 'var(--surface-muted)' } : { background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
                   {attempted ? 'check_circle' : 'play_arrow'}

@@ -36,12 +36,12 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const roleAccent: Record<string, string> = {
-    student: '#5B4FE8',
+    student: '#6B5EF0',
     faculty: '#14B8A6',
     parent:  '#F97316',
     admin:   '#EC4899',
   };
-  const accent = roleAccent[role] ?? '#5B4FE8';
+  const accent = roleAccent[role] ?? '#6B5EF0';
   const homePath = pathFor(role as PageKey);
 
   useEffect(() => {

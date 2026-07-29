@@ -18,7 +18,7 @@ import {
   aiRecommendations,
 } from '../../mocks/student';
 
-const CHART_COLORS = ['#5B4FE8', '#8B5CF6', '#06B6D4'];
+const CHART_COLORS = ['#6B5EF0', '#8B5CF6', '#06B6D4'];
 
 interface DashData {
   currentStudent: typeof currentStudent;
@@ -77,7 +77,7 @@ export default function StudentDashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const metricIconMap: Record<string, { icon: string; color: string; bg: string }> = {
-    'Overall Score':     { icon: 'trending_up',   color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+    'Overall Score':     { icon: 'trending_up',   color: 'var(--brand)', bg: 'var(--brand-muted)' },
     'Current Rank':      { icon: 'military_tech', color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
     'Practice Streak':   { icon: 'local_fire_department', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
     'Tests Completed':   { icon: 'fact_check',    color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
@@ -88,37 +88,6 @@ export default function StudentDashboard() {
       <TopBar breadcrumb={[{ label: 'Dashboard' }]} />
 
       <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">
-        {/* ── Resume Progress Banner ── */}
-        {progress?.lastActivity && (
-          <div
-            className="rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3"
-            style={{ background: 'linear-gradient(135deg, rgba(91,79,232,0.08), rgba(124,58,237,0.05))', border: '1px solid rgba(91,79,232,0.20)' }}
-          >
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
-              <span className="material-symbols-outlined filled text-white" style={{ fontSize: '18px' }}>history</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-label-sm font-semibold uppercase tracking-widest mb-0.5" style={{ color: '#5B4FE8' }}>Resume where you left off</p>
-              <p className="text-body-md font-medium truncate" style={{ color: 'var(--text-primary)' }}>
-                Last activity: <span className="font-semibold">{progress.lastActivity.title}</span>
-                {progress.lastActivity.score !== undefined && ` — scored ${progress.lastActivity.score}%`}
-              </p>
-              <p className="text-label-sm" style={{ color: 'var(--text-muted)' }}>
-                {new Date(progress.lastActivity.completedAt).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
-                {progress.nextRecommendation && ` · Next: ${progress.nextRecommendation}`}
-              </p>
-            </div>
-            <Link
-              to="/student/practice"
-              className="btn-primary btn-sm flex items-center gap-1.5 shrink-0"
-              style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
-            >
-              Continue
-              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>arrow_forward</span>
-            </Link>
-          </div>
-        )}
-
         {/* Page header */}
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -127,23 +96,92 @@ export default function StudentDashboard() {
             </h1>
             <p className="text-body-md mt-1" style={{ color: 'var(--text-muted)' }}>
               {formatExamCountdown(stream)}
-              {stream && <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: stream === 'JEE' ? 'rgba(91,79,232,0.12)' : 'rgba(20,184,166,0.12)', color: stream === 'JEE' ? '#5B4FE8' : '#14B8A6' }}>{stream}</span>}
+              {stream && <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold" style={{ backgroundColor: stream === 'JEE' ? 'var(--brand-muted)' : 'rgba(20,184,166,0.12)', color: stream === 'JEE' ? 'var(--brand)' : '#14B8A6' }}>{stream}</span>}
             </p>
           </div>
           <Link
             to="/student/insights"
             className="hidden sm:flex items-center gap-2 px-4 h-9 rounded-lg text-sm font-semibold transition-all hover:-translate-y-px"
-            style={{ background: 'linear-gradient(135deg, rgba(91,79,232,0.12), rgba(124,58,237,0.12))', color: '#5B4FE8', border: '1px solid rgba(91,79,232,0.20)' }}
+            style={{ background: 'linear-gradient(135deg, rgba(107,94,240,0.12), rgba(124,58,237,0.12))', color: 'var(--brand)', border: '1px solid rgba(107,94,240,0.20)' }}
           >
             <span className="material-symbols-outlined filled" style={{ fontSize: '16px' }}>auto_awesome</span>
             AI Insights
           </Link>
         </div>
 
+        {/* ── Mission hero — real recommendation + resume data, no fabricated content ── */}
+        {(() => {
+          const rec = data.aiRecommendations?.[0] as { title?: string; rationale?: string; subject?: string; durationMins?: number } | undefined;
+          const missionTitle = rec?.title
+            ?? (progress?.nextRecommendation ? `Next up: ${progress.nextRecommendation}` : 'Keep today\'s momentum going');
+          const missionDesc = rec?.rationale
+            ?? (progress?.lastActivity
+              ? `Pick up where you left off — last time you scored ${progress.lastActivity.score ?? 0}% on ${progress.lastActivity.title}.`
+              : 'Start a practice session to build today\'s momentum.');
+          return (
+            <div
+              className="relative overflow-hidden rounded-2xl p-6 lg:p-8"
+              style={{ background: 'linear-gradient(135deg, rgba(107,94,240,0.14) 0%, var(--surface) 55%)', border: '1px solid rgba(107,94,240,0.22)' }}
+            >
+              <div
+                aria-hidden="true"
+                className="absolute -right-16 -top-16 w-56 h-56 rounded-full pointer-events-none"
+                style={{ background: 'radial-gradient(circle, rgba(107,94,240,0.25), transparent 70%)' }}
+              />
+              <div className="relative flex items-center justify-between gap-4 mb-3.5 flex-wrap">
+                <div className="flex items-center gap-2 text-label-md font-bold uppercase tracking-widest" style={{ color: 'var(--brand)' }}>
+                  <span className="material-symbols-outlined filled" style={{ fontSize: '16px' }}>auto_awesome</span>
+                  Today's Mission
+                </div>
+                <div className="flex items-center gap-4 text-label-sm font-semibold" style={{ color: 'var(--text-muted)' }}>
+                  {rec?.durationMins !== undefined && (
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>schedule</span>
+                      {rec.durationMins} min
+                    </span>
+                  )}
+                  {progress?.lastActivity?.completedAt && (
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>history</span>
+                      {new Date(progress.lastActivity.completedAt).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <h2 className="relative text-headline-md font-headline mb-2" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
+                {missionTitle}
+              </h2>
+              <p className="relative text-body-md mb-5 max-w-xl" style={{ color: 'var(--text-muted)' }}>{missionDesc}</p>
+              <div className="relative flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex gap-2 flex-wrap">
+                  {rec?.subject && (
+                    <span className="text-label-sm font-semibold px-3 py-1 rounded-lg" style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      {rec.subject}
+                    </span>
+                  )}
+                  {progress?.nextRecommendation && rec?.title && (
+                    <span className="text-label-sm font-semibold px-3 py-1 rounded-lg" style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      Next: {progress.nextRecommendation}
+                    </span>
+                  )}
+                </div>
+                <Link
+                  to="/student/practice"
+                  className="flex items-center gap-2 px-5 h-10 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-px shrink-0"
+                  style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)', boxShadow: '0 8px 24px rgba(107,94,240,0.28)' }}
+                >
+                  Continue Learning
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_forward</span>
+                </Link>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── Stat cards ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {data.metrics.map((m: any) => {
-            const meta = metricIconMap[m.label] ?? { icon: 'insights', color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' };
+            const meta = metricIconMap[m.label] ?? { icon: 'insights', color: 'var(--brand)', bg: 'var(--brand-muted)' };
             const isPositive = m.trend > 0;
             return (
               <div key={m.label} className="card">
@@ -210,8 +248,8 @@ export default function StudentDashboard() {
                 })
                 .map((s: any) => {
                   const subjectName = (stream === 'NEET' && s.subject === 'Mathematics') ? 'Biology' : s.subject;
-                  const color = STREAM_COLORS[subjectName] ?? '#5B4FE8';
-                  const bg    = STREAM_BG[subjectName]    ?? 'rgba(91,79,232,0.10)';
+                  const color = STREAM_COLORS[subjectName] ?? 'var(--brand)';
+                  const bg    = STREAM_BG[subjectName]    ?? 'var(--brand-muted)';
                   return (
                 <div key={s.subject}>
                   <div className="flex items-center justify-between mb-2">
@@ -231,7 +269,7 @@ export default function StudentDashboard() {
                   </div>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{s.correct ?? 0} correct</span>
-                    <Link to="/student/analysis" className="text-label-sm hover:underline" style={{ color: '#5B4FE8' }}>Details →</Link>
+                    <Link to="/student/analysis" className="text-label-sm hover:underline" style={{ color: 'var(--brand)' }}>Details →</Link>
                   </div>
                 </div>
                   );
@@ -248,7 +286,7 @@ export default function StudentDashboard() {
             subtitle="Your daily study time over the last 6 months"
             className="lg:col-span-2"
           >
-            <ActivityHeatmap data={activityMap} colorBase="#5B4FE8" unit="min" />
+            <ActivityHeatmap data={activityMap} colorBase="#6B5EF0" unit="min" />
           </Card>
 
           {/* Weak areas */}
@@ -275,7 +313,7 @@ export default function StudentDashboard() {
               <Link
                 to="/student/practice"
                 className="flex items-center justify-center gap-2 w-full h-9 rounded-lg text-sm font-semibold mt-1 transition-all hover:opacity-80"
-                style={{ backgroundColor: 'rgba(91,79,232,0.08)', color: '#5B4FE8', border: '1px solid rgba(91,79,232,0.15)' }}
+                style={{ backgroundColor: 'rgba(107,94,240,0.08)', color: 'var(--brand)', border: '1px solid rgba(107,94,240,0.15)' }}
               >
                 Practice weak topics
                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_forward</span>
@@ -289,15 +327,15 @@ export default function StudentDashboard() {
           <div
             className="rounded-xl p-6"
             style={{
-              background: 'linear-gradient(135deg, rgba(91,79,232,0.08), rgba(124,58,237,0.05))',
-              border: '1px solid rgba(91,79,232,0.20)',
-              borderLeft: '3px solid #5B4FE8',
+              background: 'linear-gradient(135deg, rgba(107,94,240,0.08), rgba(124,58,237,0.05))',
+              border: '1px solid rgba(107,94,240,0.20)',
+              borderLeft: '3px solid var(--brand)',
             }}
           >
             <div className="flex items-center gap-3 mb-5">
               <div
                 className="w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
               >
                 <span className="material-symbols-outlined filled text-white" style={{ fontSize: '18px' }}>auto_awesome</span>
               </div>
@@ -308,7 +346,7 @@ export default function StudentDashboard() {
               <Link
                 to="/student/insights"
                 className="ml-auto text-sm font-semibold hover:underline"
-                style={{ color: '#5B4FE8' }}
+                style={{ color: 'var(--brand)' }}
               >
                 View all insights →
               </Link>
@@ -328,7 +366,7 @@ export default function StudentDashboard() {
                   <div className="flex items-start justify-between">
                     <span
                       className="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8' }}
+                      style={{ backgroundColor: 'var(--brand-muted)', color: 'var(--brand)' }}
                     >
                       {r.subject ?? 'Topic'}
                     </span>
@@ -368,7 +406,7 @@ function WeeklyAreaChart({ data }: { data: any[] }) {
   const pad = { top: 10, right: 10, bottom: 30, left: 30 };
 
   const series = [
-    { key: 'physics',   color: '#5B4FE8', label: 'Physics' },
+    { key: 'physics',   color: '#6B5EF0', label: 'Physics' },
     { key: 'chemistry', color: '#8B5CF6', label: 'Chemistry' },
     { key: 'math',      color: '#06B6D4', label: 'Math' },
   ];

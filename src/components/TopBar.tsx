@@ -189,10 +189,10 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
                     <div
                       key={n.id}
                       className="px-4 py-3 flex gap-3 border-b last:border-b-0"
-                      style={{ borderColor: 'var(--border)', backgroundColor: n.read ? 'transparent' : 'rgba(91,79,232,0.04)' }}
+                      style={{ borderColor: 'var(--border)', backgroundColor: n.read ? 'transparent' : 'var(--brand-muted)' }}
                     >
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: 'rgba(91,79,232,0.10)' }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#5B4FE8' }}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: 'var(--brand-muted)' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--brand)' }}>
                           {NOTIF_ICON[n.type] ?? 'notifications'}
                         </span>
                       </div>

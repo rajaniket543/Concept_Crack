@@ -221,7 +221,7 @@ function Confetti({ show }: { show: boolean }) {
     return () => clearTimeout(t);
   }, [show]);
   if (!visible) return null;
-  const COLORS = ['#5B4FE8', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#14B8A6', '#F472B6', '#60A5FA'];
+  const COLORS = ['var(--brand)', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#14B8A6', '#F472B6', '#60A5FA'];
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 200, overflow: 'hidden' }}>
       {Array.from({ length: 56 }).map((_, i) => (
@@ -242,7 +242,7 @@ function Confetti({ show }: { show: boolean }) {
 
 function getVerdict(acc: number) {
   if (acc >= 85) return { label: 'Outstanding!',  icon: 'emoji_events',  color: '#10B981', bg: 'linear-gradient(135deg, #059669, #10B981)', confetti: true };
-  if (acc >= 70) return { label: 'Great Work!',   icon: 'thumb_up',      color: '#5B4FE8', bg: 'linear-gradient(135deg, #4338CA, #5B4FE8)', confetti: true };
+  if (acc >= 70) return { label: 'Great Work!',   icon: 'thumb_up',      color: 'var(--brand)', bg: 'linear-gradient(135deg, #4338CA, var(--brand))', confetti: true };
   if (acc >= 55) return { label: 'Good Effort',   icon: 'trending_up',   color: '#F59E0B', bg: 'linear-gradient(135deg, #D97706, #F59E0B)', confetti: false };
   return            { label: 'Keep Pushing',     icon: 'fitness_center', color: '#EF4444', bg: 'linear-gradient(135deg, #DC2626, #EF4444)', confetti: false };
 }
@@ -267,8 +267,8 @@ export default function TestResultAndChat() {
   const verdict  = getVerdict(acc);
 
   /* ─ Single subject performance (only the chapter that was actually tested) ─ */
-  const subjectColor = STREAM_COLORS[subject] ?? '#5B4FE8';
-  const subjectBg    = STREAM_BG[subject]     ?? 'rgba(91,79,232,0.10)';
+  const subjectColor = STREAM_COLORS[subject] ?? 'var(--brand)';
+  const subjectBg    = STREAM_BG[subject]     ?? 'rgba(107,94,240,0.10)';
 
   /* ─ Animated values ─ */
   const animAcc   = useCountUp(acc, 400, 1500);
@@ -362,11 +362,11 @@ export default function TestResultAndChat() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={scrollToChat} className="btn-ghost btn-sm flex items-center gap-1.5">
-            <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: '#5B4FE8' }}>smart_toy</span>
+            <span className="material-symbols-outlined filled" style={{ fontSize: '16px', color: 'var(--brand)' }}>smart_toy</span>
             Companion
           </button>
           <Link to={pathFor('analysis')} className="btn-outline btn-sm">Analysis</Link>
-          <Link to={pathFor('student')} className="btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+          <Link to={pathFor('student')} className="btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
             Dashboard
           </Link>
         </div>
@@ -485,8 +485,8 @@ export default function TestResultAndChat() {
                     Chapter Performance
                   </p>
                   {result.topicAccuracy!.map((t, i) => {
-                    const tColor = STREAM_COLORS[t.subject ?? subject] ?? '#5B4FE8';
-                    const tBg    = STREAM_BG[t.subject ?? subject]    ?? 'rgba(91,79,232,0.10)';
+                    const tColor = STREAM_COLORS[t.subject ?? subject] ?? 'var(--brand)';
+                    const tBg    = STREAM_BG[t.subject ?? subject]    ?? 'rgba(107,94,240,0.10)';
                     return (
                       <div key={i} className={i < result.topicAccuracy!.length - 1 ? 'mb-3' : ''}>
                         <div className="flex items-center justify-between mb-1.5">
@@ -616,7 +616,7 @@ export default function TestResultAndChat() {
         {result.isBattle && result.battleParticipants && result.battleParticipants.length > 0 && (
           <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', animation: 'fadeSlideUp 0.5s 0.6s ease both' }}>
             <div className="px-5 py-4 flex items-center gap-3"
-              style={{ background: 'linear-gradient(135deg, rgba(91,79,232,0.12), rgba(124,58,237,0.08))', borderBottom: '1px solid var(--border)' }}>
+              style={{ background: 'linear-gradient(135deg, rgba(107,94,240,0.12), rgba(124,58,237,0.08))', borderBottom: '1px solid var(--border)' }}>
               <span className="material-symbols-outlined filled" style={{ fontSize: 20, color: '#F59E0B' }}>military_tech</span>
               <div>
                 <div className="text-sm font-bold" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>
@@ -635,15 +635,15 @@ export default function TestResultAndChat() {
               return (
                 <div key={p.uid ?? i}
                   className={`flex items-center gap-4 px-5 py-4 ${i < result.battleParticipants!.length - 1 ? 'border-b' : ''}`}
-                  style={{ borderColor: 'var(--border)', backgroundColor: isMe ? 'rgba(91,79,232,0.05)' : 'var(--surface)' }}>
+                  style={{ borderColor: 'var(--border)', backgroundColor: isMe ? 'rgba(107,94,240,0.05)' : 'var(--surface)' }}>
                   <span className="text-base w-8 text-center shrink-0">{medal}</span>
                   <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 text-white"
-                    style={{ background: isMe ? 'linear-gradient(135deg, #5B4FE8, #7C3AED)' : 'linear-gradient(135deg, #6B7280, #9CA3AF)' }}>
+                    style={{ background: isMe ? 'linear-gradient(135deg, var(--brand), #7C3AED)' : 'linear-gradient(135deg, #6B7280, #9CA3AF)' }}>
                     {p.initials}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {p.name} {isMe && <span className="text-xs font-normal" style={{ color: '#5B4FE8' }}>(you)</span>}
+                      {p.name} {isMe && <span className="text-xs font-normal" style={{ color: 'var(--brand)' }}>(you)</span>}
                     </p>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       {p.correctCount}✓ &nbsp;{p.incorrectCount}✗ &nbsp;{p.skippedCount}—
@@ -667,7 +667,7 @@ export default function TestResultAndChat() {
           <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
           <div className="flex items-center gap-2 px-4 py-2 rounded-full"
             style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)' }}>
-            <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+            <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
               <span className="material-symbols-outlined filled text-white" style={{ fontSize: '13px' }}>smart_toy</span>
             </div>
             <span className="text-xs font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
@@ -688,7 +688,7 @@ export default function TestResultAndChat() {
               style={{ animation: 'fadeSlideUp 0.3s ease both' }}>
               {msg.role === 'ai' ? (
                 <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1"
-                  style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                  style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
                   <span className="material-symbols-outlined filled text-white" style={{ fontSize: '15px' }}>smart_toy</span>
                 </div>
               ) : (
@@ -701,7 +701,7 @@ export default function TestResultAndChat() {
                 className="max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
                 style={msg.role === 'ai'
                   ? { backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }
-                  : { background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', color: '#fff' }
+                  : { background: 'linear-gradient(135deg, var(--brand), #7C3AED)', color: '#fff' }
                 }
               >
                 {msg.typing ? (
@@ -740,7 +740,7 @@ export default function TestResultAndChat() {
         <div className="sticky bottom-0 pt-3 pb-2" style={{ backgroundColor: 'var(--bg)' }}>
           <div className="flex items-center gap-2 rounded-xl px-4 py-2.5"
             style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-            <span className="material-symbols-outlined filled shrink-0" style={{ fontSize: '18px', color: '#5B4FE8' }}>smart_toy</span>
+            <span className="material-symbols-outlined filled shrink-0" style={{ fontSize: '18px', color: 'var(--brand)' }}>smart_toy</span>
             <input
               ref={inputRef}
               type="text"
@@ -756,7 +756,7 @@ export default function TestResultAndChat() {
               onClick={() => void sendMessage(input)}
               disabled={!input.trim() || busy || !chatReady}
               className="w-9 h-9 rounded-lg flex items-center justify-center transition-all disabled:opacity-40"
-              style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', flexShrink: 0 }}
+              style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)', flexShrink: 0 }}
             >
               <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>send</span>
             </button>

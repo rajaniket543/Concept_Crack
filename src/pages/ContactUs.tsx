@@ -108,8 +108,8 @@ export default function ContactUs() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {CONTACT_CHANNELS.map(c => (
               <div key={c.label} className="card flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(91,79,232,0.10)' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#5B4FE8' }}>{c.icon}</span>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(107,94,240,0.10)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--brand)' }}>{c.icon}</span>
                 </div>
                 <div className="min-w-0">
                   <div className="text-label-sm uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>{c.label}</div>
@@ -138,7 +138,7 @@ export default function ContactUs() {
                   <button type="button" onClick={() => { setSent(false); setSubject(''); setMessage(''); }} className="btn-outline btn-md">
                     Send another message
                   </button>
-                  <button type="button" onClick={() => navigate(backPath)} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                  <button type="button" onClick={() => navigate(backPath)} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
                     {backLabel}
                   </button>
                 </div>
@@ -171,7 +171,7 @@ export default function ContactUs() {
                     type="submit"
                     disabled={sending}
                     className="btn-primary btn-md flex items-center gap-2"
-                    style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                    style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
                   >
                     {sending ? <Spinner size={16} color="#fff" /> : <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>send</span>}
                     {sending ? 'Sending…' : 'Send message'}

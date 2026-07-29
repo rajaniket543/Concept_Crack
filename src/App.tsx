@@ -30,6 +30,8 @@ import Battle from './pages/Student/Battle';
 import PYQSection from './pages/Student/PYQSection';
 import MockTest from './pages/Student/MockTest';
 import TestLog from './pages/Student/TestLog';
+import TestsHub from './pages/Student/TestsHub';
+import AICompanionPage from './pages/Student/AICompanionPage';
 import ParentDashboard from './pages/Parent/ParentDashboard';
 import FacultyDashboard from './pages/Faculty/FacultyDashboard';
 import QuestionBankManagement from './pages/Faculty/QuestionBankManagement';
@@ -59,24 +61,11 @@ import { PageKey } from './lib/pages';
 const studentNav = [
   {
     items: [
-      { key: 'student' as PageKey,    label: 'Dashboard',   icon: 'space_dashboard' },
-    ],
-  },
-  {
-    label: 'Learn',
-    items: [
-      { key: 'practice' as PageKey,   label: 'Practice',    icon: 'edit_note' },
-      { key: 'mockTest' as PageKey,   label: 'Mock Test',   icon: 'quiz' },
-    ],
-  },
-  {
-    label: 'Tests',
-    items: [
-      { key: 'assignedTests' as PageKey, label: 'Assigned Tests', icon: 'assignment' },
-      { key: 'customTest' as PageKey,    label: 'Custom Test',    icon: 'tune' },
-      { key: 'aiTest' as PageKey,        label: 'AI Test',        icon: 'auto_awesome' },
-      { key: 'battle' as PageKey,        label: 'Battle',         icon: 'sports_esports' },
-      { key: 'pyq' as PageKey,           label: 'Previous Year Papers', icon: 'history_edu' },
+      { key: 'student' as PageKey,      label: 'Dashboard',    icon: 'space_dashboard' },
+      { key: 'practice' as PageKey,     label: 'Practice',     icon: 'edit_note' },
+      { key: 'tests' as PageKey,        label: 'Tests',        icon: 'quiz' },
+      { key: 'battle' as PageKey,       label: 'Battle',       icon: 'sports_esports' },
+      { key: 'aiCompanion' as PageKey,  label: 'AI Companion', icon: 'auto_awesome' },
     ],
   },
   {
@@ -266,6 +255,8 @@ export default function App() {
         <Route path="analysis" element={<RequireAuth><TestAnalysis /></RequireAuth>} />
         <Route path="insights" element={<RequireAuth><AIAdaptiveInsights /></RequireAuth>} />
         <Route path="leaderboard" element={<RequireAuth><LeaderboardRankings /></RequireAuth>} />
+        <Route path="tests" element={<RequireAuth roles={['student']}><TestsHub /></RequireAuth>} />
+        <Route path="ai-companion" element={<RequireAuth roles={['student']}><AICompanionPage /></RequireAuth>} />
         <Route path="assigned-tests" element={<RequireAuth roles={['student']}><AssignedTests /></RequireAuth>} />
         <Route path="custom-test" element={<RequireAuth roles={['student']}><CustomTest /></RequireAuth>} />
         <Route path="ai-test" element={<RequireAuth roles={['student']}><AITest /></RequireAuth>} />

@@ -239,7 +239,7 @@ export default function Settings() {
                 <div className="flex items-center gap-5">
                   <div
                     className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                    style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
                   >
                     {profile.name ? profile.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
                   </div>
@@ -329,7 +329,7 @@ export default function Settings() {
                     onClick={handleSaveProfile}
                     disabled={profileSaving}
                     className="btn-primary btn-md"
-                    style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', opacity: profileSaving ? 0.7 : 1 }}
+                    style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)', opacity: profileSaving ? 0.7 : 1 }}
                   >
                     {profileSaving ? 'Saving…' : 'Save Changes'}
                   </button>
@@ -356,8 +356,8 @@ export default function Settings() {
                 {/* Theme toggle */}
                 <div className="flex items-center justify-between p-4 rounded-xl" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(91,79,232,0.12)' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#5B4FE8' }}>{isDark ? 'dark_mode' : 'light_mode'}</span>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(107,94,240,0.12)' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--brand)' }}>{isDark ? 'dark_mode' : 'light_mode'}</span>
                     </div>
                     <div>
                       <div className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -372,7 +372,7 @@ export default function Settings() {
                     type="button"
                     onClick={toggleTheme}
                     className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                    style={{ backgroundColor: isDark ? '#5B4FE8' : 'var(--border)' }}
+                    style={{ backgroundColor: isDark ? 'var(--brand)' : 'var(--border)' }}
                     role="switch"
                     aria-checked={isDark}
                     aria-label="Toggle dark mode"
@@ -397,7 +397,7 @@ export default function Settings() {
                           onClick={() => setFontSize(size)}
                           className="p-3 rounded-xl text-body-md font-medium capitalize transition-all"
                           style={isActive
-                            ? { backgroundColor: 'rgba(91,79,232,0.10)', color: '#5B4FE8', border: '1.5px solid #5B4FE8' }
+                            ? { backgroundColor: 'rgba(107,94,240,0.10)', color: 'var(--brand)', border: '1.5px solid var(--brand)' }
                             : { backgroundColor: 'var(--surface-muted)', color: 'var(--text-primary)', border: '1.5px solid var(--border)' }
                           }
                         >
@@ -437,7 +437,7 @@ export default function Settings() {
                       type="button"
                       onClick={() => toggleNotification(key)}
                       className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0"
-                      style={{ backgroundColor: notifications[key] ? '#5B4FE8' : 'var(--border)' }}
+                      style={{ backgroundColor: notifications[key] ? 'var(--brand)' : 'var(--border)' }}
                       role="switch"
                       aria-checked={notifications[key]}
                     >
@@ -485,7 +485,7 @@ export default function Settings() {
                       onClick={handleChangePassword}
                       disabled={securitySaving}
                       className="btn-primary btn-md"
-                      style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', opacity: securitySaving ? 0.7 : 1 }}
+                      style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)', opacity: securitySaving ? 0.7 : 1 }}
                     >
                       {securitySaving ? 'Updating…' : 'Update Password'}
                     </button>

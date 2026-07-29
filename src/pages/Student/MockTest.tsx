@@ -128,7 +128,7 @@ export default function MockTest() {
       <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
         <TopBar breadcrumb={[{ label: 'Mock Test' }]} />
         <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
-          <Spinner size={34} color="#5B4FE8" />
+          <Spinner size={34} color="var(--brand)" />
           <div className="text-center">
             <p className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>Building your {stream} mock test…</p>
             <p className="text-body-sm mt-1" style={{ color: 'var(--text-muted)' }}>{progressMsg || 'Selecting questions with no repeats…'}</p>
@@ -157,7 +157,7 @@ export default function MockTest() {
           <Card title={`${stream} Exam Pattern`} subtitle={`${totalQuestions} questions · ${pattern.durationMin} minutes · +4 / −1 marking`}>
             <div className="space-y-3">
               {pattern.sections.map(s => {
-                const color = STREAM_COLORS[s.subject] ?? '#5B4FE8';
+                const color = STREAM_COLORS[s.subject] ?? '#6B5EF0'; // hex literal — concatenated with an alpha suffix below
                 return (
                   <div key={s.subject} className="flex items-center gap-3 p-4 rounded-xl" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}1A` }}>
@@ -183,7 +183,7 @@ export default function MockTest() {
                 { label: 'Marking', value: '+4 / −1', icon: 'calculate' },
               ].map(x => (
                 <div key={x.label} className="rounded-xl p-3 text-center" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#5B4FE8' }}>{x.icon}</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--brand)' }}>{x.icon}</span>
                   <div className="text-base font-bold mt-1" style={{ color: 'var(--text-primary)' }}>{x.value}</div>
                   <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>{x.label}</div>
                 </div>
@@ -191,8 +191,8 @@ export default function MockTest() {
             </div>
           </Card>
 
-          <div className="rounded-xl p-4 flex items-start gap-3" style={{ backgroundColor: 'rgba(91,79,232,0.05)', border: '1px solid rgba(91,79,232,0.15)' }}>
-            <span className="material-symbols-outlined shrink-0" style={{ fontSize: '20px', color: '#5B4FE8' }}>info</span>
+          <div className="rounded-xl p-4 flex items-start gap-3" style={{ backgroundColor: 'rgba(107,94,240,0.05)', border: '1px solid rgba(107,94,240,0.15)' }}>
+            <span className="material-symbols-outlined shrink-0" style={{ fontSize: '20px', color: 'var(--brand)' }}>info</span>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Every mock test is unique — questions are pulled at random from across all chapters and de-duplicated, so you never see the same question twice in one paper. Your result is saved to <strong>Review Tests</strong>.
             </p>
@@ -202,7 +202,7 @@ export default function MockTest() {
             type="button"
             onClick={() => void startMock()}
             className="btn-primary btn-md w-full justify-center"
-            style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+            style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>play_arrow</span>
             Generate &amp; Start Mock Test

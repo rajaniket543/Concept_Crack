@@ -233,7 +233,7 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
         {summary && (
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: 'Tests Attempted', value: summary.count, icon: 'history_edu', color: '#5B4FE8' },
+              { label: 'Tests Attempted', value: summary.count, icon: 'history_edu', color: '#6B5EF0' }, // hex literal — concatenated with an alpha suffix below
               { label: 'Average Accuracy', value: `${summary.avgAcc}%`, icon: 'target', color: '#10B981' },
               { label: 'Best Accuracy', value: `${summary.best}%`, icon: 'trophy', color: '#F59E0B' },
             ].map(s => (
@@ -258,9 +258,9 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
                   onClick={() => setCategory(item.key)}
                   className="rounded-xl p-4 text-left transition-all"
                   style={{
-                    backgroundColor: category === item.key ? 'rgba(91,79,232,0.06)' : 'var(--surface-muted)',
-                    border: `1px solid ${category === item.key ? '#5B4FE8' : 'var(--border)'}`,
-                    boxShadow: category === item.key ? '0 0 0 1px rgba(91,79,232,0.08)' : 'none',
+                    backgroundColor: category === item.key ? 'var(--brand-muted)' : 'var(--surface-muted)',
+                    border: `1px solid ${category === item.key ? 'var(--brand)' : 'var(--border)'}`,
+                    boxShadow: category === item.key ? '0 0 0 1px rgba(107,94,240,0.08)' : 'none',
                   }}
                 >
                   <div className="flex items-center justify-between gap-3 mb-2">
@@ -297,7 +297,7 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-16"><Spinner size={24} color="#5B4FE8" /></div>
+          <div className="flex items-center justify-center py-16"><Spinner size={24} color="var(--brand)" /></div>
         ) : loadError ? (
           <Card>
             <div className="py-12 text-center" style={{ color: 'var(--text-faint)' }}>
@@ -308,7 +308,7 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
                 type="button"
                 onClick={() => void loadAttempts({ cancelled: false })}
                 className="btn-primary btn-sm mt-4"
-                style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+                style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
               >
                 Retry
               </button>
@@ -367,19 +367,19 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
                   {isOpen && (
                     <div className="border-t px-5 py-4 space-y-4" style={{ borderColor: 'var(--border)' }}>
                       {reviewLoading === a.id ? (
-                        <div className="flex items-center justify-center py-8"><Spinner size={20} color="#5B4FE8" /></div>
+                        <div className="flex items-center justify-center py-8"><Spinner size={20} color="var(--brand)" /></div>
                       ) : rows && rows.length > 0 ? (
                         <>
                           {/* AI analysis */}
                           {analysis[a.id] ? (
-                            <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ backgroundColor: 'rgba(91,79,232,0.05)', border: '1px solid rgba(91,79,232,0.18)', color: 'var(--text-secondary)' }}>
-                              <div className="flex items-center gap-2 mb-1.5 text-label-sm font-bold uppercase tracking-widest" style={{ color: '#5B4FE8' }}>
+                            <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ backgroundColor: 'rgba(107,94,240,0.05)', border: '1px solid rgba(107,94,240,0.18)', color: 'var(--text-secondary)' }}>
+                              <div className="flex items-center gap-2 mb-1.5 text-label-sm font-bold uppercase tracking-widest" style={{ color: 'var(--brand)' }}>
                                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>auto_awesome</span> AI Analysis
                               </div>
                               <AIMarkdown text={analysis[a.id]} />
                             </div>
                           ) : (
-                            <button type="button" onClick={() => void runAnalysis(a)} disabled={analysing === a.id} className="btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                            <button type="button" onClick={() => void runAnalysis(a)} disabled={analysing === a.id} className="btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
                               {analysing === a.id ? <Spinner size={14} color="#fff" /> : <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>auto_awesome</span>}
                               {analysing === a.id ? 'Analysing…' : 'Get AI Analysis'}
                             </button>

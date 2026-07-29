@@ -41,7 +41,7 @@ export default function AssignedTests() {
 
   function statusColor(t: Test) {
     if (t.status === 'active')   return { bg: 'rgba(16,185,129,0.10)', text: '#059669' };
-    if (t.status === 'approved') return { bg: 'rgba(91,79,232,0.10)',  text: '#5B4FE8' };
+    if (t.status === 'approved') return { bg: 'var(--brand-muted)',  text: 'var(--brand)' };
     return                                { bg: 'rgba(107,114,128,0.10)', text: '#6B7280' };
   }
 
@@ -82,7 +82,7 @@ export default function AssignedTests() {
             { icon: 'trending_up', label: 'Difficulty', val: test.difficulty },
           ].map(({ icon, label, val }) => (
             <div key={label} className="rounded-xl p-3 text-center" style={{ backgroundColor: 'var(--surface-muted)' }}>
-              <span className="material-symbols-outlined block mb-1" style={{ fontSize: 18, color: '#5B4FE8' }}>{icon}</span>
+              <span className="material-symbols-outlined block mb-1" style={{ fontSize: 18, color: 'var(--brand)' }}>{icon}</span>
               <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{val}</div>
               <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>{label}</div>
             </div>
@@ -97,7 +97,7 @@ export default function AssignedTests() {
         )}
 
         {test.instructions && (
-          <p className="text-sm rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(91,79,232,0.05)', color: 'var(--text-secondary)', border: '1px solid rgba(91,79,232,0.12)' }}>
+          <p className="text-sm rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(107,94,240,0.05)', color: 'var(--text-secondary)', border: '1px solid rgba(107,94,240,0.12)' }}>
             {test.instructions}
           </p>
         )}
@@ -107,7 +107,7 @@ export default function AssignedTests() {
           onClick={() => startTest(test)}
           disabled={attempted}
           className="btn-primary btn-md w-full justify-center"
-          style={attempted ? { opacity: 0.5, cursor: 'not-allowed', background: 'var(--surface-muted)' } : { background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
+          style={attempted ? { opacity: 0.5, cursor: 'not-allowed', background: 'var(--surface-muted)' } : { background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
             {attempted ? 'check_circle' : 'play_arrow'}
