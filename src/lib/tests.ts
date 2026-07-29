@@ -404,6 +404,26 @@ export async function getStudentAttemptCount(studentUid: string): Promise<number
   }
 }
 
+export async function getStudentAttemptCounts(studentUid: string): Promise<Record<string, number>> {
+  try {
+    const q = query(
+      collection(db, 'testAttempts'),
+      where('studentId', '==', studentUid),
+    );
+    const snap = await getDocs(q);
+    return snap.docs.reduce((counts, d) => {
+      const data = d.data() as Record<string, unknown>;
+      if ((data.status as string | undefined) !== 'submitted') return counts;
+      const testId = data.testId as string | undefined;
+      if (!testId) return counts;
+      counts[testId] = (counts[testId] ?? 0) + 1;
+      return counts;
+    }, {} as Record<string, number>);
+  } catch {
+    return {};
+  }
+}
+
 export async function hasAttempted(testId: string, studentUid: string): Promise<boolean> {
   try {
     const q = query(

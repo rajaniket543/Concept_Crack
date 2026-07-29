@@ -14,6 +14,7 @@ import { getQuestionsForCustomTest, type ExamQuestion } from '../../lib/question
 import { useToast } from '../../components/Toast';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { pathFor } from '../../lib/pages';
+import { enterFullscreen } from '../../lib/fullscreen';
 import MathText from '../../components/MathText';
 import SelectableChip from '../../components/SelectableChip';
 
@@ -297,7 +298,12 @@ export default function Battle() {
   async function handleStart() {
     if (!battle) return;
     if (!battle.questionIds.length) { toast('Configure the battle first', 'error'); return; }
-    try { await startBattle(battle.id); } catch { toast('Failed to start', 'error'); }
+    try {
+      await enterFullscreen();
+      await startBattle(battle.id);
+    } catch {
+      toast('Failed to start', 'error');
+    }
   }
 
   function onSelect(key: string) {

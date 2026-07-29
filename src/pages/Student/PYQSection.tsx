@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthSession } from '../../lib/auth';
 import { getStudentStream } from '../../lib/stream';
-import { getPYQTests, hasAttempted, type Test } from '../../lib/tests';
+import { getPYQTests, getStudentAttemptCounts, type Test } from '../../lib/tests';
 import { pathFor } from '../../lib/pages';
 
 interface PaperCard {
   test: Test;
-  attempted: boolean;
+  attempts: number;
 }
 
 export default function PYQSection() {
@@ -21,11 +21,14 @@ export default function PYQSection() {
   useEffect(() => {
     if (!uid) return;
     setLoading(true);
-    getPYQTests(stream)
-      .then(tests => Promise.all(tests.map(async t => ({ test: t, attempted: await hasAttempted(t.id, uid) }))))
+    Promise.all([
+      getPYQTests(stream),
+      getStudentAttemptCounts(uid),
+    ])
+      .then(([tests, counts]) => tests.map(t => ({ test: t, attempts: counts[t.id] ?? 0 })))
       .then(setPapers)
       .finally(() => setLoading(false));
-  }, [uid]);
+  }, [uid, stream]);
 
   function formatDuration(secs: number) {
     const m = Math.floor(secs / 60);
@@ -68,7 +71,7 @@ export default function PYQSection() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {papers.map(({ test, attempted }) => (
+          {papers.map(({ test, attempts }) => (
             <div
               key={test.id}
               className="rounded-2xl p-5 flex flex-col gap-4"
@@ -81,6 +84,9 @@ export default function PYQSection() {
                   </span>
                   <span className="text-label-sm px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(107,114,128,0.08)', color: 'var(--text-muted)' }}>
                     {test.subjects.join(' · ')}
+                  </span>
+                  <span className="text-label-sm px-2 py-0.5 rounded-full" style={{ backgroundColor: attempts > 0 ? 'rgba(59,130,246,0.10)' : 'rgba(107,114,128,0.08)', color: attempts > 0 ? '#2563EB' : 'var(--text-muted)' }}>
+                    {attempts > 0 ? `${attempts} attempt${attempts === 1 ? '' : 's'}` : 'New'}
                   </span>
                 </div>
                 <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{test.title}</h3>
@@ -102,14 +108,13 @@ export default function PYQSection() {
               <button
                 type="button"
                 onClick={() => startPaper(test)}
-                disabled={attempted}
                 className="btn-primary btn-md w-full justify-center"
-                style={attempted ? { opacity: 0.5, cursor: 'not-allowed', background: 'var(--surface-muted)' } : { background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
+                style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-                  {attempted ? 'check_circle' : 'play_arrow'}
+                  {attempts > 0 ? 'replay' : 'play_arrow'}
                 </span>
-                {attempted ? 'Already Attempted' : 'Start Paper'}
+                {attempts > 0 ? 'Retake Paper' : 'Start Paper'}
               </button>
             </div>
           ))}

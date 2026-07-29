@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthSession } from '../../lib/auth';
 import { getStudentStream } from '../../lib/stream';
-import { getAssignedTests, getCoachingTests, hasAttempted, type Test } from '../../lib/tests';
+import { getAssignedTests, getCoachingTests, getStudentAttemptCounts, type Test } from '../../lib/tests';
 import { pathFor } from '../../lib/pages';
 
 interface TestCard {
   test: Test;
-  attempted: boolean;
+  attempts: number;
 }
 
 export default function AssignedTests() {
@@ -25,14 +25,13 @@ export default function AssignedTests() {
     Promise.all([
       getAssignedTests(uid, stream),
       getCoachingTests(stream),
-    ]).then(async ([batch, coach]) => {
-      const withAttempt = async (tests: Test[]) =>
-        Promise.all(tests.map(async t => ({ test: t, attempted: await hasAttempted(t.id, uid) })));
-      const [b, c] = await Promise.all([withAttempt(batch), withAttempt(coach)]);
-      setCards(b);
-      setCoaching(c);
+      getStudentAttemptCounts(uid),
+    ]).then(([batch, coach, counts]) => {
+      const withCount = (tests: Test[]) => tests.map(t => ({ test: t, attempts: counts[t.id] ?? 0 }));
+      setCards(withCount(batch));
+      setCoaching(withCount(coach));
     }).finally(() => setLoading(false));
-  }, [uid]);
+  }, [uid, stream]);
 
   function formatDuration(secs: number) {
     const m = Math.floor(secs / 60);
@@ -50,8 +49,10 @@ export default function AssignedTests() {
   }
 
   function renderCard(card: TestCard, badge: string) {
-    const { test, attempted } = card;
+    const { test, attempts } = card;
     const sc = statusColor(test);
+    const canRetake = test.type !== 'faculty_batch';
+    const disabled = test.type === 'faculty_batch' && attempts > 0;
     return (
       <div
         key={test.id}
@@ -66,6 +67,9 @@ export default function AssignedTests() {
               </span>
               <span className="text-label-sm px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(107,114,128,0.08)', color: 'var(--text-muted)' }}>
                 {badge}
+              </span>
+              <span className="text-label-sm px-2 py-0.5 rounded-full" style={{ backgroundColor: attempts > 0 ? 'rgba(59,130,246,0.10)' : 'rgba(107,114,128,0.08)', color: attempts > 0 ? '#2563EB' : 'var(--text-muted)' }}>
+                {attempts > 0 ? `${attempts} attempt${attempts === 1 ? '' : 's'}` : 'New'}
               </span>
             </div>
             <h3 className="text-base font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{test.title}</h3>
@@ -105,14 +109,14 @@ export default function AssignedTests() {
         <button
           type="button"
           onClick={() => startTest(test)}
-          disabled={attempted}
+          disabled={disabled}
           className="btn-primary btn-md w-full justify-center"
-          style={attempted ? { opacity: 0.5, cursor: 'not-allowed', background: 'var(--surface-muted)' } : { background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
+          style={disabled ? { opacity: 0.5, cursor: 'not-allowed', background: 'var(--surface-muted)' } : { background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-            {attempted ? 'check_circle' : 'play_arrow'}
+            {disabled ? 'check_circle' : 'play_arrow'}
           </span>
-          {attempted ? 'Already Attempted' : 'Start Test'}
+          {disabled ? 'Already Attempted' : attempts > 0 && canRetake ? 'Retake Test' : 'Start Test'}
         </button>
       </div>
     );

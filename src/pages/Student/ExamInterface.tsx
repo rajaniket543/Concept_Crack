@@ -13,6 +13,7 @@ import {
 } from '../../mocks/student';
 import { getQuestionsForChapter, getQuestionsByIds, type ExamQuestion as FirestoreQuestion } from '../../lib/questions';
 import { getTest, saveTestAttempt, type LockMode, type AttemptType } from '../../lib/tests';
+import { enterFullscreen } from '../../lib/fullscreen';
 import { updateWeakTopics } from '../../lib/weakTopics';
 import { getChapterFormulas, getSubjectHighlights, generateFormulasAI, type FormulaGroup } from '../../lib/formulas';
 import { hasAI } from '../../lib/ai';
@@ -127,6 +128,11 @@ export default function ExamInterface() {
   const submitRef   = useRef<() => void>(() => {});
   const submittingRef = useRef(false);
 
+  async function beginTest() {
+    await enterFullscreen();
+    setStarted(true);
+  }
+
   // Timer countdown — only runs once the test has actually started
   useEffect(() => {
     if (!started) return;
@@ -139,7 +145,7 @@ export default function ExamInterface() {
   // Pre-test countdown — auto-starts the test when it hits zero
   useEffect(() => {
     if (started || loading) return;
-    if (preCountdown <= 0) { setStarted(true); return; }
+    if (preCountdown <= 0) { void beginTest(); return; }
     const id = window.setInterval(() => setPreCountdown(s => s > 0 ? s - 1 : 0), 1000);
     return () => window.clearInterval(id);
   }, [preCountdown, started, loading]);
@@ -909,7 +915,7 @@ export default function ExamInterface() {
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setStarted(true)}
+                onClick={() => void beginTest()}
                 disabled={holdRemaining > 0}
                 className="btn-primary btn-md w-full sm:flex-1 justify-center disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}
