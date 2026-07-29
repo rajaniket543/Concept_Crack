@@ -21,11 +21,16 @@ const PHYSICS_TOPICS = [
 ];
 
 const CHEMISTRY_TOPICS = [
+  // Coaching material commonly bundles content under these 4 broad umbrella
+  // labels instead of individual NCERT chapters — listed explicitly (and
+  // matched as whole phrases, see `containsPhrase`) so "Inorganic Chemistry"
+  // can never collide with "Organic Chemistry" via substring containment.
+  'physical chemistry', 'organic chemistry', 'inorganic chemistry', 'analytical chemistry',
   'basic concepts of chemistry', 'mole concept', 'structure of atom', 'atomic structure',
   'classification of elements', 'periodicity', 'periodic table', 'chemical bonding',
   'molecular structure', 'states of matter', 'gaseous state', 'thermodynamics', 'equilibrium',
   'ionic equilibrium', 'redox reactions', 'hydrogen', 's-block', 's block elements',
-  'p-block', 'p block elements', 'organic chemistry', 'hydrocarbons', 'environmental chemistry',
+  'p-block', 'p block elements', 'hydrocarbons', 'environmental chemistry',
   'solid state', 'solutions', 'electrochemistry', 'chemical kinetics', 'surface chemistry',
   'isolation of elements', 'metallurgy', 'd and f block', 'd-block', 'f-block',
   'coordination compounds', 'haloalkanes', 'haloarenes', 'alcohols', 'phenols', 'ethers',
@@ -70,11 +75,26 @@ function normalize(s: string): string {
 }
 
 // Too generic on their own to count as a real topic match (would let almost
-// anything through), even though they appear in real syllabus phrases.
-const STOPWORDS = new Set(['and', 'the', 'of', 'in', 'for', 'to', 'a', 'an', 'basic', 'general', 'introduction']);
+// anything through), even though they appear in real syllabus phrases. The
+// subject names themselves are included — nearly every real chapter in
+// "Chemistry" contains the word "chemistry", so matching on it alone would
+// make unrelated umbrella labels (e.g. "Physical Chemistry" vs "Basic
+// Concepts of Chemistry") collide with each other.
+const STOPWORDS = new Set([
+  'and', 'the', 'of', 'in', 'for', 'to', 'a', 'an', 'basic', 'general', 'introduction',
+  'physics', 'chemistry', 'mathematics', 'maths', 'biology',
+]);
 
 function significantWords(s: string): string[] {
   return s.split(' ').filter(w => w.length >= 4 && !STOPWORDS.has(w));
+}
+
+// Whole-phrase containment (word-boundary aware) — plain `.includes()` would
+// let "organic chemistry" match inside "inorganic chemistry" since the
+// substring genuinely is there ("in" + "organic chemistry"), silently
+// merging two distinct real topics into one.
+function containsPhrase(haystack: string, needle: string): boolean {
+  return ` ${haystack} `.includes(` ${needle} `);
 }
 
 /** The canonical syllabus topic (e.g. "centre of mass") that `chapterName`
@@ -92,7 +112,7 @@ export function canonicalTopicKey(subject: string, chapterName: string): string 
   if (!topics) return null; // unknown subject — nothing to canonicalize against
   const name = normalize(chapterName);
   if (!name) return null;
-  const exact = topics.find(topic => name.includes(topic) || topic.includes(name));
+  const exact = topics.find(topic => containsPhrase(name, topic) || containsPhrase(topic, name));
   if (exact) return exact;
 
   const nameWords = new Set(significantWords(name));

@@ -155,9 +155,11 @@ export default function PracticeModule() {
 
   // Drop chapter docs with no real name — leftover "General"/untagged imports
   // with a blank `chapter` field, never a real topic a student could pick.
-  const filtered = chapters.filter(c =>
-    c.chapter.trim().length > 0 && (!activeSubject || c.subject === activeSubject)
-  );
+  // Deliberately NOT scoped to activeSubject: the subject tiles above need
+  // every subject's own real count regardless of which one is currently
+  // selected (each per-subject section below does its own activeSubject
+  // check when deciding whether to render at all).
+  const filtered = chapters.filter(c => c.chapter.trim().length > 0);
 
   // Real AI-recommended chapter names per subject — weak topics (from actual
   // attempt history) plus the AI recommendation cards above, so selecting a
@@ -260,10 +262,10 @@ export default function PracticeModule() {
                 const subject = rec.subject || thirdSubject;
                 const meta = SUBJECT_META[subject] ?? SUBJECT_META.Physics;
                 return (
-                  <button
+                  <Link
                     key={`${rec.title}-${subject}`}
-                    type="button"
-                    onClick={() => setActiveSubject(subject)}
+                    to="/student/exam"
+                    state={{ subject, chapter: rec.title }}
                     className="text-left rounded-xl p-4 transition-all duration-200 hover:-translate-y-0.5"
                     style={{ backgroundColor: 'var(--surface-muted)', border: `1px solid ${activeSubject === subject ? meta.color : 'var(--border)'}` }}
                   >
@@ -285,7 +287,7 @@ export default function PracticeModule() {
                       <span className="text-label-sm" style={{ color: 'var(--text-faint)' }}>{rec.durationMins} min</span>
                       <span className="text-label-sm font-semibold" style={{ color: meta.color }}>Focus this</span>
                     </div>
-                  </button>
+                  </Link>
                 );
               })}
             </div>
@@ -419,7 +421,7 @@ export default function PracticeModule() {
           );
         })}
 
-        {!loading && filtered.length === 0 && (
+        {!loading && filtered.filter(c => !activeSubject || c.subject === activeSubject).length === 0 && (
           <div className="empty-state">
             <div className="empty-state-icon">
               <span className="material-symbols-outlined">search_off</span>
