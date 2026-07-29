@@ -13,6 +13,9 @@ import { getAuthSession, setAuthSession } from '../lib/auth';
 import { auth, db } from '../lib/firebase';
 import { Col } from '../lib/db';
 import { useToast } from '../components/Toast';
+import { getStudentStream } from '../lib/stream';
+import { getDailyChallengeCompletions, getEarnedBadgeMonths } from '../lib/dailyChallenge';
+import MonthBadge from '../components/MonthBadge';
 
 const TABS = ['Profile', 'Appearance', 'Notifications', 'Security'] as const;
 type SettingsTab = (typeof TABS)[number];
@@ -59,6 +62,21 @@ export default function Settings() {
   const [profileMsg,    setProfileMsg]    = useState<Msg | null>(null);
 
   const emailChanged = profile.email.trim() !== originalEmail;
+
+  // ── Achievements (students only) — real earned monthly badges, same data
+  // source as the Dashboard's daily-challenge calendar ──────────────────────
+  const [earnedMonths, setEarnedMonths] = useState<string[]>([]);
+  useEffect(() => {
+    const uid = session?.user?.id;
+    const stream = getStudentStream();
+    if (!uid || session?.user?.role !== 'student' || !stream) return;
+    let cancelled = false;
+    getDailyChallengeCompletions(uid, stream)
+      .then(completions => { if (!cancelled) setEarnedMonths(getEarnedBadgeMonths(completions)); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Prefill phone/bio and notification prefs from the user's Firestore profile.
   useEffect(() => {
@@ -346,6 +364,28 @@ export default function Settings() {
                   )}
                 </div>
               </div>
+            </Card>
+          )}
+
+          {/* ── Achievements (students only) — real earned monthly daily-challenge badges ── */}
+          {tab === 'Profile' && session?.user?.role === 'student' && (
+            <Card title="Achievements" subtitle="Monthly badges earned for completing every day's challenge">
+              {earnedMonths.length === 0 ? (
+                <p className="text-body-sm" style={{ color: 'var(--text-muted)' }}>
+                  No badges yet — complete every day's challenge in a month to earn one.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-4">
+                  {earnedMonths.map(mk => {
+                    const [y, m] = mk.split('-').map(Number);
+                    return (
+                      <div key={mk} className="flex flex-col items-center gap-1.5">
+                        <MonthBadge month0={m - 1} year={y} earned size={56} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </Card>
           )}
 

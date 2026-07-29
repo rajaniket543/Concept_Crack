@@ -234,6 +234,38 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isAdmin());
     }
 
+    // ── /questionFlags/{id} ───────────────────────────────────────────────────
+    // Students report a question they think is wrong; only faculty/admins
+    // manage the queue (resolve, or edit/delete the real question elsewhere).
+    // Doc ID is deterministic (`${questionId}_${flaggedBy}`) so a student can
+    // never report the same question twice — enforced here by requiring the
+    // ID to match the content and the doc to not already exist.
+    match /questionFlags/{id} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.flaggedBy == request.auth.uid
+                    && id == (request.resource.data.questionId + '_' + request.auth.uid);
+      allow update, delete: if isAdminOrFaculty();
+    }
+
+    // ── /questionHistory/{id} ─────────────────────────────────────────────────
+    // Append-only audit trail of faculty/admin edits to bank questions (via
+    // the Reported Questions review flow). Faculty need to read history for
+    // questions they're reviewing, not just admins — no student access.
+    match /questionHistory/{id} {
+      allow read:   if isAuthenticated() && isAdminOrFaculty();
+      allow create: if isAdminOrFaculty() && request.resource.data.actorId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ── /archivedQuestions/{id} ────────────────────────────────────────────────
+    // Soft-deleted questions (Reported Questions "Delete" action archives the
+    // original before removing it from the live bank). Faculty/admin only.
+    match /archivedQuestions/{id} {
+      allow read, create: if isAdminOrFaculty();
+      allow update, delete: if isAdmin();
+    }
+
     // ── /_meta/{id} ───────────────────────────────────────────────────────────
     // Seed tracking + the global question-code counter (Feature 3). Any
     // authenticated user can read/write.

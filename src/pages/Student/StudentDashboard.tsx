@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
 import ActivityHeatmap from '../../components/ActivityHeatmap';
+import DailyChallengeCard from '../../components/DailyChallengeCard';
 import { getDailyActivityMinutes } from '../../lib/activity';
 import { getStudentDashboard, getStudentProgressData, getStudentStreamDB, type ProgressRecord } from '../../lib/db';
 import { getAuthSession } from '../../lib/auth';
@@ -290,6 +291,9 @@ export default function StudentDashboard() {
 
         {/* ── Bottom row ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Daily Challenge — LeetCode-style streak calendar */}
+          {stream && <DailyChallengeCard stream={stream} />}
+
           {/* Study activity calendar (LeetCode-style) */}
           <Card
             title="Study Activity"

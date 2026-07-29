@@ -28,6 +28,7 @@ export type PageKey =
   | 'aiGenerate'
   | 'buildTest'
   | 'verifications'
+  | 'reportedQuestions'
   | 'manageTests'
   | 'admin'
   | 'users'
@@ -76,6 +77,7 @@ export const pages: PageDef[] = [
   { key: 'aiGenerate', label: 'AI Test Generator', group: 'Faculty', path: '/faculty/ai-generate' },
   { key: 'buildTest', label: 'Build a Test', group: 'Faculty', path: '/faculty/build-test' },
   { key: 'verifications', label: 'Verifications', group: 'Faculty', path: '/faculty/verifications' },
+  { key: 'reportedQuestions', label: 'Reported Questions', group: 'Faculty', path: '/faculty/reported-questions' },
   { key: 'manageTests', label: 'Manage Tests', group: 'Faculty', path: '/faculty/tests' },
   { key: 'admin', label: 'Admin Dashboard', group: 'Admin', path: '/admin' },
   { key: 'users', label: 'User Management', group: 'Admin', path: '/admin/users' },

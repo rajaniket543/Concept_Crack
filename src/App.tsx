@@ -41,6 +41,7 @@ import UploadQuestions from './pages/Faculty/UploadQuestions';
 import AIGenerateTest from './pages/Faculty/AIGenerateTest';
 import ManualTestBuilder from './pages/Faculty/ManualTestBuilder';
 import TestVerification from './pages/Faculty/TestVerification';
+import ReportedQuestions from './pages/Faculty/ReportedQuestions';
 import ManageTests from './pages/Faculty/ManageTests';
 import TestChatBot from './pages/Student/TestChatBot';
 import AdminDashboard from './pages/Admin/AdminDashboard';
@@ -129,6 +130,7 @@ const facultyNav = [
       { key: 'questionBank' as PageKey,    label: 'Question Bank',    icon: 'library_books' },
       { key: 'uploadQuestions' as PageKey, label: 'Upload Questions', icon: 'upload_file' },
       { key: 'verifications' as PageKey,   label: 'Verifications',    icon: 'fact_check' },
+      { key: 'reportedQuestions' as PageKey, label: 'Reported Questions', icon: 'flag' },
       { key: 'messages' as PageKey,        label: 'Messages',         icon: 'chat' },
     ],
   },
@@ -285,6 +287,7 @@ export default function App() {
         <Route path="ai-generate" element={<RequireAuth roles={['faculty', 'admin']}><AIGenerateTest /></RequireAuth>} />
         <Route path="build-test" element={<RequireAuth roles={['faculty', 'admin']}><ManualTestBuilder /></RequireAuth>} />
         <Route path="verifications" element={<RequireAuth roles={['faculty', 'admin']}><TestVerification /></RequireAuth>} />
+        <Route path="reported-questions" element={<RequireAuth roles={['faculty', 'admin']}><ReportedQuestions /></RequireAuth>} />
         <Route path="tests" element={<RequireAuth roles={['faculty', 'admin']}><ManageTests /></RequireAuth>} />
       </Route>
 

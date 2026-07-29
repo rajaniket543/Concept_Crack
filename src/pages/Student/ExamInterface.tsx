@@ -15,6 +15,7 @@ import { getQuestionsForChapter, getQuestionsByIds, type ExamQuestion as Firesto
 import { getTest, saveTestAttempt, type LockMode, type AttemptType } from '../../lib/tests';
 import { enterFullscreen, exitFullscreen } from '../../lib/fullscreen';
 import { updateWeakTopics } from '../../lib/weakTopics';
+import { flagQuestion, FLAG_REASONS, type FlagReason } from '../../lib/questionFlags';
 import { getChapterFormulas, getSubjectHighlights, generateFormulasAI, type FormulaGroup } from '../../lib/formulas';
 import { hasAI } from '../../lib/ai';
 import { pathFor } from '../../lib/pages';
@@ -91,6 +92,12 @@ export default function ExamInterface() {
   // numeric => the typed value. (Was a single option key before Advanced types.)
   const [answers, setAnswers]       = useState<Record<number, string>>({});
   const [marked, setMarked]         = useState<Set<number>>(new Set());
+  // Report-a-bad-question — purely additive, never touches scoring/navigation.
+  const [flagOpen, setFlagOpen]           = useState(false);
+  const [flagReason, setFlagReason]       = useState<FlagReason>(FLAG_REASONS[0]);
+  const [flagComment, setFlagComment]     = useState('');
+  const [flagSubmitting, setFlagSubmitting] = useState(false);
+  const [flaggedIds, setFlaggedIds]       = useState<Set<string>>(new Set());
   const [sessionId, setSessionId]   = useState<string | null>(null);
   // Questions the student has actually opened — drives the official JEE
   // "Not Visited" (grey) vs "Not Answered" (white) palette distinction.
@@ -507,6 +514,45 @@ export default function ExamInterface() {
       }
       return next;
     });
+  }
+
+  async function submitFlag() {
+    if (!question || flagSubmitting) return;
+    const comment = flagComment.trim();
+    if (flagReason === 'Other' && !comment) {
+      toast('Add a comment describing what looks wrong', 'error');
+      return;
+    }
+    const me = getAuthSession()?.user;
+    setFlagSubmitting(true);
+    try {
+      await flagQuestion({
+        questionId: question.id,
+        subject: question.subject || subject,
+        chapter: question.chapter || question.section || chapter,
+        questionText: question.prompt,
+        reason: flagReason,
+        comment: comment || undefined,
+        challengeId: testId ?? undefined,
+        flaggedBy: me?.id ?? '',
+        flaggedByName: me?.name ?? 'A student',
+      });
+      setFlaggedIds(prev => new Set(prev).add(question.id));
+      setFlagOpen(false);
+      setFlagReason(FLAG_REASONS[0]);
+      setFlagComment('');
+      toast('Reported — a faculty member will review this question', 'success');
+    } catch (e) {
+      if (e instanceof Error && e.message === 'ALREADY_REPORTED') {
+        setFlaggedIds(prev => new Set(prev).add(question.id));
+        setFlagOpen(false);
+        toast("You've already reported this question", 'error');
+      } else {
+        toast('Could not submit the report — please try again', 'error');
+      }
+    } finally {
+      setFlagSubmitting(false);
+    }
   }
 
   // Navigation walks the ACTIVE SECTION's index list, not the raw global order —
@@ -1080,8 +1126,53 @@ export default function ExamInterface() {
                       Marked for Review
                     </span>
                   )}
+                  {flaggedIds.has(question.id) ? (
+                    <span className="text-label-sm font-bold px-3 py-1 rounded-full flex items-center gap-1" style={{ backgroundColor: 'rgba(239,68,68,0.10)', color: '#DC2626' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>flag</span> Reported
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setFlagOpen(v => !v); setFlagReason(FLAG_REASONS[0]); setFlagComment(''); }}
+                      title="Report an issue with this question"
+                      className="text-label-sm font-semibold px-3 py-1 rounded-full flex items-center gap-1 transition-colors"
+                      style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>flag</span> Report
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {flagOpen && (
+                <div className="rounded-xl p-4 mb-4 space-y-2" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+                  <label className="text-label-sm font-semibold block" style={{ color: 'var(--text-secondary)' }}>
+                    What's wrong with this question?
+                  </label>
+                  <select
+                    value={flagReason}
+                    onChange={e => setFlagReason(e.target.value as FlagReason)}
+                    className="w-full rounded-lg px-3 py-2 text-sm"
+                    style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)', outline: 'none' }}
+                  >
+                    {FLAG_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                  <textarea
+                    value={flagComment}
+                    onChange={e => setFlagComment(e.target.value)}
+                    rows={2}
+                    placeholder={flagReason === 'Other' ? 'Describe the issue… (required)' : 'Additional comment (optional)'}
+                    className="w-full rounded-lg px-3 py-2 text-sm resize-none"
+                    style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)', outline: 'none' }}
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button type="button" onClick={() => setFlagOpen(false)} className="btn-outline btn-sm">Cancel</button>
+                    <button type="button" onClick={() => void submitFlag()} disabled={flagSubmitting} className="btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, #EF4444, #DC2626)' }}>
+                      {flagSubmitting ? 'Reporting…' : 'Submit report'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Question text */}
               <div
