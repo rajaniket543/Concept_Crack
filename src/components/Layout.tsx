@@ -1,10 +1,8 @@
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { PageKey, pathFor } from '../lib/pages';
-import { getAuthSession } from '../lib/auth';
 import { useEffect, useState, type CSSProperties } from 'react';
 import AICompanion from './AICompanion';
 import Logo from './Logo';
-import { getStudentStream } from '../lib/stream';
 
 interface NavSection {
   label?: string;
@@ -30,18 +28,7 @@ function isNavSection(x: NavItem | NavSection): x is NavSection {
 
 export default function Layout({ brand, role = 'student', nav, variant = 'default' }: LayoutProps) {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const session = getAuthSession();
-  const studentStream = role === 'student' ? getStudentStream() : null;
-  const footerMeta =
-    role === 'student'
-      ? `${studentStream ?? 'JEE'} 2027 · Student`
-      : role === 'faculty'
-        ? 'Faculty Portal'
-        : role === 'parent'
-          ? 'Parent Portal'
-          : 'Admin Portal';
 
   const roleAccent: Record<string, string> = {
     student: '#6B5EF0',
@@ -112,7 +99,7 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
         onClick={() => setMobileNavOpen(false)}
       >
         <span className="material-symbols-outlined item-icon">{item.icon}</span>
-        <span className="truncate text-sm">{item.label}</span>
+        <span className="truncate">{item.label}</span>
       </Link>
     );
   }
@@ -175,25 +162,6 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
           <div className="nav-group" style={{ marginTop: 'auto' }}>
             {accountSections.flatMap(s => s.items).map(renderNavItem)}
           </div>
-        </div>
-
-        <div className="nav-footer">
-          <button
-            type="button"
-            onClick={() => navigate(pathFor('settings'))}
-            className="user-chip"
-            title="Open settings"
-          >
-            <div className="user-avatar">
-              {session?.user?.name
-                ? session.user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-                : 'CC'}
-            </div>
-            <div className="user-meta">
-              <div className="u-name">{session?.user?.name ?? 'Concept Crack'}</div>
-              <div className="u-role">{footerMeta}</div>
-            </div>
-          </button>
         </div>
       </aside>
 
