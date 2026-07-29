@@ -69,14 +69,42 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-/** True if `chapterName` looks like a real syllabus topic for `subject` —
- *  matches if either string contains the other's key phrase, so both
- *  shortened ("Rotational Motion") and expanded ("System of Particles and
- *  Rotational Motion") real names are recognised. */
-export function isCanonicalTopic(subject: string, chapterName: string): boolean {
+// Too generic on their own to count as a real topic match (would let almost
+// anything through), even though they appear in real syllabus phrases.
+const STOPWORDS = new Set(['and', 'the', 'of', 'in', 'for', 'to', 'a', 'an', 'basic', 'general', 'introduction']);
+
+function significantWords(s: string): string[] {
+  return s.split(' ').filter(w => w.length >= 4 && !STOPWORDS.has(w));
+}
+
+/** The canonical syllabus topic (e.g. "centre of mass") that `chapterName`
+ *  matches for `subject`, or null if it doesn't look like a real syllabus
+ *  topic at all. Deliberately loose: a single shared significant word (e.g.
+ *  "rotational" in both "Rotational Motion" and "Rotational Dynamics Part 2")
+ *  is enough, since faculty phrase the same real topic in many different
+ *  ways — but this still rejects names with no real overlap (e.g. "Cognitive
+ *  Bias" shares no word with any physics topic). Real chapter-name spelling
+ *  variants of the same real topic (e.g. "Center of mass" / "Centre of Mass")
+ *  resolve to the same key here, which is what lets the UI merge them into
+ *  one real topic entry instead of listing every spelling separately. */
+export function canonicalTopicKey(subject: string, chapterName: string): string | null {
   const topics = TOPICS_BY_SUBJECT[subject];
-  if (!topics) return true; // unknown subject — don't filter what we can't judge
+  if (!topics) return null; // unknown subject — nothing to canonicalize against
   const name = normalize(chapterName);
-  if (!name) return false;
-  return topics.some(topic => name.includes(topic) || topic.includes(name));
+  if (!name) return null;
+  const exact = topics.find(topic => name.includes(topic) || topic.includes(name));
+  if (exact) return exact;
+
+  const nameWords = new Set(significantWords(name));
+  if (nameWords.size === 0) return null;
+  return topics.find(topic => significantWords(topic).some(w => nameWords.has(w))) ?? null;
+}
+
+/** True if `chapterName` looks like a real syllabus topic for `subject`. See
+ *  `canonicalTopicKey` for the matching rules. Subjects with no known topic
+ *  list (e.g. an unrecognised stream) are never filtered — we can't judge
+ *  what we don't have a syllabus for. */
+export function isCanonicalTopic(subject: string, chapterName: string): boolean {
+  if (!TOPICS_BY_SUBJECT[subject]) return true;
+  return canonicalTopicKey(subject, chapterName) !== null;
 }

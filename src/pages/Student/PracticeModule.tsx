@@ -5,7 +5,7 @@ import { getAuthSession } from '../../lib/auth';
 import { getStudentDashboard } from '../../lib/db';
 import { getStudentStream } from '../../lib/stream';
 import { getChaptersForSubject, type ChapterInfo } from '../../lib/questions';
-import { isCanonicalTopic } from '../../lib/syllabus';
+import { isCanonicalTopic, canonicalTopicKey } from '../../lib/syllabus';
 
 interface AIRecommendation {
   title: string;
@@ -36,35 +36,56 @@ const SUBJECT_DESC: Record<string, string> = {
   Biology:     'Botany, Zoology, Human Physiology',
 };
 
-interface ChapterGroup {
-  key: string;
-  displayName: string;
-  items: ChapterInfo[];
-  totalQuestions: number;
-}
+// Below this many real questions, a chapter can't sustain a worthwhile practice
+// session (e.g. a 1-2 question "test") — these are mostly stray/duplicate
+// faculty entries. They're never deleted, just folded into a collapsed
+// "fewer questions available" section instead of cluttering the main grid.
+const MIN_QUESTIONS_FOR_CHAPTER = 5;
 
 // Faculty enter chapter names as free text, so the same real topic often ends
 // up as several near-identical rows ("Thermodynamics" / "thermodynamics ").
-// Group them visually by normalized name — the real underlying chapter
-// records (and their real question sets) stay distinct and are only chosen
-// from once a group with more than one variant is opened.
-function groupChaptersByName(items: ChapterInfo[]): ChapterGroup[] {
+// Collapse each set of same-name variants down to the single one with the
+// most questions, rather than showing duplicates or an expandable sub-list.
+function dedupeChaptersByName(items: ChapterInfo[]): ChapterInfo[] {
   const order: string[] = [];
-  const map = new Map<string, ChapterInfo[]>();
+  const map = new Map<string, ChapterInfo>();
   items.forEach(c => {
     const key = c.chapter.trim().toLowerCase().replace(/\s+/g, ' ');
-    if (!map.has(key)) { map.set(key, []); order.push(key); }
-    map.get(key)!.push(c);
+    const existing = map.get(key);
+    if (!existing) { map.set(key, c); order.push(key); }
+    else if (c.questionCount > existing.questionCount) { map.set(key, c); }
   });
-  return order.map(key => {
-    const group = map.get(key)!;
-    return {
-      key,
-      displayName: group[0].chapter,
-      items: group,
-      totalQuestions: group.reduce((sum, c) => sum + c.questionCount, 0),
-    };
+  return order.map(key => map.get(key)!);
+}
+
+// Faculty also spell the same real topic several different ways within a
+// subject ("Center of mass" / "Centre of Mass" / "centre of mass "), which
+// exact-name dedupe doesn't catch since the strings genuinely differ. Group
+// by the real syllabus topic they match instead, keeping only the single
+// real (subject, chapter) variant with the most questions — the same pair
+// still gets used to launch the exam, so what a student sees is always
+// backed by one real, exact chapter (never a synthetic merged label).
+function mergeByCanonicalTopic(subject: string, items: ChapterInfo[]): ChapterInfo[] {
+  const order: string[] = [];
+  const map = new Map<string, ChapterInfo>();
+  items.forEach(c => {
+    const key = canonicalTopicKey(subject, c.chapter);
+    if (!key) return;
+    const existing = map.get(key);
+    if (!existing) { map.set(key, c); order.push(key); }
+    else if (c.questionCount > existing.questionCount) { map.set(key, c); }
   });
+  return order.map(key => map.get(key)!);
+}
+
+// The curated set a subject tile/grid leads with: a real chapter name (not a
+// blank faculty entry), a real JEE/NEET syllabus topic (spelling variants
+// merged to their one strongest real chapter), and enough questions to
+// actually practice — same criteria used for the "N chapters" tile count and
+// the main grid, so the number shown up front matches what's inside.
+function reasonableChapters(subject: string, items: ChapterInfo[]): ChapterInfo[] {
+  const named = items.filter(c => c.chapter.trim().length > 0);
+  return mergeByCanonicalTopic(subject, named).filter(c => c.questionCount >= MIN_QUESTIONS_FOR_CHAPTER);
 }
 
 export default function PracticeModule() {
@@ -79,6 +100,7 @@ export default function PracticeModule() {
   const [weakAreas, setWeakAreas] = useState<WeakArea[]>([]);
   const [showAllChapters, setShowAllChapters] = useState(false);
   const [otherOpenBySubject, setOtherOpenBySubject] = useState<Record<string, boolean>>({});
+  const [thinOpenBySubject, setThinOpenBySubject] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -123,8 +145,10 @@ export default function PracticeModule() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stream]);
 
+  // Drop chapter docs with no real name — leftover "General"/untagged imports
+  // with a blank `chapter` field, never a real topic a student could pick.
   const filtered = chapters.filter(c =>
-    !activeSubject || c.subject === activeSubject
+    c.chapter.trim().length > 0 && (!activeSubject || c.subject === activeSubject)
   );
 
   // Real AI-recommended chapter names per subject — weak topics (from actual
@@ -170,7 +194,7 @@ export default function PracticeModule() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {subjects.map(s => {
             const meta = SUBJECT_META[s];
-            const count = groupChaptersByName(groupedBySubject[s] ?? []).length;
+            const count = reasonableChapters(s, groupedBySubject[s] ?? []).length;
             const isActive = activeSubject === s;
             return (
               <button
@@ -288,12 +312,25 @@ export default function PracticeModule() {
           const visibleItems = isFocused && recommendedItems.length > 0 && !showAllChapters
             ? recommendedItems
             : items;
-          // Only real JEE/NEET syllabus topics show in the main grid; anything
-          // that doesn't match the real curriculum (stray labels, mislabelled
-          // subjects) is grouped separately rather than mixed in or deleted.
-          const syllabusItems = visibleItems.filter(c => isCanonicalTopic(subj, c.chapter));
+          // Only real JEE/NEET syllabus topics show in the main grid, merged by
+          // real topic identity (spelling variants collapse to one strongest
+          // real chapter); anything that doesn't match the real curriculum
+          // (stray labels, mislabelled subjects) is grouped separately rather
+          // than mixed in or deleted.
+          const syllabusAll = mergeByCanonicalTopic(subj, visibleItems);
           const otherItems = visibleItems.filter(c => !isCanonicalTopic(subj, c.chapter));
+          // Within real syllabus topics, ones with too few questions to make a
+          // worthwhile session fold into their own collapsed section instead
+          // of padding out the main grid with near-empty chapters.
+          const syllabusItems = syllabusAll.filter(c => c.questionCount >= MIN_QUESTIONS_FOR_CHAPTER);
+          const thinItems = syllabusAll.filter(c => c.questionCount < MIN_QUESTIONS_FOR_CHAPTER);
           const otherOpen = otherOpenBySubject[subj] ?? false;
+          const thinOpen = thinOpenBySubject[subj] ?? false;
+          // The number shown in the header badge — real, curated topic count
+          // (canonical-topic merged, thin ones excluded), not the raw chapter
+          // doc total, which is inflated by spelling-variant duplicates and
+          // near-empty stray entries.
+          const curatedTotal = reasonableChapters(subj, items).length;
           return (
             <div key={subj}>
               <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -302,7 +339,7 @@ export default function PracticeModule() {
                 </div>
                 <h2 className="text-title-lg font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{subj}</h2>
                 <span className="text-label-sm px-2 py-0.5 rounded-full" style={{ backgroundColor: meta.bg, color: meta.color }}>
-                  {visibleItems.length === items.length ? `${items.length} chapters` : `${visibleItems.length} of ${items.length} chapters`}
+                  {syllabusItems.length === curatedTotal ? `${curatedTotal} chapters` : `${syllabusItems.length} of ${curatedTotal} chapters`}
                 </span>
                 {isFocused && recommendedItems.length > 0 && (
                   <button
@@ -311,22 +348,39 @@ export default function PracticeModule() {
                     className="text-label-sm font-semibold hover:underline ml-auto"
                     style={{ color: meta.color }}
                   >
-                    {showAllChapters ? 'Show recommended only' : `Show all ${items.length} chapters`}
+                    {showAllChapters ? 'Show recommended only' : `Show all ${curatedTotal} chapters`}
                   </button>
                 )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {groupChaptersByName(syllabusItems).map(group => (
-                  group.items.length === 1 ? (
-                    <ChapterCard key={group.items[0].id} chapter={group.items[0]} meta={meta} recommended={recommendedNames.has(group.items[0].chapter)} />
-                  ) : (
-                    <ChapterGroupCard key={group.key} group={group} meta={meta} recommended={group.items.some(c => recommendedNames.has(c.chapter))} />
-                  )
+                {syllabusItems.map(ch => (
+                  <ChapterCard key={ch.id} chapter={ch} meta={meta} recommended={recommendedNames.has(ch.chapter)} />
                 ))}
                 {syllabusItems.length === 0 && (
                   <p className="text-body-sm col-span-full" style={{ color: 'var(--text-muted)' }}>No recognised syllabus topics found here yet.</p>
                 )}
               </div>
+
+              {thinItems.length > 0 && (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setThinOpenBySubject(prev => ({ ...prev, [subj]: !thinOpen }))}
+                    className="text-label-sm font-semibold hover:underline flex items-center gap-1"
+                    style={{ color: 'var(--text-faint)' }}
+                  >
+                    <span className="material-symbols-outlined transition-transform" style={{ fontSize: 16, transform: thinOpen ? 'rotate(180deg)' : 'none' }}>expand_more</span>
+                    {thinOpen ? 'Hide' : 'Show'} {thinItems.length} more topic{thinItems.length === 1 ? '' : 's'} — fewer questions available
+                  </button>
+                  {thinOpen && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-3">
+                      {thinItems.map(ch => (
+                        <ChapterCard key={ch.id} chapter={ch} meta={meta} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {otherItems.length > 0 && (
                 <div className="mt-4">
@@ -337,16 +391,12 @@ export default function PracticeModule() {
                     style={{ color: 'var(--text-faint)' }}
                   >
                     <span className="material-symbols-outlined transition-transform" style={{ fontSize: 16, transform: otherOpen ? 'rotate(180deg)' : 'none' }}>expand_more</span>
-                    {otherOpen ? 'Hide' : 'Show'} {groupChaptersByName(otherItems).length} other topic{groupChaptersByName(otherItems).length === 1 ? '' : 's'} — not part of the JEE/NEET syllabus
+                    {otherOpen ? 'Hide' : 'Show'} {dedupeChaptersByName(otherItems).length} other topic{dedupeChaptersByName(otherItems).length === 1 ? '' : 's'} — not part of the JEE/NEET syllabus
                   </button>
                   {otherOpen && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-3">
-                      {groupChaptersByName(otherItems).map(group => (
-                        group.items.length === 1 ? (
-                          <ChapterCard key={group.items[0].id} chapter={group.items[0]} meta={meta} />
-                        ) : (
-                          <ChapterGroupCard key={group.key} group={group} meta={meta} />
-                        )
+                      {dedupeChaptersByName(otherItems).map(ch => (
+                        <ChapterCard key={ch.id} chapter={ch} meta={meta} />
                       ))}
                     </div>
                   )}
@@ -366,59 +416,6 @@ export default function PracticeModule() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function ChapterGroupCard({ group, meta, recommended }: { group: ChapterGroup; meta: { color: string; bg: string }; recommended?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const examQuestions = Math.min(group.totalQuestions, 30);
-  const durationMins  = Math.ceil(examQuestions * 1.5);
-
-  return (
-    <div
-      className="rounded-xl p-5 flex flex-col gap-3 transition-all duration-200"
-      style={{ backgroundColor: 'var(--surface)', border: `1px solid ${recommended ? meta.color : 'var(--border)'}`, boxShadow: 'var(--shadow-xs)' }}
-    >
-      <button type="button" onClick={() => setOpen(v => !v)} className="text-left flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style={{ backgroundColor: meta.bg, color: meta.color }}>
-            {group.items[0].subject}
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-faint)' }}>
-            {group.items.length} variants
-          </span>
-        </div>
-        <div>
-          <h3 className="text-body-md font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-            {group.displayName}
-          </h3>
-          <p className="text-body-sm" style={{ color: 'var(--text-muted)' }}>{group.totalQuestions} questions across {group.items.length} entries</p>
-        </div>
-        <div className="flex items-center justify-between mt-auto">
-          <div className="flex items-center gap-3 text-label-sm" style={{ color: 'var(--text-faint)' }}>
-            <span className="flex items-center gap-1"><span className="material-symbols-outlined" style={{ fontSize: '13px' }}>quiz</span>{examQuestions}q</span>
-            <span className="flex items-center gap-1"><span className="material-symbols-outlined" style={{ fontSize: '13px' }}>schedule</span>{durationMins}m</span>
-          </div>
-          <span className="material-symbols-outlined transition-transform" style={{ fontSize: '18px', color: meta.color, transform: open ? 'rotate(180deg)' : 'none' }}>expand_more</span>
-        </div>
-      </button>
-
-      {open && (
-        <div className="pt-1 space-y-1.5" style={{ borderTop: '1px solid var(--border)' }}>
-          {group.items.map(ch => (
-            <Link
-              key={ch.id}
-              to="/student/exam"
-              state={{ subject: ch.subject, chapter: ch.chapter }}
-              className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-[var(--surface-muted)]"
-            >
-              <span className="text-body-sm truncate" style={{ color: 'var(--text-secondary)' }}>{ch.chapter}</span>
-              <span className="text-label-sm font-semibold shrink-0" style={{ color: meta.color }}>{ch.questionCount}q →</span>
-            </Link>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -457,9 +454,6 @@ function ChapterCard({ chapter: ch, meta, recommended }: { chapter: ChapterInfo;
         <h3 className="text-body-md font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
           {ch.chapter}
         </h3>
-        <p className="text-body-sm" style={{ color: 'var(--text-muted)' }}>
-          {ch.questionCount} questions available
-        </p>
       </div>
 
       <div className="flex items-center justify-between mt-auto">
