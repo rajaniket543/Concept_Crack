@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { getAuthSession } from '../../lib/auth';
 import { getStudentStream } from '../../lib/stream';
 import { getExamCountdown } from '../../lib/examCountdown';
+import {
+  listSessions, createSession, saveSessionMessages, deleteSession,
+  type CompanionSession, type CompanionMessage,
+} from '../../lib/companionChats';
 import AIMarkdown from '../../components/AIMarkdown';
 import TopBar from '../../components/TopBar';
 
-interface Msg { id: number; role: 'ai' | 'user'; text: string; typing?: boolean }
+interface Msg extends CompanionMessage { id: number; typing?: boolean }
 
 const SUGGESTIONS = [
   'Explain Newton\'s third law simply',
@@ -51,37 +55,100 @@ async function callGemini(prompt: string): Promise<string> {
   return text.trim();
 }
 
-export default function AICompanionPage() {
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput]       = useState('');
-  const [busy, setBusy]         = useState(false);
-  const nextId = useRef(1);
-  const scrollRef = useRef<HTMLDivElement>(null);
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
+export default function AICompanionPage() {
   const session = getAuthSession();
+  const uid = session?.user?.id;
   const firstName = session?.user?.name?.split(' ')[0] ?? 'there';
   const stream = getStudentStream();
   const exam = stream ? getExamCountdown(stream).examLabel : 'JEE/NEET';
 
+  const greeting = `Hi ${firstName}! I'm your Concept Crack AI companion. Ask me to explain a concept, plan your revision, or clear a doubt for ${exam}.`;
+
+  const [sessions, setSessions]       = useState<CompanionSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [activeId, setActiveId]       = useState<string | null>(null);
+  const [messages, setMessages]       = useState<Msg[]>([]);
+  const [input, setInput]             = useState('');
+  const [busy, setBusy]               = useState(false);
+  const nextId = useRef(1);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Real, persisted chat history — stored per-student in Firestore
+  // (companionSessions), same idea as ChatGPT's chat list: past conversations
+  // survive a refresh/navigation and can be reopened later.
   useEffect(() => {
-    setMessages([{
-      id: nextId.current++,
-      role: 'ai',
-      text: `Hi ${firstName}! I'm your Concept Crack AI companion. Ask me to explain a concept, plan your revision, or clear a doubt for ${exam}.`,
-    }]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!uid) { setSessionsLoading(false); return; }
+    let cancelled = false;
+    listSessions(uid).then(list => {
+      if (cancelled) return;
+      setSessions(list);
+      setSessionsLoading(false);
+    }).catch(() => { if (!cancelled) setSessionsLoading(false); });
+    return () => { cancelled = true; };
+  }, [uid]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
+
+  function openSession(s: CompanionSession) {
+    setActiveId(s.id);
+    setMessages(s.messages.map(m => ({ ...m, id: nextId.current++ })));
+    setInput('');
+  }
+
+  function startNewChat() {
+    setActiveId(null);
+    setMessages([{ id: nextId.current++, role: 'ai', text: greeting }]);
+    setInput('');
+  }
+
+  // First visit (no sessions yet, nothing selected) — show the greeting in a
+  // fresh, unsaved conversation rather than an empty screen.
+  useEffect(() => {
+    if (!sessionsLoading && sessions.length === 0 && activeId === null && messages.length === 0) {
+      startNewChat();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionsLoading, sessions.length]);
+
+  async function persist(nextMessages: Msg[]) {
+    if (!uid) return;
+    const toSave: CompanionMessage[] = nextMessages.filter(m => !m.typing).map(({ role, text }) => ({ role, text }));
+    try {
+      if (activeId) {
+        await saveSessionMessages(activeId, toSave);
+      } else {
+        const created = await createSession(uid);
+        await saveSessionMessages(created.id, toSave);
+        setActiveId(created.id);
+      }
+      // Re-fetch from the source of truth so title/order stay accurate.
+      setSessions(await listSessions(uid));
+    } catch (e) {
+      console.error('Failed to save companion chat:', e);
+    }
+  }
 
   async function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
     const userMsg: Msg = { id: nextId.current++, role: 'user', text: trimmed };
     const typing: Msg  = { id: nextId.current++, role: 'ai', text: '', typing: true };
-    setMessages(prev => [...prev, userMsg, typing]);
+    const withUser = [...messages, userMsg, typing];
+    setMessages(withUser);
     setInput('');
     setBusy(true);
 
@@ -98,144 +165,162 @@ Student: ${trimmed}`;
       reply = 'The AI companion could not reach Gemini right now. Please try again in a moment.';
     }
 
-    setMessages(prev => prev.map(m => (m.typing ? { ...m, text: reply, typing: false } : m)));
+    const finalMessages = withUser.map(m => (m.typing ? { ...m, text: reply, typing: false } : m));
+    setMessages(finalMessages);
     setBusy(false);
+    void persist(finalMessages);
   }
 
-  function newChat() {
-    setMessages([{
-      id: nextId.current++,
-      role: 'ai',
-      text: `Hi ${firstName}! I'm your Concept Crack AI companion. Ask me to explain a concept, plan your revision, or clear a doubt for ${exam}.`,
-    }]);
+  async function removeSession(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      await deleteSession(id);
+      setSessions(prev => prev.filter(s => s.id !== id));
+      if (activeId === id) startNewChat();
+    } catch (err) {
+      console.error('Failed to delete companion chat:', err);
+    }
   }
+
+  const isNewEmptyChat = messages.length <= 1;
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
-      <TopBar breadcrumb={[{ label: 'AI Companion' }]} />
-
-      <div className="flex-1 p-6 lg:p-8 overflow-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 max-w-6xl mx-auto">
-          {/* Chat panel */}
-          <div
-            className="flex flex-col rounded-2xl overflow-hidden"
-            style={{ height: '640px', backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
+    <div className="flex min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      {/* Chat history sidebar — ChatGPT-style: new chat button + stored past
+          conversations, most recent first, click to reopen. */}
+      <div className="hidden md:flex flex-col w-[260px] shrink-0" style={{ backgroundColor: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
+        <div className="p-3">
+          <button
+            type="button"
+            onClick={startNewChat}
+            className="w-full flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-[var(--surface-hover)]"
+            style={{ border: '1px solid var(--border)', color: 'var(--text-primary)' }}
           >
-            <div className="px-5 py-4 flex items-center gap-3 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
-              <div className="absolute -right-6 -top-8 w-28 h-28 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, #fff, transparent)' }} aria-hidden="true" />
-              <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0 relative">
-                <span className="material-symbols-outlined filled text-white" style={{ fontSize: '22px' }}>auto_awesome</span>
-              </div>
-              <div className="flex-1 min-w-0 relative">
-                <div className="text-white font-bold">AI Companion</div>
-                <div className="text-white/80 text-[12px] flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: '#4ADE80' }} />
-                  Online · trained on your recent tests
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={newChat}
-                className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-white/15 relative"
-                title="New conversation"
-                aria-label="New conversation"
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
+            New chat
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5">
+          {sessionsLoading && (
+            <div className="px-3 py-2 text-xs" style={{ color: 'var(--text-faint)' }}>Loading chats…</div>
+          )}
+          {!sessionsLoading && sessions.length === 0 && (
+            <div className="px-3 py-2 text-xs" style={{ color: 'var(--text-faint)' }}>Your saved chats will show up here.</div>
+          )}
+          {sessions.map(s => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => openSession(s)}
+              className="group w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors"
+              style={{ backgroundColor: activeId === s.id ? 'var(--surface-hover)' : 'transparent' }}
+            >
+              <span className="material-symbols-outlined shrink-0" style={{ fontSize: 16, color: 'var(--text-faint)' }}>chat_bubble</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm truncate" style={{ color: 'var(--text-secondary)' }}>{s.title}</span>
+                <span className="block text-[11px]" style={{ color: 'var(--text-faint)' }}>{relativeTime(s.updatedAt)}</span>
+              </span>
+              <span
+                role="button"
+                onClick={e => void removeSession(s.id, e)}
+                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity rounded-md p-1 hover:bg-[var(--surface-muted)]"
+                title="Delete chat"
+                aria-label="Delete chat"
               >
-                <span className="material-symbols-outlined text-white" style={{ fontSize: '19px' }}>ink_eraser</span>
-              </button>
-            </div>
+                <span className="material-symbols-outlined" style={{ fontSize: 15, color: 'var(--text-faint)' }}>delete</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4" style={{ backgroundColor: 'var(--bg)' }}>
-              {messages.map(m => (
-                <div key={m.id} className={`flex items-end gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {m.role === 'ai' && (
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mb-0.5" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
-                      <span className="material-symbols-outlined filled text-white" style={{ fontSize: '16px' }}>auto_awesome</span>
-                    </div>
-                  )}
-                  <div
-                    className="max-w-[78%] px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed"
-                    style={m.role === 'user'
-                      ? { background: 'linear-gradient(135deg, var(--brand), #7C3AED)', color: '#fff', borderRadius: '16px 16px 4px 16px' }
-                      : { backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '16px 16px 16px 4px' }
-                    }
-                  >
-                    {m.typing ? (
-                      <span className="inline-flex gap-1 py-1"><Dot /><Dot d={0.2} /><Dot d={0.4} /></span>
-                    ) : m.role === 'ai' ? (
-                      <AIMarkdown text={m.text} />
-                    ) : m.text}
-                  </div>
-                </div>
-              ))}
-            </div>
+      {/* Main conversation panel */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <TopBar breadcrumb={[{ label: 'AI Companion' }]} />
 
-            <div className="px-5 py-3 flex gap-2 flex-wrap" style={{ borderTop: '1px solid var(--border)' }}>
-              {SUGGESTIONS.map(s => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => void send(s)}
-                  disabled={busy}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-full transition-all hover:-translate-y-px disabled:opacity-40"
-                  style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            <div className="p-3" style={{ borderTop: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}>
-              <div className="flex items-center gap-2 rounded-full px-4 py-1.5" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
-                <input
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(input); } }}
-                  placeholder="Ask anything — a doubt, a plan, or how you're really doing…"
-                  className="flex-1 bg-transparent outline-none text-sm"
-                  style={{ color: 'var(--text-primary)' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => void send(input)}
-                  disabled={!input.trim() || busy}
-                  className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all disabled:opacity-40"
-                  style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
-                  aria-label="Send"
-                >
-                  <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>send</span>
-                </button>
-              </div>
-              <div className="text-[11px] text-center mt-1.5" style={{ color: 'var(--text-faint)' }}>AI can make mistakes — verify important facts.</div>
+        <div className="px-5 py-3 flex items-center gap-3" style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
+            <span className="material-symbols-outlined filled text-white" style={{ fontSize: '18px' }}>auto_awesome</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>AI Companion</div>
+            <div className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+              <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: '#4ADE80' }} />
+              Online · tailored to your {exam} prep
             </div>
           </div>
+        </div>
 
-          {/* Context sidebar */}
-          <div className="flex flex-col gap-4">
-            <div className="card">
-              <div className="text-label-md font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Your Exam</div>
-              <div className="text-title-md font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{exam}</div>
-              <p className="text-body-sm" style={{ color: 'var(--text-muted)' }}>
-                Ask about anything from today's syllabus, a doubt from your last test, or a revision plan — the companion tailors answers to {stream ?? 'your'} prep.
-              </p>
-            </div>
-            <div className="card">
-              <div className="text-label-md font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Quick Actions</div>
-              <div className="flex flex-col gap-2">
-                {SUGGESTIONS.slice(0, 3).map(s => (
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-5" style={{ backgroundColor: 'var(--bg)' }}>
+          <div className="max-w-3xl mx-auto space-y-4">
+            {messages.map(m => (
+              <div key={m.id} className={`flex items-end gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {m.role === 'ai' && (
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mb-0.5" style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}>
+                    <span className="material-symbols-outlined filled text-white" style={{ fontSize: '16px' }}>auto_awesome</span>
+                  </div>
+                )}
+                <div
+                  className="max-w-[78%] px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed"
+                  style={m.role === 'user'
+                    ? { background: 'linear-gradient(135deg, var(--brand), #7C3AED)', color: '#fff', borderRadius: '16px 16px 4px 16px' }
+                    : { backgroundColor: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '16px 16px 16px 4px' }
+                  }
+                >
+                  {m.typing ? (
+                    <span className="inline-flex gap-1 py-1"><Dot /><Dot d={0.2} /><Dot d={0.4} /></span>
+                  ) : m.role === 'ai' ? (
+                    <AIMarkdown text={m.text} />
+                  ) : m.text}
+                </div>
+              </div>
+            ))}
+
+            {/* Suggested-prompt tiles on a fresh/empty conversation — same role
+                as ChatGPT's example-prompt cards on a new chat. */}
+            {isNewEmptyChat && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+                {SUGGESTIONS.map(s => (
                   <button
                     key={s}
                     type="button"
                     onClick={() => void send(s)}
                     disabled={busy}
-                    className="text-left text-sm font-medium px-3 py-2.5 rounded-xl transition-all hover:-translate-y-px disabled:opacity-40 flex items-center gap-2"
-                    style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+                    className="text-left text-sm font-medium px-4 py-3 rounded-xl transition-all hover:-translate-y-px disabled:opacity-40"
+                    style={{ backgroundColor: 'var(--surface)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
                   >
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--brand)' }}>bolt</span>
+                    <span className="material-symbols-outlined align-middle mr-1.5" style={{ fontSize: 15, color: 'var(--brand)' }}>bolt</span>
                     {s}
                   </button>
                 ))}
               </div>
+            )}
+          </div>
+        </div>
+
+        <div className="p-4" style={{ borderTop: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}>
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-center gap-2 rounded-full px-4 py-1.5" style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+              <input
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(input); } }}
+                placeholder="Ask anything — a doubt, a plan, or how you're really doing…"
+                className="flex-1 bg-transparent outline-none text-sm"
+                style={{ color: 'var(--text-primary)' }}
+              />
+              <button
+                type="button"
+                onClick={() => void send(input)}
+                disabled={!input.trim() || busy}
+                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)' }}
+                aria-label="Send"
+              >
+                <span className="material-symbols-outlined text-white" style={{ fontSize: '18px' }}>send</span>
+              </button>
             </div>
+            <div className="text-[11px] text-center mt-1.5" style={{ color: 'var(--text-faint)' }}>AI can make mistakes — verify important facts.</div>
           </div>
         </div>
       </div>

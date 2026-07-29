@@ -6,8 +6,9 @@ import ActivityHeatmap from '../../components/ActivityHeatmap';
 import { getDailyActivityMinutes } from '../../lib/activity';
 import { getStudentDashboard, getStudentProgressData, getStudentStreamDB, type ProgressRecord } from '../../lib/db';
 import { getAuthSession } from '../../lib/auth';
-import { getStudentStream, saveStreamLocal, STREAM_COLORS, STREAM_BG, type StudentStream } from '../../lib/stream';
+import { getStudentStream, saveStreamLocal, STREAM_SUBJECTS, STREAM_COLORS, STREAM_BG, type StudentStream } from '../../lib/stream';
 import { formatExamCountdown } from '../../lib/examCountdown';
+import { isCanonicalTopic } from '../../lib/syllabus';
 import {
   currentStudent,
   dashboardMetrics,
@@ -111,7 +112,15 @@ export default function StudentDashboard() {
 
         {/* ── Mission hero — real recommendation + resume data, no fabricated content ── */}
         {(() => {
-          const rec = data.aiRecommendations?.[0] as { title?: string; rationale?: string; subject?: string; durationMins?: number } | undefined;
+          // Only ever surface a recommendation that's both a real subject for
+          // this student's stream AND a real JEE/NEET syllabus topic — same
+          // filter Practice mode uses. Without it, a stray mismatched entry
+          // (e.g. a Biology-tagged title on a JEE student, or a non-syllabus
+          // section label) could become "Today's Mission" itself.
+          const streamSubjects: string[] = STREAM_SUBJECTS[stream ?? 'JEE'];
+          const realRecs = ((data.aiRecommendations ?? []) as Array<{ title?: string; rationale?: string; subject?: string; durationMins?: number }>)
+            .filter(r => r.subject && r.title && streamSubjects.includes(r.subject) && isCanonicalTopic(r.subject, r.title));
+          const rec = realRecs[0];
           const missionTitle = rec?.title
             ?? (progress?.nextRecommendation ? `Next up: ${progress.nextRecommendation}` : 'Keep today\'s momentum going');
           const missionDesc = rec?.rationale
@@ -166,7 +175,8 @@ export default function StudentDashboard() {
                   )}
                 </div>
                 <Link
-                  to="/student/practice"
+                  to={rec ? '/student/exam' : '/student/practice'}
+                  state={rec ? { subject: rec.subject, chapter: rec.title } : undefined}
                   className="flex items-center gap-2 px-5 h-10 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-px shrink-0"
                   style={{ background: 'linear-gradient(135deg, var(--brand), #7C3AED)', boxShadow: '0 8px 24px rgba(107,94,240,0.28)' }}
                 >
