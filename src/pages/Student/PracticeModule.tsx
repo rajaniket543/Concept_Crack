@@ -6,6 +6,7 @@ import { getStudentDashboard } from '../../lib/db';
 import { getStudentStream } from '../../lib/stream';
 import { getChaptersForSubject, type ChapterInfo } from '../../lib/questions';
 import { isCanonicalTopic, canonicalTopicKey } from '../../lib/syllabus';
+import { getWeakTopics, type TopicStat } from '../../lib/weakTopics';
 
 interface AIRecommendation {
   title: string;
@@ -98,6 +99,7 @@ export default function PracticeModule() {
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
   const [weakAreas, setWeakAreas] = useState<WeakArea[]>([]);
+  const [topicStats, setTopicStats] = useState<Record<string, TopicStat>>({});
   const [showAllChapters, setShowAllChapters] = useState(false);
   const [otherOpenBySubject, setOtherOpenBySubject] = useState<Record<string, boolean>>({});
   const [thinOpenBySubject, setThinOpenBySubject] = useState<Record<string, boolean>>({});
@@ -122,19 +124,25 @@ export default function PracticeModule() {
         .then(payload => {
           if (cancelled) return;
           // Drop recommendations that aren't real JEE/NEET syllabus topics for
-          // their subject (e.g. a stray mock-test section label) before
-          // surfacing them as an "AI recommendation" — a wrong-looking
-          // recommendation is worse than a missing one.
+          // their subject (e.g. a stray mock-test section label), AND aren't
+          // in this student's own stream — studentWeakTopics accumulates every
+          // subject a student has ever answered a question in with no stream
+          // tag, so a JEE student who once touched a mixed/mistagged question
+          // could otherwise see a real but wrong-stream Biology recommendation.
           const realRecs = ((payload.aiRecommendations ?? []) as AIRecommendation[])
-            .filter(r => isCanonicalTopic(r.subject, r.title));
+            .filter(r => subjects.includes(r.subject) && isCanonicalTopic(r.subject, r.title));
           setRecommendations(realRecs.slice(0, 4));
-          setWeakAreas((payload.weakAreas ?? []) as WeakArea[]);
+          setWeakAreas(((payload.weakAreas ?? []) as WeakArea[]).filter(w => subjects.includes(w.note)));
         })
         .catch(() => {
           if (cancelled) return;
           setRecommendations([]);
           setWeakAreas([]);
         });
+      getWeakTopics(uid).then(record => {
+        if (cancelled) return;
+        setTopicStats(record?.topics ?? {});
+      });
     } else {
       setRecommendations([]);
       setWeakAreas([]);
@@ -331,6 +339,11 @@ export default function PracticeModule() {
           // doc total, which is inflated by spelling-variant duplicates and
           // near-empty stray entries.
           const curatedTotal = reasonableChapters(subj, items).length;
+          // Real per-topic performance, keyed exactly as studentWeakTopics
+          // stores it — the same (subject, chapter) pair the exam actually
+          // runs on, so "62% accuracy" always matches what practicing this
+          // exact card would build on.
+          const statFor = (ch: ChapterInfo) => topicStats[`${ch.subject}::${ch.chapter}`];
           return (
             <div key={subj}>
               <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -354,7 +367,7 @@ export default function PracticeModule() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {syllabusItems.map(ch => (
-                  <ChapterCard key={ch.id} chapter={ch} meta={meta} recommended={recommendedNames.has(ch.chapter)} />
+                  <ChapterCard key={ch.id} chapter={ch} meta={meta} recommended={recommendedNames.has(ch.chapter)} stat={statFor(ch)} />
                 ))}
                 {syllabusItems.length === 0 && (
                   <p className="text-body-sm col-span-full" style={{ color: 'var(--text-muted)' }}>No recognised syllabus topics found here yet.</p>
@@ -375,7 +388,7 @@ export default function PracticeModule() {
                   {thinOpen && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-3">
                       {thinItems.map(ch => (
-                        <ChapterCard key={ch.id} chapter={ch} meta={meta} />
+                        <ChapterCard key={ch.id} chapter={ch} meta={meta} stat={statFor(ch)} />
                       ))}
                     </div>
                   )}
@@ -396,7 +409,7 @@ export default function PracticeModule() {
                   {otherOpen && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-3">
                       {dedupeChaptersByName(otherItems).map(ch => (
-                        <ChapterCard key={ch.id} chapter={ch} meta={meta} />
+                        <ChapterCard key={ch.id} chapter={ch} meta={meta} stat={statFor(ch)} />
                       ))}
                     </div>
                   )}
@@ -420,9 +433,15 @@ export default function PracticeModule() {
   );
 }
 
-function ChapterCard({ chapter: ch, meta, recommended }: { chapter: ChapterInfo; meta: { color: string; bg: string }; recommended?: boolean }) {
+function ChapterCard({ chapter: ch, meta, recommended, stat }: { chapter: ChapterInfo; meta: { color: string; bg: string }; recommended?: boolean; stat?: TopicStat }) {
   const examQuestions = Math.min(ch.questionCount, 30);
   const durationMins  = Math.ceil(examQuestions * 1.5);
+  // Green/amber/red mirrors the accuracy bands used elsewhere in the app
+  // (e.g. the AI recommendation rationale text) rather than a new scale.
+  const statColor = !stat ? 'var(--text-muted)'
+    : stat.accuracyPct >= 70 ? '#10B981'
+    : stat.accuracyPct >= 40 ? '#F59E0B'
+    : '#EF4444';
 
   return (
     <Link
@@ -454,6 +473,9 @@ function ChapterCard({ chapter: ch, meta, recommended }: { chapter: ChapterInfo;
         <h3 className="text-body-md font-semibold mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
           {ch.chapter}
         </h3>
+        <p className="text-body-sm font-medium" style={{ color: statColor }}>
+          {stat ? `${stat.accuracyPct}% accuracy · ${stat.attempts} attempt${stat.attempts === 1 ? '' : 's'}` : 'Not attempted yet'}
+        </p>
       </div>
 
       <div className="flex items-center justify-between mt-auto">
