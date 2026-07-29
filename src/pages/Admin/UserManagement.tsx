@@ -12,9 +12,9 @@ import type { AuthRole } from '../../lib/auth';
 const TABS = ['All', 'Students', 'Faculty', 'Parents', 'Admins'] as const;
 
 const ROLE_BADGE: Record<string, { bg: string; color: string }> = {
-  student:  { bg: 'rgba(91,79,232,0.10)',  color: '#5B4FE8' },
+  student:  { bg: 'rgba(139,92,246,0.10)', color: 'var(--violet)' },
   faculty:  { bg: 'rgba(6,182,212,0.10)',  color: '#0891B2' },
-  admin:    { bg: 'rgba(236,72,153,0.10)', color: '#DB2777' },
+  admin:    { bg: 'var(--admin-accent-muted)', color: 'var(--admin-accent-hover)' },
   parent:   { bg: 'rgba(245,158,11,0.10)', color: '#D97706' },
 };
 const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
@@ -107,8 +107,8 @@ export default function UserManagement() {
   }), [users]);
 
   const metricMeta = [
-    { icon: 'group',      color: '#EC4899', bg: 'rgba(236,72,153,0.12)', label: 'Total Users',  value: String(counts.total)    },
-    { icon: 'school',     color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)',  label: 'Students',     value: String(counts.students) },
+    { icon: 'group',      color: 'var(--admin-accent)', bg: 'var(--admin-accent-muted)', label: 'Total Users',  value: String(counts.total)    },
+    { icon: 'school',     color: 'var(--violet)', bg: 'rgba(139,92,246,0.12)',  label: 'Students',     value: String(counts.students) },
     { icon: 'co_present', color: '#0891B2', bg: 'rgba(6,182,212,0.12)',  label: 'Faculty',      value: String(counts.faculty)  },
     { icon: 'family_restroom', color: '#D97706', bg: 'rgba(245,158,11,0.12)', label: 'Parents', value: String(counts.parents) },
   ];
@@ -226,7 +226,7 @@ export default function UserManagement() {
             type="button"
             onClick={() => { setShowModal(true); setForm(EMPTY_FORM); setLinkedStudentEmail(''); }}
             className="btn-primary btn-md flex items-center gap-1.5"
-            style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}
+            style={{ background: 'linear-gradient(135deg, var(--admin-accent), var(--admin-accent-hover))' }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>person_add</span>
             Add User
@@ -269,7 +269,7 @@ export default function UserManagement() {
 
           {loading ? (
             <div className="p-8 text-center" style={{ color: 'var(--text-faint)' }}>
-              <Spinner size={24} color="#EC4899" className="block mx-auto mb-2" />
+              <Spinner size={24} color="var(--admin-accent)" className="block mx-auto mb-2" />
               Loading users…
             </div>
           ) : (
@@ -296,7 +296,7 @@ export default function UserManagement() {
                           <div className="flex items-center gap-3">
                             <div
                               className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                              style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}
+                              style={{ background: 'linear-gradient(135deg, var(--admin-accent), var(--admin-accent-hover))' }}
                             >
                               {initials}
                             </div>
@@ -395,7 +395,7 @@ export default function UserManagement() {
                       type="button"
                       onClick={() => setPage(p)}
                       className="w-8 h-8 rounded-md text-sm font-semibold transition-colors"
-                      style={p === page ? { backgroundColor: '#EC4899', color: '#fff' } : { color: 'var(--text-muted)' }}
+                      style={p === page ? { backgroundColor: 'var(--admin-accent)', color: '#fff' } : { color: 'var(--text-muted)' }}
                     >
                       {p}
                     </button>
@@ -435,8 +435,8 @@ export default function UserManagement() {
               </button>
             </div>
 
-            <div className="rounded-xl p-3 text-sm flex gap-2.5" style={{ backgroundColor: 'rgba(91,79,232,0.08)', border: '1px solid rgba(91,79,232,0.15)' }}>
-              <span className="material-symbols-outlined shrink-0" style={{ fontSize: '16px', color: '#5B4FE8' }}>info</span>
+            <div className="rounded-xl p-3 text-sm flex gap-2.5" style={{ backgroundColor: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
+              <span className="material-symbols-outlined shrink-0" style={{ fontSize: '16px', color: 'var(--violet)' }}>info</span>
               <span style={{ color: 'var(--text-secondary)' }}>Password will be <strong>Temp@1234</strong> — user must change it on first login.</span>
             </div>
 
@@ -529,7 +529,7 @@ export default function UserManagement() {
                   type="submit"
                   disabled={creating || !form.name || !form.email}
                   className="flex-1 btn-primary btn-md flex items-center justify-center gap-2"
-                  style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}
+                  style={{ background: 'linear-gradient(135deg, var(--admin-accent), var(--admin-accent-hover))' }}
                 >
                   {creating
                     ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Creating…</>

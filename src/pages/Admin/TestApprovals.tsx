@@ -115,7 +115,7 @@ export default function TestApprovals() {
             const stage = v?.stage ?? 'none';
             return (
               <div key={test.id} className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-                <div className="h-1" style={{ background: 'linear-gradient(90deg, #5B4FE8, #7C3AED)' }} />
+                <div className="h-1" style={{ background: 'linear-gradient(90deg, var(--admin-accent), var(--violet))' }} />
                 <div className="p-5 space-y-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -141,7 +141,7 @@ export default function TestApprovals() {
                       { icon: 'library_books', label: 'Chapters', val: test.chapters.length },
                     ].map(({ icon, label, val }) => (
                       <div key={label} className="rounded-xl p-3" style={{ backgroundColor: 'var(--surface-muted)' }}>
-                        <span className="material-symbols-outlined block mb-1" style={{ fontSize: 18, color: '#5B4FE8' }}>{icon}</span>
+                        <span className="material-symbols-outlined block mb-1" style={{ fontSize: 18, color: 'var(--admin-accent)' }}>{icon}</span>
                         <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{val}</div>
                         <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>{label}</div>
                       </div>
@@ -170,7 +170,7 @@ export default function TestApprovals() {
                   )}
 
                   {test.instructions && (
-                    <p className="text-sm rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(91,79,232,0.04)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>{test.instructions}</p>
+                    <p className="text-sm rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--admin-accent-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>{test.instructions}</p>
                   )}
 
                   {/* Reject panel */}
@@ -205,7 +205,7 @@ export default function TestApprovals() {
                       )}
                       <div className="flex gap-2">
                         <button type="button" onClick={() => { setForwardTarget(null); setVerifierId(''); }} className="btn-ghost btn-sm flex-1">Cancel</button>
-                        <button type="button" onClick={() => forward(test)} disabled={acting === test.id || !verifierId} className="btn-primary btn-sm flex-1 justify-center" style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)' }}>
+                        <button type="button" onClick={() => forward(test)} disabled={acting === test.id || !verifierId} className="btn-primary btn-sm flex-1 justify-center" style={{ background: 'linear-gradient(135deg, var(--admin-accent), var(--admin-accent-hover))' }}>
                           {acting === test.id ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Send for Verification'}
                         </button>
                       </div>

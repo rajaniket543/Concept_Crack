@@ -135,8 +135,8 @@ export default function AdminDashboard() {
   }, [attempts]);
 
   const metrics = [
-    { label: 'Total Users', value: users.length, sub: `${counts.activeUsers} active`, icon: 'group', color: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
-    { label: 'Students / Faculty', value: `${counts.students} / ${counts.faculty}`, sub: `${counts.parents} parents linked`, icon: 'school', color: '#5B4FE8', bg: 'rgba(91,79,232,0.12)' },
+    { label: 'Total Users', value: users.length, sub: `${counts.activeUsers} active`, icon: 'group', color: 'var(--admin-accent)', bg: 'var(--admin-accent-muted)' },
+    { label: 'Students / Faculty', value: `${counts.students} / ${counts.faculty}`, sub: `${counts.parents} parents linked`, icon: 'school', color: 'var(--violet)', bg: 'rgba(139,92,246,0.12)' },
     { label: 'Tests on Platform', value: testCounts.total, sub: `${testCounts.active} live · ${testCounts.pending} pending approval`, icon: 'quiz', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
     { label: 'Question Bank', value: questionCount, sub: `${attempts.length} attempts recorded`, icon: 'library_books', color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
   ];
@@ -157,7 +157,7 @@ export default function AdminDashboard() {
             <Link
               to={pathFor('testApprovals')}
               className="btn-primary btn-md flex items-center gap-1.5"
-              style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}
+              style={{ background: 'linear-gradient(135deg, var(--admin-accent), var(--admin-accent-hover))' }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>verified</span>
               Approvals{testCounts.pending > 0 ? ` (${testCounts.pending})` : ''}
@@ -200,9 +200,9 @@ export default function AdminDashboard() {
             className="lg:col-span-2"
           >
             {loading ? (
-              <div className="flex items-center justify-center py-10"><Spinner size={22} color="#EC4899" /></div>
+              <div className="flex items-center justify-center py-10"><Spinner size={22} color="var(--admin-accent)" /></div>
             ) : (
-              <ActivityHeatmap data={submissionsByDay} colorBase="#10B981" unit="submission" />
+              <ActivityHeatmap data={submissionsByDay} colorBase="#EC4899" unit="submission" />
             )}
           </Card>
 
@@ -274,7 +274,7 @@ export default function AdminDashboard() {
           noPad
         >
           {loading ? (
-            <div className="flex items-center justify-center py-10"><Spinner size={22} color="#EC4899" /></div>
+            <div className="flex items-center justify-center py-10"><Spinner size={22} color="var(--admin-accent)" /></div>
           ) : attempts.length === 0 ? (
             <div className="py-10 text-center" style={{ color: 'var(--text-faint)' }}>
               No test attempts yet.
@@ -299,7 +299,7 @@ export default function AdminDashboard() {
                       <td><span className="text-body-md font-bold" style={{ color: 'var(--text-muted)' }}>{i + 1}</span></td>
                       <td>
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, #EC4899, #DB2777)' }}>
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, var(--admin-accent), var(--admin-accent-hover))' }}>
                             {a.studentName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                           </div>
                           <span className="text-body-md font-medium" style={{ color: 'var(--text-primary)' }}>{a.studentName}</span>
@@ -310,7 +310,7 @@ export default function AdminDashboard() {
                       <td>
                         <div className="flex items-center gap-2">
                           <div className="progress-bar w-14">
-                            <div className="progress-bar-fill" style={{ width: `${a.accuracyPct}%`, backgroundColor: '#EC4899' }} />
+                            <div className="progress-bar-fill" style={{ width: `${a.accuracyPct}%`, backgroundColor: 'var(--admin-accent)' }} />
                           </div>
                           <span className="text-label-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{a.accuracyPct}%</span>
                         </div>

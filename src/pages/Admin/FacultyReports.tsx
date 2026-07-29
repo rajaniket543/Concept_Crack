@@ -7,7 +7,7 @@ import { db } from '../../lib/firebase';
 import { askAI, hasAI } from '../../lib/ai';
 import AIMarkdown from '../../components/AIMarkdown';
 
-const ACCENT = '#EC4899';
+const ACCENT = 'var(--admin-accent)';
 
 // Real per-faculty effectiveness metrics, computed from the tests each faculty
 // member created and the attempts students submitted on them (2s).
@@ -203,7 +203,7 @@ Assess: how are the students under this faculty performing? Are core concepts la
                 )}
 
                 {reports[f.id] ? (
-                  <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ backgroundColor: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', color: 'var(--text-secondary)' }}>
+                  <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ backgroundColor: 'var(--admin-accent-muted)', border: '1px solid rgba(236,72,153,0.15)', color: 'var(--text-secondary)' }}>
                     <AIMarkdown text={reports[f.id]} />
                   </div>
                 ) : (
@@ -212,7 +212,7 @@ Assess: how are the students under this faculty performing? Are core concepts la
                     onClick={() => void generate(f)}
                     disabled={loadingId === f.id}
                     className="btn-primary btn-md w-full justify-center"
-                    style={{ background: `linear-gradient(135deg, ${ACCENT}, #DB2777)` }}
+                    style={{ background: `linear-gradient(135deg, ${ACCENT}, var(--admin-accent-hover))` }}
                   >
                     {loadingId === f.id ? <Spinner size={16} color="#fff" /> : <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>auto_awesome</span>}
                     {loadingId === f.id ? 'Analysing…' : 'Generate AI Report'}

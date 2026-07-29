@@ -69,7 +69,7 @@
   --topbar-bg:     #FFFFFF;
   --topbar-border: #E5E7EB;
 
-  /* Role accents — Faculty (teal) and Parent (orange), mirroring --brand */
+  /* Role accents — Faculty (teal), Parent (orange), Admin (pink), mirroring --brand */
   --faculty-accent:        #14B8A6;
   --faculty-accent-hover:  #0D9488;
   --faculty-accent-light:  #CCFBF1;
@@ -78,6 +78,10 @@
   --parent-accent-hover:   #EA580C;
   --parent-accent-light:   #FFEDD5;
   --parent-accent-muted:   rgba(249,115,22,0.12);
+  --admin-accent:          #EC4899;
+  --admin-accent-hover:    #DB2777;
+  --admin-accent-light:    #FCE7F3;
+  --admin-accent-muted:    rgba(236,72,153,0.12);
 }
 
 .dark {
@@ -103,6 +107,8 @@
   --faculty-accent-muted: rgba(20,184,166,0.15);
   --parent-accent-light:  rgba(249,115,22,0.20);
   --parent-accent-muted:  rgba(249,115,22,0.15);
+  --admin-accent-light:   rgba(236,72,153,0.20);
+  --admin-accent-muted:   rgba(236,72,153,0.15);
 }
 
 /* Battle Arena — a hotter, deeper sub-theme scoped to Battle.tsx only via this

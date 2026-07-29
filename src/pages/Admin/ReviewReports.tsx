@@ -101,6 +101,7 @@ export default function ReviewReports() {
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {[
+            // Hex literal — concatenated with an alpha suffix below, never var().
             { label: 'Total Reviews', value: counts.total, icon: 'fact_check', color: '#EC4899' },
             { label: 'Awaiting', value: counts.awaiting, icon: 'hourglass_top', color: '#2563EB' },
             { label: 'Verified', value: counts.verified, icon: 'verified', color: '#059669' },
@@ -128,7 +129,7 @@ export default function ReviewReports() {
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-12"><Spinner size={22} color="#EC4899" /></div>
+            <div className="flex items-center justify-center py-12"><Spinner size={22} color="var(--admin-accent)" /></div>
           ) : filtered.length === 0 ? (
             <div className="py-12 text-center" style={{ color: 'var(--text-faint)' }}>
               <span className="material-symbols-outlined block mx-auto mb-2" style={{ fontSize: '30px' }}>fact_check</span>
