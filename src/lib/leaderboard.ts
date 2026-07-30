@@ -49,12 +49,24 @@ const COLLECTION = 'leaderboard';
 export async function upsertMyLeaderboardEntry(
   uid: string, name: string, stream: StudentStream | null
 ): Promise<LeaderboardEntry> {
+  const entry = await buildMyLeaderboardEntry(uid, name, stream);
+  await setDoc(doc(db, COLLECTION, uid), entry);
+  return entry;
+}
+
+/** This student's own real entry, computed without writing anything. Kept
+ *  separate from the upsert so the page can still show your own standing when
+ *  the shared-board write is unavailable (e.g. the /leaderboard rule hasn't
+ *  been published yet) instead of rendering an empty board. */
+export async function buildMyLeaderboardEntry(
+  uid: string, name: string, stream: StudentStream | null
+): Promise<LeaderboardEntry> {
   const [xp, prevSnap] = await Promise.all([
     getStudentXP(uid),
-    getDoc(doc(db, COLLECTION, uid)),
+    getDoc(doc(db, COLLECTION, uid)).catch(() => null),
   ]);
-  const previousPoints = prevSnap.exists() ? (prevSnap.data().points as number) ?? 0 : 0;
-  const entry: LeaderboardEntry = {
+  const previousPoints = prevSnap?.exists() ? (prevSnap.data().points as number) ?? 0 : 0;
+  return {
     studentId: uid,
     name,
     stream,
@@ -63,8 +75,6 @@ export async function upsertMyLeaderboardEntry(
     streakDays: xp.streakDays,
     updatedAt: new Date().toISOString(),
   };
-  await setDoc(doc(db, COLLECTION, uid), entry);
-  return entry;
 }
 
 // No orderBy/where in the query — same convention as src/lib/tests.ts (avoids

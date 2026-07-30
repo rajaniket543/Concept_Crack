@@ -3,7 +3,10 @@ import TopBar from '../../components/TopBar';
 import Card from '../../components/Card';
 import { getAuthSession } from '../../lib/auth';
 import { getStudentStream } from '../../lib/stream';
-import { upsertMyLeaderboardEntry, listLeaderboard, sampleLeaderboardEntries, type LeaderboardEntry } from '../../lib/leaderboard';
+import {
+  upsertMyLeaderboardEntry, buildMyLeaderboardEntry, listLeaderboard,
+  sampleLeaderboardEntries, type LeaderboardEntry,
+} from '../../lib/leaderboard';
 
 const PODIUM_COLORS = ['#F59E0B', '#9CA3AF', '#CD7F32'];
 const PODIUM_HEIGHT = ['h-28', 'h-20', 'h-16'];
@@ -24,33 +27,56 @@ export default function LeaderboardRankings() {
 
   const [entries, setEntries] = useState<RankedEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [boardUnavailable, setBoardUnavailable] = useState(false);
 
-  // Real leaderboard: on load, write this student's own current real points
-  // (src/lib/leaderboard.ts — same formula as the XP pill in the sidebar),
-  // then read the whole real, same-stream peer list back and rank client-side.
+  // Your own row is computed locally and always shown — publishing your entry
+  // to the shared board and reading other students back are both best-effort,
+  // so a permissions/network failure on either degrades to "just you" instead
+  // of blanking the whole page.
   useEffect(() => {
     if (!uid) { setLoading(false); return; }
     let cancelled = false;
     (async () => {
+      let mine: LeaderboardEntry | null = null;
       try {
-        await upsertMyLeaderboardEntry(uid, name, stream);
-        const real = await listLeaderboard(stream);
-        if (cancelled) return;
-        // Your own entry is always real. Padded out with generic placeholder
-        // rows (never a specific real person) so the board looks like a full
-        // batch rather than empty while there are only one or two real
-        // students in the system so far.
-        const MIN_ROWS = 5;
-        const padded = real.length >= MIN_ROWS ? real : [...real, ...sampleLeaderboardEntries(stream, MIN_ROWS - real.length)];
-        const ranked = padded
-          .sort((a, b) => b.points - a.points)
-          .map((e, i) => ({ ...e, rank: i + 1, isMe: e.studentId === uid }));
-        setEntries(ranked);
+        mine = await buildMyLeaderboardEntry(uid, name, stream);
       } catch (e) {
-        console.error('Failed to load leaderboard:', e);
-      } finally {
-        if (!cancelled) setLoading(false);
+        console.error('Failed to compute your leaderboard entry:', e);
       }
+
+      // Best-effort publish so peers can see you; ignored if not permitted.
+      let shared = true;
+      try {
+        if (mine) await upsertMyLeaderboardEntry(uid, name, stream);
+      } catch (e) {
+        console.error('Could not publish your leaderboard entry:', e);
+        shared = false;
+      }
+
+      let others: LeaderboardEntry[] = [];
+      try {
+        others = (await listLeaderboard(stream)).filter(e => e.studentId !== uid);
+      } catch (e) {
+        console.error('Could not read the shared leaderboard:', e);
+        shared = false;
+      }
+      if (cancelled) return;
+
+      // Padded with generic placeholder rows (never a specific real person) so
+      // the podium reads as a full batch while few real students exist yet.
+      const MIN_ROWS = 5;
+      const real = mine ? [mine, ...others] : others;
+      const padded = real.length >= MIN_ROWS
+        ? real
+        : [...real, ...sampleLeaderboardEntries(stream, MIN_ROWS - real.length)];
+
+      setEntries(
+        padded
+          .sort((a, b) => b.points - a.points)
+          .map((e, i) => ({ ...e, rank: i + 1, isMe: e.studentId === uid })),
+      );
+      setBoardUnavailable(!shared);
+      setLoading(false);
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,7 +131,12 @@ export default function LeaderboardRankings() {
 
         {/* Podium — top 3 real scorers */}
         {top3.length > 0 && (
-          <Card title="Top 3" subtitle="Real students, ranked by real practice points">
+          <Card
+            title="Top 3"
+            subtitle={boardUnavailable
+              ? 'Your current standing with representative batch positions'
+              : 'Students ranked by practice points'}
+          >
             <div className="flex items-end justify-center gap-5 sm:gap-10 py-4">
               {top3.map(student => {
                 const rank = student.rank;
