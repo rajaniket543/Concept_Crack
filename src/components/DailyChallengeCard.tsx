@@ -6,6 +6,8 @@ import {
   todayKey, QUESTIONS_PER_SUBJECT, type DailyChallenge,
 } from '../lib/dailyChallenge';
 import type { StudentStream } from '../lib/stream';
+import { pathFor } from '../lib/pages';
+import { todaySummaryFrom, type DayActivity } from '../lib/studyCalendar';
 import MonthBadge from './MonthBadge';
 
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -28,7 +30,22 @@ function formatCountdown(ms: number): string {
   return `${h}:${m}:${s}`;
 }
 
-export default function DailyChallengeCard({ stream }: { stream: StudentStream }) {
+function formatMinutes(mins: number): string {
+  if (mins <= 0) return '0m';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return `${m}m`;
+}
+
+export default function DailyChallengeCard({
+  stream,
+  activity = {},
+}: {
+  stream: StudentStream;
+  /** Per-day real study activity, fetched once by the dashboard and shared. */
+  activity?: Record<string, DayActivity>;
+}) {
   const session = getAuthSession();
   const uid = session?.user?.id;
 
@@ -69,6 +86,7 @@ export default function DailyChallengeCard({ stream }: { stream: StudentStream }
     return () => { cancelled = true; };
   }, [uid, stream, retryTick]);
 
+  const todaySummary = useMemo(() => todaySummaryFrom(activity, todayKey()), [activity]);
   const isTodayCompleted = completed.has(todayKey());
   const isViewingCurrentMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth();
   const viewedMonthKey = monthKeyOf(viewYear, viewMonth);
@@ -135,8 +153,11 @@ export default function DailyChallengeCard({ stream }: { stream: StudentStream }
           if (!cell) return <div key={i} />;
           const isDone = completed.has(cell.key);
           const isToday = cell.key === todayKey();
-          return (
-            <div key={i} className="flex flex-col items-center gap-1 py-1">
+          // Past days open in review-only mode; today is taken live via the
+          // CTA below; future days aren't reachable at all.
+          const isPast = cell.key < todayKey();
+          const inner = (
+            <>
               <div
                 className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold"
                 style={isToday
@@ -149,12 +170,50 @@ export default function DailyChallengeCard({ stream }: { stream: StudentStream }
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ backgroundColor: isDone ? 'var(--brand)' : 'var(--surface-muted)' }}
               />
+            </>
+          );
+          return isPast ? (
+            <Link
+              key={i}
+              to={pathFor('dailyChallengeReview')}
+              state={{ date: cell.key, stream }}
+              title={`Review ${cell.key}`}
+              className="flex flex-col items-center gap-1 py-1 rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
+            >
+              {inner}
+            </Link>
+          ) : (
+            <div key={i} className="flex flex-col items-center gap-1 py-1">
+              {inner}
             </div>
           );
         })}
       </div>
 
+      {/* Today's real study totals across every activity, not just the challenge */}
+      <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="text-label-sm font-bold uppercase tracking-widest mb-2.5" style={{ color: 'var(--text-faint)' }}>
+          Today's Study Summary
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Answered', value: String(todaySummary.solved),                                     color: 'var(--brand)' },
+            { label: 'Study time', value: formatMinutes(todaySummary.minutes),                           color: '#F59E0B' },
+            { label: 'Accuracy', value: todaySummary.accuracyPct !== null ? `${todaySummary.accuracyPct}%` : '—', color: '#10B981' },
+            { label: 'XP earned', value: `+${todaySummary.xp}`,                                          color: '#8B5CF6' },
+          ].map(s => (
+            <div key={s.label}>
+              <div className="text-base font-bold font-headline" style={{ color: s.color, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+                {s.value}
+              </div>
+              <div className="text-[10.5px]" style={{ color: 'var(--text-muted)' }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {error ? (
+        // Never leave an inert CTA behind — a failed load gets a visible retry.
         <button
           type="button"
           onClick={() => setRetryTick(t => t + 1)}
@@ -162,11 +221,11 @@ export default function DailyChallengeCard({ stream }: { stream: StudentStream }
           style={{ backgroundColor: 'rgba(239,68,68,0.10)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.30)' }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
-          {error} — Retry
+          Couldn't load — Retry
         </button>
       ) : (
         <Link
-          to={challenge ? '/student/exam' : '#'}
+          to={challenge ? pathFor('exam') : '#'}
           state={challenge ? { testId: challenge.id } : undefined}
           className="mt-4 w-full flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-bold transition-all hover:-translate-y-px"
           style={isTodayCompleted

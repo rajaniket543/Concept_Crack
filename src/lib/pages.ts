@@ -16,6 +16,7 @@ export type PageKey =
   | 'aiTest'
   | 'battle'
   | 'pyq'
+  | 'dailyChallengeReview'
   | 'testLog'
   | 'tests'
   | 'aiCompanion'
@@ -65,6 +66,7 @@ export const pages: PageDef[] = [
   { key: 'aiTest', label: 'AI Test', group: 'Student', path: '/student/ai-test' },
   { key: 'battle', label: 'Battle', group: 'Student', path: '/student/battle' },
   { key: 'pyq', label: 'Previous Year Papers', group: 'Student', path: '/student/pyq' },
+  { key: 'dailyChallengeReview', label: 'Challenge Review', group: 'Student', path: '/student/daily-challenge/review' },
   { key: 'testLog', label: 'Test Log', group: 'Student', path: '/student/test-log' },
   { key: 'tests', label: 'Tests', group: 'Student', path: '/student/tests' },
   { key: 'aiCompanion', label: 'AI Companion', group: 'Student', path: '/student/ai-companion' },

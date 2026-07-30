@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
-import ActivityHeatmap from '../../components/ActivityHeatmap';
+import ContributionHeatmap from '../../components/ContributionHeatmap';
 import DailyChallengeCard from '../../components/DailyChallengeCard';
-import { getDailyActivityMinutes } from '../../lib/activity';
+import RecentTestsCard from '../../components/RecentTestsCard';
+import AchievementBadges from '../../components/AchievementBadges';
+import { getDailyStudyActivity, type DayActivity } from '../../lib/studyCalendar';
 import { getStudentDashboard, getStudentProgressData, getStudentStreamDB, type ProgressRecord } from '../../lib/db';
 import { getAuthSession } from '../../lib/auth';
 import { getStudentStream, saveStreamLocal, STREAM_SUBJECTS, STREAM_COLORS, STREAM_BG, type StudentStream } from '../../lib/stream';
@@ -44,7 +46,9 @@ export default function StudentDashboard() {
   });
   const [loading,  setLoading]  = useState(false);
   const [progress, setProgress] = useState<ProgressRecord | null>(null);
-  const [activityMap, setActivityMap] = useState<Record<string, number>>({});
+  // Fetched once here and shared with both the heatmap and the daily-challenge
+  // card's "Today's Study Summary", so the page makes one round-trip for it.
+  const [activityMap, setActivityMap] = useState<Record<string, DayActivity>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -57,7 +61,7 @@ export default function StudentDashboard() {
       getStudentProgressData(session.user.id)
         .then(p => { if (!cancelled) setProgress(p); })
         .catch(() => undefined);
-      getDailyActivityMinutes(session.user.id)
+      getDailyStudyActivity(session.user.id)
         .then(m => { if (!cancelled) setActivityMap(m); })
         .catch(() => undefined);
       // Correct against the student's actual profile — covers a fresh
@@ -292,15 +296,16 @@ export default function StudentDashboard() {
         {/* ── Bottom row ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Daily Challenge — LeetCode-style streak calendar */}
-          {stream && <DailyChallengeCard stream={stream} />}
+          {stream && <DailyChallengeCard stream={stream} activity={activityMap} />}
 
           {/* Study activity calendar (LeetCode-style) */}
           <Card
             title="Study Activity"
-            subtitle="Your daily study time over the last 6 months"
+            subtitle="Hover any day for details · click to open its summary"
             className="lg:col-span-2"
           >
-            <ActivityHeatmap data={activityMap} colorBase="#6B5EF0" unit="min" />
+            <ContributionHeatmap data={activityMap} colorBase="#6B5EF0" />
+            {stream && <AchievementBadges stream={stream} />}
           </Card>
 
           {/* Weak areas */}
@@ -334,6 +339,11 @@ export default function StudentDashboard() {
               </Link>
             </div>
           </Card>
+
+          {/* Recent attempt history — fills the rest of row 2 */}
+          <div className="lg:col-span-2">
+            <RecentTestsCard />
+          </div>
         </div>
 
         {/* ── AI Recommendations ── */}

@@ -28,6 +28,7 @@ import CustomTest from './pages/Student/CustomTest';
 import AITest from './pages/Student/AITest';
 import Battle from './pages/Student/Battle';
 import PYQSection from './pages/Student/PYQSection';
+import DailyChallengeReview from './pages/Student/DailyChallengeReview';
 import MockTest from './pages/Student/MockTest';
 import TestLog from './pages/Student/TestLog';
 import TestsHub from './pages/Student/TestsHub';
@@ -266,6 +267,7 @@ export default function App() {
         <Route path="ai-test" element={<RequireAuth roles={['student']}><AITest /></RequireAuth>} />
         <Route path="battle" element={<RequireAuth roles={['student']}><Battle /></RequireAuth>} />
         <Route path="pyq" element={<RequireAuth roles={['student']}><PYQSection /></RequireAuth>} />
+        <Route path="daily-challenge/review" element={<RequireAuth roles={['student']}><DailyChallengeReview /></RequireAuth>} />
         <Route path="mock-test" element={<RequireAuth roles={['student']}><MockTest /></RequireAuth>} />
         <Route path="test-log" element={<RequireAuth roles={['student']}><TestLog /></RequireAuth>} />
       </Route>

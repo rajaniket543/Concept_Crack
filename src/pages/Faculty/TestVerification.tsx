@@ -82,68 +82,20 @@ export default function TestVerification() {
         </p>
       </div>
 
-      {/* Student-reported question issues */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-title-md font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Flagged Questions</h2>
-          {flags.length > 0 && <span className="badge" style={{ backgroundColor: 'rgba(239,68,68,0.10)', color: '#DC2626' }}>{flags.length}</span>}
+      {/* Student-reported question issues now live on their own page, with
+          filters, full review detail and an edit-history audit trail. */}
+      <Link
+        to={pathFor('reportedQuestions')}
+        className="rounded-2xl p-4 flex items-center gap-3 transition-all hover:-translate-y-px"
+        style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#DC2626' }}>flag</span>
+        <div className="flex-1">
+          <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Reported Questions</div>
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Review questions students have flagged as wrong or unclear</div>
         </div>
-        {flagsLoading ? (
-          <div className="h-20 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--surface)' }} />
-        ) : flags.length === 0 ? (
-          <div className="rounded-2xl p-6 text-center" style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)' }}>
-            <p className="text-body-sm" style={{ color: 'var(--text-muted)' }}>No students have reported a question issue.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {flags.map(flag => (
-              <div key={flag.id} className="rounded-2xl p-4 space-y-3" style={{ backgroundColor: 'var(--surface)', border: '1px solid rgba(239,68,68,0.30)' }}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="text-label-sm font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.10)', color: '#DC2626' }}>
-                      {flag.subject} · {flag.chapter}
-                    </span>
-                    <p className="text-sm font-medium mt-2" style={{ color: 'var(--text-primary)' }}><MathText text={flag.questionText} /></p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                      Reported by {flag.flaggedByName}: "{flag.reason}"
-                    </p>
-                  </div>
-                </div>
-
-                {editingFlag === flag.id ? (
-                  <div className="space-y-2">
-                    <textarea
-                      value={editText}
-                      onChange={e => setEditText(e.target.value)}
-                      rows={3}
-                      className="w-full rounded-lg px-3 py-2 text-sm resize-none"
-                      style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)', color: 'var(--text-primary)', outline: 'none' }}
-                    />
-                    <div className="flex gap-2 justify-end">
-                      <button type="button" onClick={() => setEditingFlag(null)} className="btn-outline btn-sm">Cancel</button>
-                      <button type="button" onClick={() => void saveFlagEdit(flag)} disabled={flagActing === flag.id} className="btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
-                        {flagActing === flag.id ? 'Saving…' : 'Save fix'}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-2 flex-wrap">
-                    <button type="button" onClick={() => { setEditingFlag(flag.id); setEditText(flag.questionText); }} disabled={flagActing === flag.id} className="btn-outline btn-sm">
-                      <span className="material-symbols-outlined" style={{ fontSize: 15 }}>edit</span> Edit
-                    </button>
-                    <button type="button" onClick={() => void deleteFlaggedQuestion(flag)} disabled={flagActing === flag.id} className="btn-outline btn-sm" style={{ borderColor: '#EF4444', color: '#EF4444' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: 15 }}>delete</span> Delete question
-                    </button>
-                    <button type="button" onClick={() => void dismissFlag(flag)} disabled={flagActing === flag.id} className="btn-outline btn-sm ml-auto">
-                      Dismiss report
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--text-faint)' }}>arrow_forward</span>
+      </Link>
 
       {tests.length === 0 ? (
         <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: 'var(--surface)', border: '2px dashed var(--border)' }}>

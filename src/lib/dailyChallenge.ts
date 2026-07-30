@@ -1,6 +1,6 @@
 import { collection, doc, getDoc, getDocs, query, setDoc, where, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
-import { getStudentAttempts } from './tests';
+import { getStudentAttempts, type TestAttempt } from './tests';
 import { STREAM_SUBJECTS, type StudentStream } from './stream';
 
 export const QUESTIONS_PER_SUBJECT = 5;
@@ -53,11 +53,27 @@ export interface DailyChallenge {
   questionIds: string[];
 }
 
-/** Gets today's shared daily-challenge test for this stream, creating it (as a
- *  real `tests` doc, `type: 'custom'` so it satisfies the existing student
- *  create rule — no security-rule change needed) if no one has yet today. */
-export async function getOrCreateDailyChallengeTest(uid: string, stream: StudentStream): Promise<DailyChallenge> {
-  const date = todayKey();
+/** True for any daily-challenge test id, regardless of the `type` field the
+ *  doc was written with (older docs used `type: 'custom'`). */
+export function isDailyChallengeTestId(id: string): boolean {
+  return id.startsWith('daily_');
+}
+
+/** A date ('YYYY-MM-DD') strictly before today — past challenges are
+ *  review-only, never re-attemptable. */
+export function isPastChallenge(date: string): boolean {
+  return date < todayKey();
+}
+
+/** Gets the shared daily-challenge test for `date` (defaults to today) and
+ *  this stream, creating it (as a real `tests` doc, `type: 'custom'` so it
+ *  satisfies the existing student create rule — no security-rule change
+ *  needed) if no one has generated it yet. Passing a past date lazily
+ *  materialises that day's set using the identical deterministic seed, so
+ *  reviewing an old day always shows the same questions it would have. */
+export async function getOrCreateDailyChallengeTest(
+  uid: string, stream: StudentStream, date: string = todayKey()
+): Promise<DailyChallenge> {
   const id = dailyTestId(date, stream);
   const ref = doc(db, 'tests', id);
   const existing = await getDoc(ref);
@@ -126,6 +142,14 @@ export async function getDailyChallengeCompletions(uid: string, stream: StudentS
     }
   }
   return dates;
+}
+
+/** This student's own submitted attempt for a specific daily-challenge test,
+ *  or null if they never attempted that day — powers the review page's
+ *  "your answer vs the correct answer" display. */
+export async function getAttemptForDailyChallenge(uid: string, testId: string): Promise<TestAttempt | null> {
+  const attempts = await getStudentAttempts(uid).catch(() => []);
+  return attempts.find(a => a.testId === testId && a.status === 'submitted') ?? null;
 }
 
 /** Every 'YYYY-MM' month (sorted, oldest first) where every real calendar day
