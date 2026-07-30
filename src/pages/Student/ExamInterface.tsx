@@ -543,11 +543,18 @@ export default function ExamInterface() {
       setFlagComment('');
       toast('Reported — a faculty member will review this question', 'success');
     } catch (e) {
+      const code = (e as { code?: string })?.code ?? '';
       if (e instanceof Error && e.message === 'ALREADY_REPORTED') {
         setFlaggedIds(prev => new Set(prev).add(question.id));
         setFlagOpen(false);
         toast("You've already reported this question", 'error');
+      } else if (code === 'permission-denied') {
+        // Not transient — "try again" would be misleading. Question reporting
+        // needs the /questionFlags rule published in the Firebase console.
+        console.error('Question reporting is blocked by Firestore rules (/questionFlags):', e);
+        toast('Question reporting is not enabled yet — please tell your institute admin.', 'error');
       } else {
+        console.error('Failed to submit question report:', e);
         toast('Could not submit the report — please try again', 'error');
       }
     } finally {

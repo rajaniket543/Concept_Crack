@@ -69,34 +69,77 @@ export async function listReportedQuestions(filters: ReportedQuestionFilters = {
 
 interface Actor { id: string; name: string }
 
-/** Leaves the question as-is; the report(s) are simply acknowledged. */
-export async function approveReports(reports: QuestionFlag[], actor: Actor): Promise<void> {
-  for (const r of reports) await resolveQuestionFlag(r.id, 'approved');
-  const questionId = reports[0]?.questionId;
-  if (questionId) {
-    await logQuestionHistory({ questionId, action: 'approved', actorId: actor.id, actorName: actor.name });
+/** Outcome of a review action. The primary change either happened or threw;
+ *  `warnings` lists follow-up bookkeeping (marking reports resolved, writing
+ *  the audit entry) that didn't complete. Keeping these apart matters: if the
+ *  question edit succeeded, saying "failed to save" would be a lie that makes
+ *  faculty re-apply an edit that's already live. */
+export interface ActionResult {
+  warnings: string[];
+}
+
+/** Marks reports resolved, best-effort. Returns what couldn't be done. */
+async function resolveAll(reports: QuestionFlag[], resolution: 'approved' | 'rejected', note?: string): Promise<string[]> {
+  const open = reports.filter(r => r.status === 'open');
+  if (open.length === 0) return [];
+  try {
+    for (const r of open) await resolveQuestionFlag(r.id, resolution, note);
+    return [];
+  } catch (e) {
+    console.error('Could not mark report(s) resolved:', e);
+    return ['the report is still showing as open'];
   }
 }
 
-export async function rejectReport(flag: QuestionFlag, note: string, actor: Actor): Promise<void> {
+/** Writes the audit entry, best-effort. Returns what couldn't be done. */
+async function logBestEffort(entry: Parameters<typeof logQuestionHistory>[0]): Promise<string[]> {
+  try {
+    await logQuestionHistory(entry);
+    return [];
+  } catch (e) {
+    console.error('Could not write the question-history entry:', e);
+    return ['it was not recorded in the edit history'];
+  }
+}
+
+/** Leaves the question as-is; the report(s) are simply acknowledged. */
+export async function approveReports(reports: QuestionFlag[], actor: Actor): Promise<ActionResult> {
+  // Resolving the reports IS the action here, so a failure is a real failure.
+  const open = reports.filter(r => r.status === 'open');
+  for (const r of open) await resolveQuestionFlag(r.id, 'approved');
+  const questionId = reports[0]?.questionId;
+  const warnings = questionId
+    ? await logBestEffort({ questionId, action: 'approved', actorId: actor.id, actorName: actor.name })
+    : [];
+  return { warnings };
+}
+
+export async function rejectReport(flag: QuestionFlag, note: string, actor: Actor): Promise<ActionResult> {
   await resolveQuestionFlag(flag.id, 'rejected', note);
-  await logQuestionHistory({
+  const warnings = await logBestEffort({
     questionId: flag.questionId, action: 'report_rejected',
     actorId: actor.id, actorName: actor.name, note,
   });
+  return { warnings };
 }
 
 export async function editReportedQuestion(
   questionId: string, patch: Partial<BankQuestionInput>, reports: QuestionFlag[], actor: Actor
-): Promise<void> {
-  const before = await getBankQuestion(questionId);
+): Promise<ActionResult> {
+  const before = await getBankQuestion(questionId).catch(() => null);
+  // The only critical write — if this throws, nothing was saved and the
+  // caller should report a genuine failure.
   await updateBankQuestion(questionId, patch);
-  for (const r of reports.filter(r => r.status === 'open')) await resolveQuestionFlag(r.id, 'approved');
-  await logQuestionHistory({
-    questionId, action: 'edited', actorId: actor.id, actorName: actor.name,
-    before: before ? { ...before } : undefined,
-    after: { ...before, ...patch },
-  });
+  return {
+    warnings: [
+      ...await resolveAll(reports, 'approved'),
+      ...await logBestEffort({
+        questionId, action: 'edited', actorId: actor.id, actorName: actor.name,
+        before: before ? { ...before } : undefined,
+        after: { ...before, ...patch },
+      }),
+    ],
+  };
 }
 
 // Daily-challenge test docs use a predictable id (`daily_${date}_${stream}`),
@@ -124,13 +167,17 @@ async function swapInTodaysDailyChallenges(oldQuestionId: string, newQuestionId:
 
 export async function replaceReportedQuestion(
   oldQuestionId: string, newQuestionId: string, reports: QuestionFlag[], actor: Actor
-): Promise<void> {
+): Promise<ActionResult> {
   const affectedTestIds = await swapInTodaysDailyChallenges(oldQuestionId, newQuestionId);
-  for (const r of reports.filter(r => r.status === 'open')) await resolveQuestionFlag(r.id, 'approved');
-  await logQuestionHistory({
-    questionId: oldQuestionId, action: 'replaced', actorId: actor.id, actorName: actor.name,
-    replacedWithQuestionId: newQuestionId, affectedTestIds,
-  });
+  return {
+    warnings: [
+      ...await resolveAll(reports, 'approved'),
+      ...await logBestEffort({
+        questionId: oldQuestionId, action: 'replaced', actorId: actor.id, actorName: actor.name,
+        replacedWithQuestionId: newQuestionId, affectedTestIds,
+      }),
+    ],
+  };
 }
 
 export async function findReplacementCandidates(subject: string, chapter: string, excludeId: string): Promise<BankQuestion[]> {
@@ -140,23 +187,31 @@ export async function findReplacementCandidates(subject: string, chapter: string
 
 export async function deleteReportedQuestion(
   question: BankQuestion, reports: QuestionFlag[], actor: Actor
-): Promise<void> {
+): Promise<ActionResult> {
+  // Archive first — deliberately NOT best-effort. If the copy can't be
+  // written we must not delete the original, or the question is gone for good.
   await setDoc(doc(db, 'archivedQuestions', question.id), {
     ...question,
     archivedAt: serverTimestamp(),
     archivedBy: actor.id,
   });
 
-  const candidates = await findReplacementCandidates(question.subject, question.chapter, question.id);
+  const candidates = await findReplacementCandidates(question.subject, question.chapter, question.id)
+    .catch(() => [] as BankQuestion[]);
   let affectedTestIds: string[] = [];
   if (candidates.length > 0) {
     affectedTestIds = await swapInTodaysDailyChallenges(question.id, candidates[0].id);
   }
 
   await deleteBankQuestion(question.id);
-  for (const r of reports.filter(r => r.status === 'open')) await resolveQuestionFlag(r.id, 'approved');
-  await logQuestionHistory({
-    questionId: question.id, action: 'deleted', actorId: actor.id, actorName: actor.name,
-    replacedWithQuestionId: candidates[0]?.id, affectedTestIds,
-  });
+
+  const warnings = [
+    ...(candidates.length === 0 ? ['no same-chapter replacement was available'] : []),
+    ...await resolveAll(reports, 'approved'),
+    ...await logBestEffort({
+      questionId: question.id, action: 'deleted', actorId: actor.id, actorName: actor.name,
+      replacedWithQuestionId: candidates[0]?.id, affectedTestIds,
+    }),
+  ];
+  return { warnings };
 }

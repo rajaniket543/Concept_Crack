@@ -83,10 +83,16 @@ export default function ReportedQuestions() {
   async function handleApprove(row: ReportedQuestionRow) {
     setActing(row.questionId);
     try {
-      await approveReports(row.reports.filter(r => r.status === 'open'), actor);
-      toast('Approved — question left as-is', 'success');
+      const { warnings } = await approveReports(row.reports.filter(r => r.status === 'open'), actor);
+      toast(
+        warnings.length > 0 ? `Approved, but ${warnings.join(' and ')}.` : 'Approved — question left as-is',
+        warnings.length > 0 ? 'info' : 'success',
+      );
       load();
-    } catch { toast('Failed to approve', 'error'); }
+    } catch (e) {
+      console.error('Failed to approve the report:', e);
+      toast('Failed to approve — the report is still open.', 'error');
+    }
     finally { setActing(null); }
   }
 
@@ -95,12 +101,18 @@ export default function ReportedQuestions() {
     if (!rejectNote.trim()) { toast('Add a note explaining the rejection', 'error'); return; }
     setActing(rejectingFlag.questionId);
     try {
-      await rejectReport(rejectingFlag, rejectNote.trim(), actor);
-      toast('Report rejected', 'success');
+      const { warnings } = await rejectReport(rejectingFlag, rejectNote.trim(), actor);
+      toast(
+        warnings.length > 0 ? `Report rejected, but ${warnings.join(' and ')}.` : 'Report rejected',
+        warnings.length > 0 ? 'info' : 'success',
+      );
       setRejectingFlag(null);
       setRejectNote('');
       load();
-    } catch { toast('Failed to reject report', 'error'); }
+    } catch (e) {
+      console.error('Failed to reject the report:', e);
+      toast('Failed to reject report — it is still open.', 'error');
+    }
     finally { setActing(null); }
   }
 
@@ -117,11 +129,19 @@ export default function ReportedQuestions() {
     }
     setActing(row.questionId);
     try {
-      await editReportedQuestion(row.questionId, draftToPatch(editDraft), row.reports, actor);
-      toast('Question updated', 'success');
+      const { warnings } = await editReportedQuestion(row.questionId, draftToPatch(editDraft), row.reports, actor);
+      // The edit itself is saved by this point — never report it as failed
+      // just because the follow-up bookkeeping couldn't complete.
+      toast(
+        warnings.length > 0 ? `Question updated, but ${warnings.join(' and ')}.` : 'Question updated',
+        warnings.length > 0 ? 'info' : 'success',
+      );
       setEditingId(null);
       load();
-    } catch { toast('Failed to save changes', 'error'); }
+    } catch (e) {
+      console.error('Failed to update the reported question:', e);
+      toast('Failed to save changes — the question was not modified.', 'error');
+    }
     finally { setActing(null); }
   }
 
@@ -135,11 +155,19 @@ export default function ReportedQuestions() {
   async function doReplace(row: ReportedQuestionRow, newQuestionId: string) {
     setActing(row.questionId);
     try {
-      await replaceReportedQuestion(row.questionId, newQuestionId, row.reports, actor);
-      toast('Question replaced in today\'s active challenges', 'success');
+      const { warnings } = await replaceReportedQuestion(row.questionId, newQuestionId, row.reports, actor);
+      toast(
+        warnings.length > 0
+          ? `Question replaced, but ${warnings.join(' and ')}.`
+          : "Question replaced in today's active challenges",
+        warnings.length > 0 ? 'info' : 'success',
+      );
       setReplacingId(null);
       load();
-    } catch { toast('Failed to replace question', 'error'); }
+    } catch (e) {
+      console.error('Failed to replace the reported question:', e);
+      toast('Failed to replace question — nothing was changed.', 'error');
+    }
     finally { setActing(null); }
   }
 
@@ -155,10 +183,16 @@ export default function ReportedQuestions() {
     if (!ok) return;
     setActing(row.questionId);
     try {
-      await deleteReportedQuestion(row.question, row.reports, actor);
-      toast('Question archived and deleted', 'success');
+      const { warnings } = await deleteReportedQuestion(row.question, row.reports, actor);
+      toast(
+        warnings.length > 0 ? `Question archived and deleted, but ${warnings.join(' and ')}.` : 'Question archived and deleted',
+        warnings.length > 0 ? 'info' : 'success',
+      );
       load();
-    } catch { toast('Failed to delete question', 'error'); }
+    } catch (e) {
+      console.error('Failed to delete the reported question:', e);
+      toast('Failed to delete question — it is still in the bank.', 'error');
+    }
     finally { setActing(null); }
   }
 
