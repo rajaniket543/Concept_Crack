@@ -79,6 +79,23 @@ function mergeByCanonicalTopic(subject: string, items: ChapterInfo[]): ChapterIn
   return order.map(key => map.get(key)!);
 }
 
+// A chapter explicitly staged with the " (New)" suffix (the re-import
+// pipeline's convention for a freshly-imported section that must coexist
+// alongside old data during review, never silently merged into it).
+function isStaged(c: ChapterInfo): boolean {
+  return /\(New\)\s*$/.test(c.chapter.trim());
+}
+
+// Same canonical-topic merge, but staged "(New)" chapters are exempt: they
+// bypass the merge entirely rather than risk losing a same-topic tie-break
+// against an older, larger chapter and disappearing from view. Everything
+// else keeps the original spelling-variant dedup behaviour unchanged.
+function mergeByCanonicalTopicKeepingStaged(subject: string, items: ChapterInfo[]): ChapterInfo[] {
+  const staged = items.filter(isStaged);
+  const rest = items.filter(c => !isStaged(c));
+  return [...staged, ...mergeByCanonicalTopic(subject, rest)];
+}
+
 // The curated set a subject tile/grid leads with: a real chapter name (not a
 // blank faculty entry), a real JEE/NEET syllabus topic (spelling variants
 // merged to their one strongest real chapter), and enough questions to
@@ -86,7 +103,7 @@ function mergeByCanonicalTopic(subject: string, items: ChapterInfo[]): ChapterIn
 // the main grid, so the number shown up front matches what's inside.
 function reasonableChapters(subject: string, items: ChapterInfo[]): ChapterInfo[] {
   const named = items.filter(c => c.chapter.trim().length > 0);
-  return mergeByCanonicalTopic(subject, named).filter(c => c.questionCount >= MIN_QUESTIONS_FOR_CHAPTER);
+  return mergeByCanonicalTopicKeepingStaged(subject, named).filter(c => c.questionCount >= MIN_QUESTIONS_FOR_CHAPTER);
 }
 
 export default function PracticeModule() {
@@ -326,9 +343,10 @@ export default function PracticeModule() {
           // real topic identity (spelling variants collapse to one strongest
           // real chapter); anything that doesn't match the real curriculum
           // (stray labels, mislabelled subjects) is grouped separately rather
-          // than mixed in or deleted.
-          const syllabusAll = mergeByCanonicalTopic(subj, visibleItems);
-          const otherItems = visibleItems.filter(c => !isCanonicalTopic(subj, c.chapter));
+          // than mixed in or deleted. Staged "(New)" chapters always pass
+          // through untouched regardless of canonical-topic collisions.
+          const syllabusAll = mergeByCanonicalTopicKeepingStaged(subj, visibleItems);
+          const otherItems = visibleItems.filter(c => !isStaged(c) && !isCanonicalTopic(subj, c.chapter));
           // Within real syllabus topics, ones with too few questions to make a
           // worthwhile session fold into their own collapsed section instead
           // of padding out the main grid with near-empty chapters.
