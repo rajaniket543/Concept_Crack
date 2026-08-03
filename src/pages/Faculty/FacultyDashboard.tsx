@@ -185,16 +185,6 @@ export default function FacultyDashboard() {
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
       <TopBar
         breadcrumb={[{ label: 'Faculty Dashboard' }]}
-        actions={
-          <Link
-            to={pathFor('questionBank')}
-            className="btn-primary btn-md flex items-center gap-1.5"
-            style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>library_books</span>
-            Question Bank
-          </Link>
-        }
       />
 
       <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-auto">

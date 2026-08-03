@@ -41,6 +41,7 @@ export default function CreateTest() {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [chaptersBySubject, setChaptersBySubject] = useState<Record<string, string[]>>({});
   const [selectedChapters, setSelectedChapters]   = useState<Record<string, string[]>>({});
+  const [chapterSearch, setChapterSearch]         = useState('');
   const [loadingCh, setLoadingCh]     = useState(false);
   const [difficulty, setDifficulty]   = useState<Difficulty>('Mixed');
   const [count, setCount]             = useState(30);
@@ -396,26 +397,45 @@ export default function CreateTest() {
               <Spinner size={14} color="var(--faculty-accent)" /> Loading chapters…
             </div>
           )}
-          {selectedSubjects.map(subj => (
+          {selectedSubjects.length > 0 && (
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px]" style={{ color: 'var(--text-faint)' }}>search</span>
+              <input
+                type="text"
+                value={chapterSearch}
+                onChange={e => setChapterSearch(e.target.value)}
+                placeholder="Search chapters…"
+                className="w-full rounded-xl pl-10 pr-3 py-2 text-sm"
+                style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+              />
+            </div>
+          )}
+          {selectedSubjects.map(subj => {
+            const allChapters = chaptersBySubject[subj] ?? [];
+            const query = chapterSearch.trim().toLowerCase();
+            const visibleChapters = query
+              ? allChapters.filter(ch => ch.toLowerCase().includes(query))
+              : allChapters;
+            return (
             <div key={subj} className="rounded-2xl p-4" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{subj}</span>
-                {(chaptersBySubject[subj] ?? []).length > 0 && (
+                {allChapters.length > 0 && (
                   <button
                     type="button"
                     className="text-label-sm font-semibold hover:underline"
                     style={{ color: 'var(--faculty-accent)' }}
                     onClick={() => setSelectedChapters(prev => ({
                       ...prev,
-                      [subj]: (prev[subj] ?? []).length === (chaptersBySubject[subj] ?? []).length ? [] : [...(chaptersBySubject[subj] ?? [])],
+                      [subj]: (prev[subj] ?? []).length === allChapters.length ? [] : [...allChapters],
                     }))}
                   >
-                    {(selectedChapters[subj] ?? []).length === (chaptersBySubject[subj] ?? []).length ? 'Clear all' : 'Select all'}
+                    {(selectedChapters[subj] ?? []).length === allChapters.length ? 'Clear all' : 'Select all'}
                   </button>
                 )}
               </div>
               <div className="flex gap-2 flex-wrap">
-                {(chaptersBySubject[subj] ?? []).map(ch => {
+                {visibleChapters.map(ch => {
                   const active = (selectedChapters[subj] ?? []).includes(ch);
                   return (
                     <button key={ch} type="button" onClick={() => toggleChapter(subj, ch)}
@@ -429,12 +449,16 @@ export default function CreateTest() {
                     </button>
                   );
                 })}
-                {!loadingCh && (chaptersBySubject[subj] ?? []).length === 0 && (
+                {!loadingCh && allChapters.length === 0 && (
                   <span className="text-xs" style={{ color: 'var(--text-faint)' }}>No chapters found for {subj} yet.</span>
+                )}
+                {!loadingCh && allChapters.length > 0 && visibleChapters.length === 0 && (
+                  <span className="text-xs" style={{ color: 'var(--text-faint)' }}>No chapters match "{chapterSearch.trim()}".</span>
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

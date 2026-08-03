@@ -304,10 +304,6 @@ export default function TopBar({ title, breadcrumb, actions }: TopBarProps) {
               </div>
               <div className="py-1">
                 <button type="button" onClick={() => { setMenuOpen(false); navigate(pathFor('settings')); }} className="dropdown-item">
-                  <span className="material-symbols-outlined text-[18px]">person</span>
-                  Profile
-                </button>
-                <button type="button" onClick={() => { setMenuOpen(false); navigate(pathFor('settings')); }} className="dropdown-item">
                   <span className="material-symbols-outlined text-[18px]">settings</span>
                   Settings
                 </button>
