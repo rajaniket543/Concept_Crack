@@ -5,6 +5,7 @@ import {
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import type { AuthRole } from './auth';
+import { generateUniqueUserId } from './userIds';
 
 const FB_API_KEY = 'AIzaSyAh6QgSH9Y3Fp_wR_KMYrWVaNlshZj8ChM';
 
@@ -42,7 +43,7 @@ export interface CreateUserInput {
 
 export async function adminCreateUser(
   input: CreateUserInput,
-): Promise<{ uid: string; created: boolean }> {
+): Promise<{ uid: string; created: boolean; uniqueId?: string }> {
   const { uid, exists } = await restCreateAuth(input.email, 'Temp@1234');
   if (exists) return { uid: '', created: false };
 
@@ -51,6 +52,8 @@ export async function adminCreateUser(
   if (input.examTarget)      extra.examTarget      = input.examTarget;
   if (input.linkedStudentId) extra.linkedStudentId = input.linkedStudentId;
   if (input.facultyStream)   extra.facultyStream   = input.facultyStream;
+
+  const uniqueId = await generateUniqueUserId(input.role);
 
   await setDoc(doc(db, 'users', uid), {
     name:               input.name,
@@ -61,12 +64,13 @@ export async function adminCreateUser(
                       : input.role === 'admin'   ? ['all']
                       : [],
     mustChangePassword: true,
+    uniqueId,
     ...extra,
     createdAt:          serverTimestamp(),
     lastActive:         serverTimestamp(),
   });
 
-  return { uid, created: true };
+  return { uid, created: true, uniqueId };
 }
 
 export async function adminResetPassword(email: string): Promise<void> {

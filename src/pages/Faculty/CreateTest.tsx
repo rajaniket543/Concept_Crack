@@ -281,11 +281,14 @@ export default function CreateTest() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-label-sm font-bold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Test Title</label>
+            <label className="text-label-sm font-bold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>
+              Test Title <span style={{ color: '#EF4444' }}>*</span>
+            </label>
             <input
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
+              required
               placeholder="e.g. Weekly Physics + Chemistry Mock 4"
               className="input-field w-full"
               style={inputStyle}

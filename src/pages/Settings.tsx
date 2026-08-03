@@ -264,6 +264,9 @@ export default function Settings() {
                   <div>
                     <div className="text-body-md font-semibold" style={{ color: 'var(--text-primary)' }}>{profile.name || 'Your Name'}</div>
                     <div className="text-body-sm capitalize" style={{ color: 'var(--text-muted)' }}>{session?.user?.role ?? 'User'}</div>
+                    {session?.user?.uniqueId && (
+                      <div className="text-label-sm font-mono mt-0.5" style={{ color: 'var(--text-faint)' }}>ID: {session.user.uniqueId}</div>
+                    )}
                   </div>
                 </div>
 

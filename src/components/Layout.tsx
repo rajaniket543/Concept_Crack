@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { PageKey, pathFor } from '../lib/pages';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import AICompanion from './AICompanion';
 import Logo from './Logo';
 
@@ -20,13 +20,18 @@ interface LayoutProps {
   role?: 'student' | 'faculty' | 'parent' | 'admin';
   nav: NavItem[] | NavSection[];
   variant?: 'default' | 'focus';
+  /** Used when Layout is rendered directly (not as a parent <Route> element)
+   *  — e.g. Contact Us, which needs the portal shell for logged-in visitors
+   *  but isn't itself nested under a layout route. Falls back to <Outlet />
+   *  for the normal nested-route usage. */
+  children?: ReactNode;
 }
 
 function isNavSection(x: NavItem | NavSection): x is NavSection {
   return 'items' in x;
 }
 
-export default function Layout({ brand, role = 'student', nav, variant = 'default' }: LayoutProps) {
+export default function Layout({ brand, role = 'student', nav, variant = 'default', children }: LayoutProps) {
   const { pathname } = useLocation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -64,7 +69,7 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
     return (
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
         <main className="flex-1 min-w-0">
-          <Outlet />
+          {children ?? <Outlet />}
         </main>
       </div>
     );
@@ -178,7 +183,7 @@ export default function Layout({ brand, role = 'student', nav, variant = 'defaul
             <span className="material-symbols-outlined">menu</span>
           </button>
         </div>
-        <Outlet />
+        {children ?? <Outlet />}
       </div>
 
       {/* AI Companion — students only, hidden during exams (focus variant) */}

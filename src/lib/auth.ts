@@ -10,6 +10,7 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { clearStudentStream, saveStreamLocal, type StudentStream } from './stream';
 import { auth, db } from './firebase';
+import { generateUniqueUserId } from './userIds';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,11 @@ export interface AuthUser {
   // every route until cleared. Persisted on the session (not re-read from
   // Firestore per navigation) so the route guard can check it synchronously.
   mustChangePassword: boolean;
+  // Registration-number-style identifier (e.g. "STU000042"), distinct from
+  // the Firebase Auth UID — assigned once at account creation (or lazily on
+  // first login after this feature shipped, for pre-existing accounts) and
+  // never changed. See lib/userIds.ts.
+  uniqueId?: string;
 }
 
 export interface AuthSession {
@@ -120,6 +126,15 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
       );
     }
 
+    // Pre-existing accounts (created before this field existed) get one
+    // assigned lazily here, on first login after the feature shipped — a
+    // one-time write, never regenerated once present.
+    let uniqueId = data.uniqueId as string | undefined;
+    if (!uniqueId) {
+      uniqueId = await generateUniqueUserId(data.role as AuthRole);
+      void setDoc(userRef, { uniqueId }, { merge: true });
+    }
+
     userData = {
       id:          uid,
       name:        data.name        ?? firebaseUser.displayName ?? 'User',
@@ -128,6 +143,7 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
       mobile:      data.mobile      ?? '',
       permissions: data.permissions ?? [],
       mustChangePassword: data.mustChangePassword === true,
+      uniqueId,
     };
 
     // The exam stream (JEE / NEET) is assigned by the admin at registration —
@@ -141,6 +157,7 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
     void setDoc(userRef, { lastActive: serverTimestamp() }, { merge: true });
   } else {
     // First-time login — auto-create the Firestore profile
+    const uniqueId = await generateUniqueUserId(selectedRole);
     userData = {
       id:          uid,
       name:        firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'User',
@@ -149,6 +166,7 @@ async function buildSession(uid: string, selectedRole: AuthRole): Promise<AuthSe
       mobile:      '',
       permissions: [],
       mustChangePassword: false, // self-registered accounts never require this
+      uniqueId,
     };
     await setDoc(userRef, {
       ...userData,

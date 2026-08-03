@@ -25,6 +25,7 @@ const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
 
 type UserRow = {
   id: string;
+  uniqueId?: string;
   name: string;
   email: string;
   role: string;
@@ -88,7 +89,7 @@ export default function UserManagement() {
         tab === 'Faculty'  ? u.role === 'faculty' :
         tab === 'Parents'  ? u.role === 'parent' :
         /* Admins */         u.role === 'admin';
-      const textMatch = !q || `${u.name} ${u.email} ${u.role} ${u.status}`.toLowerCase().includes(q);
+      const textMatch = !q || `${u.name} ${u.email} ${u.role} ${u.status} ${u.uniqueId ?? ''}`.toLowerCase().includes(q);
       return roleMatch && textMatch;
     });
   }, [users, tab, search]);
@@ -133,13 +134,13 @@ export default function UserManagement() {
         }
         input.linkedStudentId = snap.docs[0].id;
       }
-      const { created } = await adminCreateUser(input);
+      const { created, uniqueId } = await adminCreateUser(input);
       if (!created) {
         toast('That email is already registered.', 'error');
         setCreating(false);
         return;
       }
-      toast(`Account created for ${form.name}. Temp password: Temp@1234`, 'success');
+      toast(`Account created for ${form.name} (${uniqueId}). Temp password: Temp@1234`, 'success');
       setShowModal(false);
       setForm(EMPTY_FORM);
       setLinkedStudentEmail('');
@@ -260,7 +261,7 @@ export default function UserManagement() {
                 type="search"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search users…"
+                placeholder="Search by name, email, or user ID…"
                 className="flex-1 bg-transparent outline-none text-sm"
                 style={{ color: 'var(--text-primary)' }}
               />
@@ -278,6 +279,7 @@ export default function UserManagement() {
                 <thead>
                   <tr>
                     <th>User</th>
+                    <th>User ID</th>
                     <th>Role</th>
                     <th>Stream</th>
                     <th>Last Active</th>
@@ -316,6 +318,9 @@ export default function UserManagement() {
                               )}
                             </div>
                           </div>
+                        </td>
+                        <td>
+                          <span className="text-label-sm font-mono" style={{ color: 'var(--text-secondary)' }}>{u.uniqueId ?? '—'}</span>
                         </td>
                         <td>
                           <span className="badge text-label-sm px-2.5 py-0.5 rounded-full font-semibold capitalize" style={{ backgroundColor: roleStyle.bg, color: roleStyle.color }}>
@@ -360,7 +365,7 @@ export default function UserManagement() {
                   })}
                   {paginated.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="text-center py-10" style={{ color: 'var(--text-faint)' }}>
+                      <td colSpan={7} className="text-center py-10" style={{ color: 'var(--text-faint)' }}>
                         {loading ? 'Loading…' : 'No users found.'}
                       </td>
                     </tr>

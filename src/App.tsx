@@ -203,6 +203,22 @@ function SharedLayout() {
   return <Layout brand={cfg.brand} role={role} nav={cfg.nav} />;
 }
 
+// Contact Us must stay reachable when logged out (linked from Login/Landing),
+// but a signed-in visitor navigating here from their portal should keep their
+// sidebar — same portal shell as Messages/Settings, just rendered directly
+// since this route isn't nested under the SharedLayout route.
+function ContactUsRoute() {
+  const session = getAuthSession();
+  if (!session) return <ContactUs />;
+  const role = (session.user.role ?? 'student') as 'student' | 'parent' | 'faculty' | 'admin';
+  const cfg = SHARED_LAYOUT[role] ?? SHARED_LAYOUT.student;
+  return (
+    <Layout brand={cfg.brand} role={role} nav={cfg.nav}>
+      <ContactUs />
+    </Layout>
+  );
+}
+
 // ─── Auth guard ───────────────────────────────────────────────────────────────
 
 function RequireAuth({
@@ -249,8 +265,9 @@ export default function App() {
       <Route path="/refund" element={<RefundPolicy />} />
       <Route path="/coming-soon" element={<ComingSoon />} />
       <Route path="/login" element={<Login />} />
-      {/* Contact Us is public so logged-out visitors (e.g. from the login page) can reach it */}
-      <Route path="/contact" element={<ContactUs />} />
+      {/* Public so logged-out visitors (e.g. from the login page) can reach it,
+          but keeps the portal sidebar when a signed-in user navigates here — see ContactUsRoute. */}
+      <Route path="/contact" element={<ContactUsRoute />} />
 
       <Route path="/student/chatbot" element={<RequireAuth roles={['student']}><TestChatBot /></RequireAuth>} />
 
