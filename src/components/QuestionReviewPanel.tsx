@@ -6,6 +6,7 @@ import { createBankQuestions, QUESTION_ORIGINS, type BankQuestionInput, type Que
 import { createTest } from '../lib/tests';
 import { pathFor } from '../lib/pages';
 import { uploadQuestionImage } from '../lib/storage';
+import MathText from './MathText';
 import type { ExtractedQuestion } from '../lib/extract';
 
 const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
@@ -184,6 +185,12 @@ export default function QuestionReviewPanel({
               <button type="button" onClick={() => removeItem(i)} className="text-label-sm font-semibold" style={{ color: '#EF4444' }}>Remove</button>
             </div>
             <textarea value={it.question} onChange={e => updateItem(i, { question: e.target.value })} rows={2} placeholder="Question text" className="input-field w-full resize-none" style={inputStyle} />
+            {it.question.trim() && (
+              <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--surface-muted)', border: '1px dashed var(--border)' }}>
+                <div className="text-label-sm font-semibold mb-1" style={{ color: 'var(--text-faint)' }}>Preview (how students will see it)</div>
+                <MathText text={it.question} className="text-sm" style={{ color: 'var(--text-primary)' }} />
+              </div>
+            )}
 
             {it.imageUrl ? (
               <div className="relative inline-block">
@@ -206,13 +213,20 @@ export default function QuestionReviewPanel({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(['A', 'B', 'C', 'D'] as const).map(k => (
-                <div key={k} className="flex items-center gap-2">
-                  <button type="button" onClick={() => updateItem(i, { answer: k })} title="Mark correct"
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-                    style={{ backgroundColor: it.answer === k ? '#10B981' : 'var(--surface-muted)', color: it.answer === k ? '#fff' : 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                    {k}
-                  </button>
-                  <input type="text" value={it.options[k]} onChange={e => updateOption(i, k, e.target.value)} placeholder={`Option ${k}`} className="input-field w-full" style={inputStyle} />
+                <div key={k} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => updateItem(i, { answer: k })} title="Mark correct"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
+                      style={{ backgroundColor: it.answer === k ? '#10B981' : 'var(--surface-muted)', color: it.answer === k ? '#fff' : 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                      {k}
+                    </button>
+                    <input type="text" value={it.options[k]} onChange={e => updateOption(i, k, e.target.value)} placeholder={`Option ${k}`} className="input-field w-full" style={inputStyle} />
+                  </div>
+                  {it.options[k].trim() && (
+                    <div className="ml-9 px-2 py-1 rounded-md" style={{ backgroundColor: 'var(--surface-muted)', border: '1px dashed var(--border)' }}>
+                      <MathText text={it.options[k]} className="text-xs" style={{ color: 'var(--text-secondary)' }} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
