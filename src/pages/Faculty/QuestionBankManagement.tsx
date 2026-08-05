@@ -134,6 +134,11 @@ export default function QuestionBankManagement() {
   // Question viewing is paginated (3j) — reset to page 1 when filters change.
   useEffect(() => { setPage(1); }, [subject, chapter, difficulty, origin, search]);
   const totalPages = Math.max(1, Math.ceil(rows.length / QUESTIONS_PER_PAGE));
+  // A delete can shrink the list enough that the page you were on no longer
+  // exists (e.g. you were on the last page with one item left) — step back to
+  // the new last page instead of showing a blank one. Any page still in range
+  // (the normal case) is left untouched, so deleting doesn't bounce you back to page 1.
+  useEffect(() => { setPage(p => Math.min(p, totalPages)); }, [totalPages]);
   const pagedRows  = rows.slice((page - 1) * QUESTIONS_PER_PAGE, page * QUESTIONS_PER_PAGE);
 
   const stats = useMemo(() => {
@@ -241,7 +246,10 @@ export default function QuestionBankManagement() {
       await deleteBankQuestion(q.id);
       toast('Question deleted', 'success');
       setPreviewQ(null);
-      await reload();
+      // Remove just this one question locally instead of re-fetching the
+      // entire bank (72k+ docs) — that full reload was what made every
+      // delete feel like it wiped the whole list and reset your place in it.
+      setAll(prev => prev.filter(item => item.id !== q.id));
     } catch (e) {
       console.error(e);
       toast('Failed to delete question', 'error');
