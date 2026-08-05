@@ -46,6 +46,33 @@ function readQuestionType(d: Record<string, unknown>): QuestionType {
   return t === 'multiple' || t === 'numeric' ? t : 'single';
 }
 
+/** A question is only fit to serve to a student if everything they'd need to
+ *  actually answer it is present: real question text, a stored answer, and —
+ *  for single/multiple-choice — four options (text or an option-level image)
+ *  with the answer genuinely pointing at one of them. Faculty content is
+ *  hand-entered or PDF/OCR-imported, so partially empty rows do slip into the
+ *  bank; this keeps every one of them off every student-facing screen without
+ *  ever deleting them — faculty still sees and can fix them in Question Bank
+ *  Management. Applied at every point a question doc is read for a student
+ *  (getQuestionsByIds / getQuestionsForCustomTest / getQuestionsForChapter /
+ *  the daily-challenge pool), so a broken question can never reach an exam
+ *  screen regardless of which flow served it. */
+export function isCompleteQuestionDoc(d: Record<string, unknown>): boolean {
+  if (!((d.question as string) ?? '').trim()) return false;
+  const answer = ((d.answer as string) ?? '').trim();
+  if (!answer) return false;
+  const questionType = readQuestionType(d);
+  if (questionType === 'numeric') return true;
+  const opts = (d.options ?? {}) as Record<string, string>;
+  const optionImages = (d.optionImages ?? {}) as Record<string, string>;
+  const hasAllOptions = (['A', 'B', 'C', 'D'] as const).every(
+    k => !!(opts[k] ?? '').trim() || !!(optionImages[k] ?? '').trim()
+  );
+  if (!hasAllOptions) return false;
+  const letters = questionType === 'multiple' ? answer.split(',').map(s => s.trim()) : [answer];
+  return letters.every(l => l === 'A' || l === 'B' || l === 'C' || l === 'D');
+}
+
 /** Builds the options array, attaching a per-option image URL when the
  *  question doc has one (options.optionImages.{A,B,C,D}) for that letter. */
 function readOptions(d: Record<string, unknown>, questionType: QuestionType): Array<{ key: 'A' | 'B' | 'C' | 'D'; text: string; imageUrl?: string }> {
@@ -82,6 +109,7 @@ export async function getQuestionsByIds(ids: string[]): Promise<ExamQuestion[]> 
     const snap = await getDocs(q);
     snap.docs.forEach(doc => {
       const d = doc.data();
+      if (!isCompleteQuestionDoc(d)) return;
       const questionType = readQuestionType(d);
       results.push({
         id: doc.id,
@@ -148,6 +176,7 @@ export async function getQuestionsForCustomTest(config: {
       // Defensive subject check so mislabelled documents can never leak another
       // subject's questions into this paper (3g).
       if (((d.subject as string) ?? '').trim() !== subject.trim()) return;
+      if (!isCompleteQuestionDoc(d)) return;
       const questionType = readQuestionType(d);
       // Level filter: Main = single only, Advanced = multiple/numeric only.
       if (level === 'main' && questionType !== 'single') return;
@@ -192,7 +221,7 @@ export async function getQuestionsForChapter(
   );
   const snap = await getDocs(q);
   const list = snap.docs
-    .filter(doc => ((doc.data().subject as string) ?? '').trim() === subject.trim())
+    .filter(doc => ((doc.data().subject as string) ?? '').trim() === subject.trim() && isCompleteQuestionDoc(doc.data()))
     .map(doc => {
       const d = doc.data();
       const questionType = readQuestionType(d);

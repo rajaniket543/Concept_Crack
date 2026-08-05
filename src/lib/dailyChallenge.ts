@@ -2,6 +2,7 @@ import { collection, doc, getDoc, getDocs, query, setDoc, where, limit, serverTi
 import { db } from './firebase';
 import { getStudentAttempts, type TestAttempt } from './tests';
 import { STREAM_SUBJECTS, type StudentStream } from './stream';
+import { isCompleteQuestionDoc } from './questions';
 
 export const QUESTIONS_PER_SUBJECT = 5;
 
@@ -95,7 +96,9 @@ export async function getOrCreateDailyChallengeTest(
     // otherwise shuffle a differently-ordered pool into different question
     // sets. Sorting first makes the shuffle input canonical regardless of
     // read order, preserving "identical challenge for every student."
-    const pool = snap.docs.map(d => d.id).sort();
+    // Incomplete questions are dropped from the pool entirely so the shared
+    // daily set can never contain one.
+    const pool = snap.docs.filter(d => isCompleteQuestionDoc(d.data())).map(d => d.id).sort();
     questionIds.push(...seededShuffle(pool, `${date}:${subject}`).slice(0, QUESTIONS_PER_SUBJECT));
   }
 

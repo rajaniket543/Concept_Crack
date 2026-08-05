@@ -13,6 +13,7 @@ import {
 } from '../../mocks/student';
 import { getQuestionsForChapter, getQuestionsByIds, type ExamQuestion as FirestoreQuestion } from '../../lib/questions';
 import { getTest, saveTestAttempt, type LockMode, type AttemptType } from '../../lib/tests';
+import { getStudentStream, STREAM_SUBJECTS } from '../../lib/stream';
 import { enterFullscreen, exitFullscreen } from '../../lib/fullscreen';
 import { updateWeakTopics } from '../../lib/weakTopics';
 import { flagQuestion, FLAG_REASONS, type FlagReason } from '../../lib/questionFlags';
@@ -33,6 +34,17 @@ import {
 import { saveExamProgress, loadExamProgress, clearExamProgress } from '../../lib/examProgress';
 
 const fallbackMeta = examMeta;
+
+// Last line of defense against subject leakage — no matter which upstream
+// flow served the questions (a faculty-built test, custom/AI/mock test, chapter
+// practice, daily challenge…), a JEE student must never see Biology and a NEET
+// student must never see Mathematics. A question with no subject tag is kept
+// (can't prove it's wrong), but any question tagged with a subject outside the
+// student's own stream is dropped before it can ever reach the exam screen.
+function filterForStudentStream(qs: FirestoreQuestion[]): FirestoreQuestion[] {
+  const allowed = new Set(STREAM_SUBJECTS[getStudentStream() ?? 'JEE']);
+  return qs.filter(q => !q.subject || allowed.has(q.subject.trim()));
+}
 
 type QType = 'single' | 'multiple' | 'numeric';
 
@@ -274,7 +286,7 @@ export default function ExamInterface() {
         try {
           const test = await getTest(testId);
           if (test && test.questionIds.length > 0) {
-            qs = await getQuestionsByIds(test.questionIds);
+            qs = filterForStudentStream(await getQuestionsByIds(test.questionIds));
             if (!titleOverride) titleOverride = test.title;
             if (test.subjects.length > 0) { setTestSubjects(test.subjects); setSubject(test.subjects[0]); }
             if (test.chapters.length > 0) { setTestChapters(test.chapters); setChapter(test.chapters[0]); }
@@ -307,7 +319,7 @@ export default function ExamInterface() {
 
       if (qs.length === 0 && chapter) {
         try {
-          qs = await getQuestionsForChapter(subject, chapter, 30);
+          qs = filterForStudentStream(await getQuestionsForChapter(subject, chapter, 30));
         } catch { /* fall through */ }
       }
 

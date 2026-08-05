@@ -75,7 +75,11 @@ service cloud.firestore {
       allow read:   if isAuthenticated();
       allow create: if isAdminOrFaculty();
       allow update: if isAdminOrFaculty();
-      allow delete: if isAdmin() || (isFaculty() && resource.data.uploadedBy == request.auth.uid);
+      // Any faculty/admin can delete any question — matches the update rule
+      // above. Bulk-imported questions (Career Point, ALLEN, etc.) have no
+      // uploadedBy at all, so tying delete to ownership would leave faculty
+      // unable to remove them.
+      allow delete: if isAdminOrFaculty();
     }
 
     // ── /exams/{id} ───────────────────────────────────────────────────────────

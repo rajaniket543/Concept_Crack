@@ -51,7 +51,6 @@ export default function QuestionBankManagement() {
   const session = getAuthSession();
   const uid     = session?.user?.id ?? '';
   const uname   = session?.user?.name ?? 'Faculty';
-  const role    = session?.user?.role ?? 'faculty';
 
   // A subject card on the Faculty Dashboard (or elsewhere) can deep-link here
   // with a subject preselected, without disturbing the rest of the filters.
@@ -427,11 +426,9 @@ export default function QuestionBankManagement() {
                       <div className="flex items-center gap-1 shrink-0">
                         <button type="button" onClick={() => setPreviewQ(q)} className="text-label-sm font-semibold hover:underline" style={{ color: 'var(--faculty-accent)' }}>Preview</button>
                         <button type="button" onClick={() => openEdit(q)} className="icon-btn icon-btn-sm" title="Edit"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span></button>
-                        {(role === 'admin' || q.uploadedBy === uid) && (
-                          <button type="button" onClick={() => removeQuestion(q)} className="icon-btn icon-btn-sm" title="Delete" style={{ color: '#EF4444' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
-                          </button>
-                        )}
+                        <button type="button" onClick={() => removeQuestion(q)} className="icon-btn icon-btn-sm" title="Delete" style={{ color: '#EF4444' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
+                        </button>
                       </div>
                     </div>
                     <p className="text-body-md font-medium mb-3" style={{ color: 'var(--text-primary)' }}><MathText text={q.question} /></p>
@@ -568,9 +565,7 @@ export default function QuestionBankManagement() {
               </div>
             </div>
             <div className="px-6 py-4 flex justify-between gap-2" style={{ borderTop: '1px solid var(--border)' }}>
-              {(role === 'admin' || previewQ.uploadedBy === uid) ? (
-                <button type="button" onClick={() => removeQuestion(previewQ)} className="btn-outline btn-md" style={{ borderColor: '#EF4444', color: '#EF4444' }}>Delete</button>
-              ) : <span />}
+              <button type="button" onClick={() => removeQuestion(previewQ)} className="btn-outline btn-md" style={{ borderColor: '#EF4444', color: '#EF4444' }}>Delete</button>
               <div className="flex gap-2">
                 <button type="button" onClick={() => { const q = previewQ; setPreviewQ(null); openEdit(q); }} className="btn-outline btn-md">Edit</button>
                 <button type="button" onClick={() => setPreviewQ(null)} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}>Close</button>
