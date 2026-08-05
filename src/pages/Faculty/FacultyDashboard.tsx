@@ -11,8 +11,19 @@ import { getAuthSession } from '../../lib/auth';
 import { getAssignedStudentsData, type MockStudentProfile } from '../../lib/db';
 import { formatExamCountdown, getExamCountdown } from '../../lib/examCountdown';
 import type { StudentStream } from '../../lib/stream';
+import { listBankQuestions } from '../../lib/questionBank';
+import { SUBJECTS } from '../../components/QuestionForm';
 
 const asStream = (s: string): StudentStream => (s === 'NEET' ? 'NEET' : 'JEE');
+
+// Same hues used on the Question Bank's subject tiles and the student Practice
+// page, so a subject reads as the same colour everywhere in the app.
+const SUBJECT_META: Record<string, { color: string; bg: string; icon: string }> = {
+  Physics:     { color: '#2563EB', bg: 'rgba(37,99,235,0.10)',  icon: 'electric_bolt' },
+  Chemistry:   { color: '#F97316', bg: 'rgba(249,115,22,0.10)', icon: 'science' },
+  Mathematics: { color: '#10B981', bg: 'rgba(16,185,129,0.10)', icon: 'calculate' },
+  Biology:     { color: '#8B5CF6', bg: 'rgba(139,92,246,0.10)', icon: 'biotech' },
+};
 
 export default function FacultyDashboard() {
   const session = getAuthSession();
@@ -30,6 +41,8 @@ export default function FacultyDashboard() {
   const [batchStream,      setBatchStream]      = useState<string>('');
   const [submissionsByDay, setSubmissionsByDay] = useState<Record<string, number>>({});
   const [dismissedRecs,    setDismissedRecs]    = useState<Set<number>>(new Set());
+  const [subjectCounts,    setSubjectCounts]    = useState<Record<string, number>>({});
+  const [loadingSubjects,  setLoadingSubjects]  = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +107,22 @@ export default function FacultyDashboard() {
         console.error('faculty metrics load failed', e);
       }
     })();
+
+    // Real per-subject counts across the entire question bank (not just this
+    // faculty's uploads) so the dashboard tile matches what Question Bank
+    // Management shows when a subject is clicked through to.
+    listBankQuestions()
+      .then(qs => {
+        if (cancelled) return;
+        const counts: Record<string, number> = {};
+        qs.forEach(q => {
+          const s = (q.subject ?? '').trim();
+          if (s) counts[s] = (counts[s] ?? 0) + 1;
+        });
+        setSubjectCounts(counts);
+        setLoadingSubjects(false);
+      })
+      .catch(e => { console.error('subject counts load failed', e); if (!cancelled) setLoadingSubjects(false); });
 
     getAssignedStudentsData(uid)
       .then(students => {
@@ -296,6 +325,39 @@ export default function FacultyDashboard() {
                   </div>
                 ))}
               </div>
+            </Card>
+
+            {/* Question Bank by Subject — real counts from the shared bank; click a
+                subject to jump straight into Question Bank Management pre-filtered
+                to it (the existing filters there are untouched otherwise). */}
+            <Card title="Question Bank by Subject" subtitle="Click a subject to view just its questions" action={<Link to={pathFor('questionBank')} className="text-label-sm font-bold" style={{ color: 'var(--faculty-accent)' }}>Open bank →</Link>}>
+              {loadingSubjects ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-24 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--surface-muted)' }} />)}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {SUBJECTS.map(s => {
+                    const meta = SUBJECT_META[s] ?? SUBJECT_META.Physics;
+                    const count = subjectCounts[s] ?? 0;
+                    return (
+                      <Link
+                        key={s}
+                        to={pathFor('questionBank')}
+                        state={{ subject: s }}
+                        className="rounded-2xl p-4 flex flex-col transition-transform hover:-translate-y-0.5"
+                        style={{ backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)' }}
+                      >
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-2" style={{ backgroundColor: meta.bg }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 20, color: meta.color }}>{meta.icon}</span>
+                        </div>
+                        <div className="text-2xl font-bold font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>{count}</div>
+                        <div className="text-body-sm font-semibold" style={{ color: 'var(--text-muted)' }}>{s} question{count === 1 ? '' : 's'}</div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </Card>
 
             {/* Submission activity calendar (LeetCode-style) */}

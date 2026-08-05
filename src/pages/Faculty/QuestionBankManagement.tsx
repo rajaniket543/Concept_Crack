@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Card from '../../components/Card';
 import TopBar from '../../components/TopBar';
 import { pathFor } from '../../lib/pages';
@@ -16,6 +16,15 @@ import {
 } from '../../lib/questionBank';
 import MathText from '../../components/MathText';
 import QuestionForm, { SUBJECTS, DIFFICULTIES, EMPTY_DRAFT, type Draft } from '../../components/QuestionForm';
+
+// Same hues used on the student Practice page so a subject reads as the same
+// colour everywhere in the app (Physics blue, Chemistry orange, etc).
+const SUBJECT_META: Record<string, { color: string; bg: string; icon: string }> = {
+  Physics:     { color: '#2563EB', bg: 'rgba(37,99,235,0.10)',  icon: 'electric_bolt' },
+  Chemistry:   { color: '#F97316', bg: 'rgba(249,115,22,0.10)', icon: 'science' },
+  Mathematics: { color: '#10B981', bg: 'rgba(16,185,129,0.10)', icon: 'calculate' },
+  Biology:     { color: '#8B5CF6', bg: 'rgba(139,92,246,0.10)', icon: 'biotech' },
+};
 
 const DIFFICULTY_COLOR: Record<string, { bg: string; color: string }> = {
   Easy:   { bg: 'rgba(16,185,129,0.10)', color: '#059669' },
@@ -44,12 +53,17 @@ export default function QuestionBankManagement() {
   const uname   = session?.user?.name ?? 'Faculty';
   const role    = session?.user?.role ?? 'faculty';
 
+  // A subject card on the Faculty Dashboard (or elsewhere) can deep-link here
+  // with a subject preselected, without disturbing the rest of the filters.
+  const location = useLocation();
+  const initialSubject = (location.state as { subject?: string } | null)?.subject;
+
   const [all, setAll]         = useState<BankQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy]       = useState(false);
 
   const [search, setSearch]         = useState('');
-  const [subject, setSubject]       = useState('All');
+  const [subject, setSubject]       = useState(initialSubject && SUBJECTS.includes(initialSubject) ? initialSubject : 'All');
   const [chapter, setChapter]       = useState('All');
   const [difficulty, setDifficulty] = useState('All');
   const [origin, setOrigin]         = useState('All');
@@ -130,6 +144,21 @@ export default function QuestionBankManagement() {
     const byDiff = { Easy: 0, Medium: 0, Hard: 0 } as Record<string, number>;
     all.forEach(q => { byDiff[q.difficulty] = (byDiff[q.difficulty] ?? 0) + 1; });
     return { total, coded, verified, byDiff };
+  }, [all]);
+
+  // Real per-subject counts straight from the loaded bank — drives the subject
+  // tiles below. Anything whose subject doesn't match one of the four known
+  // subjects (blank, typo, legacy import) is bucketed as "Other" rather than
+  // silently dropped, so the tile counts always sum to stats.total.
+  const subjectCounts = useMemo(() => {
+    const counts = new Map<string, number>(SUBJECTS.map(s => [s, 0]));
+    let other = 0;
+    all.forEach(q => {
+      const s = (q.subject ?? '').trim();
+      if (counts.has(s)) counts.set(s, (counts.get(s) ?? 0) + 1);
+      else other += 1;
+    });
+    return { bySubject: counts, other };
   }, [all]);
 
   function resetFilters() { setSearch(''); setSubject('All'); setChapter('All'); setDifficulty('All'); setOrigin('All'); }
@@ -292,6 +321,43 @@ export default function QuestionBankManagement() {
           ))}
         </div>
 
+        {/* Questions by Subject — click a card to filter the repository down to
+            just that subject (sets the same `subject` state the dropdown below
+            uses), and always shows the real count for that subject. Clicking
+            the already-active subject clears it back to "All". */}
+        <Card title="Questions by Subject" subtitle="Click a subject to see only its questions">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {SUBJECTS.map(s => {
+              const meta = SUBJECT_META[s] ?? SUBJECT_META.Physics;
+              const count = subjectCounts.bySubject.get(s) ?? 0;
+              const active = subject === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSubject(active ? 'All' : s)}
+                  className="rounded-2xl p-4 text-left transition-transform hover:-translate-y-0.5"
+                  style={{
+                    backgroundColor: active ? meta.bg : 'var(--surface-muted)',
+                    border: active ? `1.5px solid ${meta.color}` : '1px solid var(--border)',
+                  }}
+                >
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-2" style={{ backgroundColor: meta.bg }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 20, color: meta.color }}>{meta.icon}</span>
+                  </div>
+                  <div className="text-2xl font-bold font-headline" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', color: 'var(--text-primary)' }}>{count}</div>
+                  <div className="text-body-sm font-semibold" style={{ color: active ? meta.color : 'var(--text-muted)' }}>{s}</div>
+                </button>
+              );
+            })}
+          </div>
+          {subjectCounts.other > 0 && (
+            <p className="text-label-sm mt-3" style={{ color: 'var(--text-faint)' }}>
+              +{subjectCounts.other} question{subjectCounts.other === 1 ? '' : 's'} without a recognized subject
+            </p>
+          )}
+        </Card>
+
         {/* Filters */}
         <Card title="Repository Filters" subtitle="Search by code, prompt, chapter, topic, uploader, or source">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
@@ -361,6 +427,11 @@ export default function QuestionBankManagement() {
                       <div className="flex items-center gap-1 shrink-0">
                         <button type="button" onClick={() => setPreviewQ(q)} className="text-label-sm font-semibold hover:underline" style={{ color: 'var(--faculty-accent)' }}>Preview</button>
                         <button type="button" onClick={() => openEdit(q)} className="icon-btn icon-btn-sm" title="Edit"><span className="material-symbols-outlined" style={{ fontSize: '16px' }}>edit</span></button>
+                        {(role === 'admin' || q.uploadedBy === uid) && (
+                          <button type="button" onClick={() => removeQuestion(q)} className="icon-btn icon-btn-sm" title="Delete" style={{ color: '#EF4444' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                     <p className="text-body-md font-medium mb-3" style={{ color: 'var(--text-primary)' }}><MathText text={q.question} /></p>
