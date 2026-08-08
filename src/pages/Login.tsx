@@ -277,7 +277,7 @@ export default function Login() {
             className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full w-fit"
             style={{ color: 'var(--violet)', backgroundColor: 'rgba(139,92,246,0.1)', boxShadow: 'inset 0 0 0 1px rgba(139,92,246,0.2)' }}
           >
-            JEE · NEET · UPSC · GATE · Boards
+            JEE · NEET
           </div>
         </div>
       </aside>

@@ -499,20 +499,34 @@ export default function QuestionBankManagement() {
           )}
         </Card>
 
-        {/* Add Question form */}
-        {showAddForm && (
-          <Card title="Add New Question" subtitle="A unique code is assigned automatically on save">
-            <QuestionForm draft={draft} setDraft={setDraft} uid={uid} />
-            <div className="flex gap-3 mt-4">
-              <button type="button" onClick={addQuestion} disabled={busy} className="btn-primary btn-md" style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}>
+      </div>
+
+      {/* Add Question modal — was an inline card at the bottom of the page,
+          which with 50k+ questions above it landed far below the fold and
+          made the button look like it did nothing when clicked. */}
+      {showAddForm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => { setShowAddForm(false); setDraft(EMPTY_DRAFT); }}>
+          <div className="w-full max-w-2xl rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <h3 className="text-title-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Add New Question</h3>
+                <span className="text-label-sm" style={{ color: 'var(--text-muted)' }}>A unique code is assigned automatically on save</span>
+              </div>
+              <button type="button" onClick={() => { setShowAddForm(false); setDraft(EMPTY_DRAFT); }} className="icon-btn icon-btn-sm"><span className="material-symbols-outlined">close</span></button>
+            </div>
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              <QuestionForm draft={draft} setDraft={setDraft} uid={uid} />
+            </div>
+            <div className="px-6 py-4 flex justify-end gap-2" style={{ borderTop: '1px solid var(--border)' }}>
+              <button type="button" onClick={() => { setShowAddForm(false); setDraft(EMPTY_DRAFT); }} className="btn-outline btn-md">Cancel</button>
+              <button type="button" onClick={addQuestion} disabled={busy} className="btn-primary btn-md flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, var(--faculty-accent), var(--faculty-accent-hover))' }}>
                 {busy ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <span className="material-symbols-outlined" style={{ fontSize: 18 }}>save</span>}
                 Save Question
               </button>
-              <button type="button" onClick={() => { setShowAddForm(false); setDraft(EMPTY_DRAFT); }} className="btn-outline btn-md">Cancel</button>
             </div>
-          </Card>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {/* Preview modal — landscape layout (3i): question left, options right */}
       {previewQ && (

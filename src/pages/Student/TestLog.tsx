@@ -256,7 +256,7 @@ Point out the likely weak concepts, what to revise first, and one habit to fix. 
                   key={item.key}
                   type="button"
                   onClick={() => setCategory(item.key)}
-                  className="rounded-xl p-4 text-left transition-all"
+                  className="block w-full rounded-xl p-4 text-left transition-all"
                   style={{
                     backgroundColor: category === item.key ? 'var(--brand-muted)' : 'var(--surface-muted)',
                     border: `1px solid ${category === item.key ? 'var(--brand)' : 'var(--border)'}`,
