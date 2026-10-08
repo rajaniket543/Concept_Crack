@@ -6,6 +6,7 @@ import SeoManager from './components/SeoManager';
 import ActivityTracker from './components/ActivityTracker';
 import IdleTimeout from './components/IdleTimeout';
 import Landing from './pages/Landing';
+import GuestPractice from './pages/GuestPractice';
 import About from './pages/About';
 import ComingSoon from './pages/ComingSoon';
 import FAQ from './pages/FAQ';
@@ -252,6 +253,7 @@ export default function App() {
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/refund" element={<RefundPolicy />} />
       <Route path="/coming-soon" element={<ComingSoon />} />
+      <Route path="/try" element={<GuestPractice />} />
       <Route path="/login" element={<Login />} />
       {/* Contact Us is public so logged-out visitors (e.g. from the login page) can reach it */}
       <Route path="/contact" element={<ContactUs />} />

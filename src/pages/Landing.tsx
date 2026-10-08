@@ -198,7 +198,7 @@ export default function Landing() {
             Log in
           </Link>
           <Link
-            to={pathFor('login')}
+            to="/try"
             className="hidden sm:flex h-9 px-4 rounded-lg text-sm font-semibold items-center text-white transition-all hover:-translate-y-px"
             style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
           >
@@ -247,7 +247,7 @@ export default function Landing() {
                 Log in
               </Link>
               <Link
-                to={pathFor('login')}
+                to="/try"
                 className="h-10 px-4 rounded-lg text-sm font-semibold flex items-center justify-center text-white transition-all"
                 style={{ background: 'linear-gradient(135deg, #5B4FE8, #7C3AED)', boxShadow: '0 4px 12px rgba(91,79,232,0.35)' }}
                 onClick={() => setMobileNavOpen(false)}
@@ -552,7 +552,7 @@ export default function Landing() {
             Start your AI-powered JEE &amp; NEET preparation and reach your dream rank.
           </p>
           <Link
-            to={pathFor('login')}
+            to="/try"
             className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-base font-semibold text-[#5B4FE8] bg-white transition-all hover:-translate-y-0.5"
             style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.20)' }}
           >

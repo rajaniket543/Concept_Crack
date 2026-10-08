@@ -1,6 +1,5 @@
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { pathFor } from '../lib/pages';
 import { useMagneticHover, spawnRipple } from './heroInteractions';
 import './BookHero.css';
 
@@ -40,7 +39,7 @@ export default function BookHero({ isDark }: { isDark: boolean }) {
 
         <div className="bh-actions">
           <Link
-            to={pathFor('login')}
+            to="/try"
             className="bh-cta-primary"
             ref={primaryCtaRef}
             onClick={spawnRipple}
@@ -49,13 +48,13 @@ export default function BookHero({ isDark }: { isDark: boolean }) {
             Start Preparing Free
           </Link>
           <Link
-            to={pathFor('login')}
+            to="/try"
             className="bh-cta-ghost"
             ref={ghostCtaRef}
             onClick={spawnRipple}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>play_circle</span>
-            Watch Demo
+            Explore Practice
           </Link>
         </div>
 
